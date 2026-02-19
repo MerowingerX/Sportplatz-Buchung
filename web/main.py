@@ -1,0 +1,64 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from auth.auth import decode_jwt
+from notion.client import NotionRepository
+from web.config import get_settings
+from web.routers import auth, bookings, calendar, series, blackouts, admin, tasks
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    app.state.repo = NotionRepository(settings)
+    app.state.settings = settings
+    yield
+
+
+app = FastAPI(title="Sportplatz-Buchungssystem", lifespan=lifespan)
+
+app.mount("/static", StaticFiles(directory="web/static"), name="static")
+
+app.include_router(auth.router)
+app.include_router(calendar.router)
+app.include_router(bookings.router)
+app.include_router(series.router)
+app.include_router(blackouts.router)
+app.include_router(admin.router)
+app.include_router(tasks.router)
+
+templates = Jinja2Templates(directory="web/templates")
+
+
+@app.get("/")
+async def root(request: Request):
+    token = request.cookies.get("session")
+    if token:
+        try:
+            decode_jwt(token, get_settings())
+            return RedirectResponse(url="/calendar", status_code=303)
+        except Exception:
+            pass
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.exception_handler(403)
+async def forbidden_handler(request: Request, exc):
+    return templates.TemplateResponse(
+        "error.html",
+        {"request": request, "status": 403, "message": "Keine Berechtigung"},
+        status_code=403,
+    )
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    return templates.TemplateResponse(
+        "error.html",
+        {"request": request, "status": 404, "message": "Seite nicht gefunden"},
+        status_code=404,
+    )

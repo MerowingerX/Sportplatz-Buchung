@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Aufgaben & Meldungen{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Aufgaben & Meldungen</h1>
+</div>
+
+<!-- Formular: Neue Aufgabe -->
+<details class="card card--collapsible" style="margin-bottom:1.5rem;">
+  <summary style="cursor:pointer; font-weight:700; padding:0.25rem 0;">
+    ＋ Neue Aufgabe / Meldung erstellen
+  </summary>
+  <div id="task-form-errors"></div>
+  <form hx-post="/tasks"
+        hx-target="#task-tbody"
+        hx-swap="afterbegin"
+        style="margin-top:1rem;">
+    <div class="form-grid">
+      <div class="form-group form-group--wide">
+        <label for="titel">Titel <span class="label-required">*</span></label>
+        <input type="text" id="titel" name="titel" required maxlength="120"
+               placeholder="z. B. Tor Kura A klemmt, Turnier E-Jugend, Schlüsselanfrage …">
+      </div>
+      <div class="form-group">
+        <label for="typ">Typ</label>
+        <select id="typ" name="typ" required>
+          {% for t in typen %}
+            <option value="{{ t.value }}">{{ t.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="prioritaet">Priorität</label>
+        <select id="prioritaet" name="prioritaet">
+          {% for p in prioritaeten %}
+            <option value="{{ p.value }}" {{ 'selected' if p.value == 'Mittel' }}>{{ p.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="faellig_am">Fällig am <span class="label-hint">(optional)</span></label>
+        <input type="date" id="faellig_am" name="faellig_am">
+      </div>
+      <div class="form-group">
+        <label for="ort">Ort / Bereich <span class="label-hint">(optional)</span></label>
+        <input type="text" id="ort" name="ort" placeholder="z. B. Kura Tor A, Umkleide 2"
+               maxlength="80">
+      </div>
+      <div class="form-group form-group--wide">
+        <label for="beschreibung">Beschreibung <span class="label-hint">(optional)</span></label>
+        <textarea id="beschreibung" name="beschreibung" rows="3" maxlength="500"
+                  placeholder="Weitere Details …"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Aufgabe erstellen</button>
+    </div>
+  </form>
+</details>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <form method="get" action="/tasks" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+    <select name="filter_typ" onchange="this.form.submit()">
+      <option value="">Alle Typen</option>
+      {% for t in typen %}
+        <option value="{{ t.value }}" {{ 'selected' if filter_typ == t.value }}>{{ t.value }}</option>
+      {% endfor %}
+    </select>
+    <select name="filter_status" onchange="this.form.submit()">
+      <option value="">Alle Status</option>
+      {% for s in statuswerte %}
+        <option value="{{ s.value }}" {{ 'selected' if filter_status == s.value }}>{{ s.value }}</option>
+      {% endfor %}
+    </select>
+    {% if filter_typ or filter_status %}
+      <a href="/tasks" class="btn btn--ghost">× Filter zurücksetzen</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Aufgabenliste -->
+<div class="table-responsive" style="margin-top:1rem;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Typ</th>
+        <th>Titel</th>
+        <th>Ort</th>
+        <th>Priorität</th>
+        <th>Status</th>
+        <th>Fällig</th>
+        <th>Von</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="task-tbody">
+      {% for aufgabe in aufgaben %}
+        {% include "partials/_task_row.html" %}
+      {% else %}
+        <tr><td colspan="8" class="text-muted">Keine Aufgaben gefunden.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

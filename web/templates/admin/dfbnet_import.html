@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Spielplan-Import (ICS){% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Spielplan importieren (ICS)</h1>
+  <a href="/admin" class="btn btn--ghost">← Admin</a>
+</div>
+
+<div class="card card--warning">
+  <p>
+    <strong>Achtung:</strong> DFBnet-Buchungen haben höchste Priorität und verdrängen
+    bestehende Buchungen automatisch. Betroffene Nutzer werden per E-Mail benachrichtigt.
+  </p>
+</div>
+
+<div class="card">
+  <h2>ICS-Datei hochladen</h2>
+  <p>
+    Exportiere den Spielplan aus <strong>DFBnet</strong> oder <strong>fussball.de</strong>
+    als <code>.ics</code>-Datei und lade sie hier hoch.
+    Es werden nur Heimspiele mit Uhrzeit berücksichtigt – manuelle Anpassung von Platz und
+    Dauer ist vor dem Buchen möglich.
+  </p>
+  <form hx-post="/admin/dfbnet-import"
+        hx-target="#ics-preview"
+        hx-swap="innerHTML"
+        hx-indicator="#upload-spinner"
+        hx-encoding="multipart/form-data"
+        style="margin-top: 1.25rem;">
+    <div class="form-group">
+      <label for="ics_file">ICS-Datei auswählen</label>
+      <input type="file" id="ics_file" name="ics_file" accept=".ics,text/calendar" required>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">
+        Vorschau anzeigen
+      </button>
+      <span id="upload-spinner" class="htmx-indicator">Lade…</span>
+    </div>
+  </form>
+</div>
+
+<div id="ics-preview"></div>
+
+{% endblock %}

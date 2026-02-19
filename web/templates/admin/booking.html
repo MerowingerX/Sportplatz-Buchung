@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Admin-Buchung{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Buchung anlegen (Admin)</h1>
+  <a href="/admin" class="btn btn--ghost">← Admin</a>
+</div>
+
+<div class="card card--info">
+  <p>
+    Admins können Buchungen zu beliebigen Zeiten anlegen und einen freien Zweck angeben.
+    Konflikte werden geprüft – für verdrängende DFBnet-Buchungen bitte den
+    <a href="/admin/dfbnet">DFBnet-Buchungsbereich</a> nutzen.
+  </p>
+</div>
+
+<div id="form-errors"></div>
+
+<form hx-post="/admin/booking"
+      hx-target="#form-errors"
+      hx-swap="outerHTML">
+
+  <div class="form-grid">
+
+    <div class="form-group">
+      <label for="field">Platz / Halle</label>
+      <select id="field" name="field" required>
+        <optgroup label="Kunstrasen">
+          {% for f in fields if f.is_kura %}
+            <option value="{{ f.value }}">{{ f.value }}</option>
+          {% endfor %}
+        </optgroup>
+        <optgroup label="Naturrasen">
+          {% for f in fields if f.is_rasen %}
+            <option value="{{ f.value }}">{{ f.value }}</option>
+          {% endfor %}
+        </optgroup>
+        <optgroup label="Turnhalle">
+          {% for f in fields if f.is_halle %}
+            <option value="{{ f.value }}">{{ f.value }}</option>
+          {% endfor %}
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="date">Datum</label>
+      <input type="date" id="date" name="date" required>
+    </div>
+
+    <div class="form-group">
+      <label for="start_time">Startzeit</label>
+      <select id="start_time" name="start_time" required>
+        {% for slot in start_slots %}
+          <option value="{{ slot.strftime('%H:%M') }}">{{ slot.strftime('%H:%M') }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="duration_min">Dauer</label>
+      <select id="duration_min" name="duration_min" required>
+        {% for d in durations %}
+          <option value="{{ d }}" {{ 'selected' if d == 60 }}>{{ d }} Min</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="booking_type">Art</label>
+      <select id="booking_type" name="booking_type" required>
+        {% for bt in booking_types %}
+          <option value="{{ bt.value }}">{{ bt.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group form-group--wide">
+      <label for="zweck">Zweck <span class="label-required">*</span></label>
+      <input type="text" id="zweck" name="zweck" required
+             placeholder="z. B. Vereinsfest, Schulveranstaltung, Wartungsarbeiten …"
+             maxlength="120">
+      <span class="field-hint">Wird im Kalender als Buchungsbezeichnung angezeigt.</span>
+    </div>
+
+    <div class="form-group form-group--wide">
+      <label for="kontakt">Kontakt <span class="label-hint">(optional)</span></label>
+      <input type="text" id="kontakt" name="kontakt"
+             placeholder="z. B. Max Mustermann, 0531/12345"
+             maxlength="120">
+    </div>
+
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn--primary">Buchung anlegen</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Admin – Sportplatz-Buchung{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Admin-Dashboard</h1>
+</div>
+
+<div class="admin-grid">
+  <div class="card">
+    <h2>Nutzer</h2>
+    <p>{{ users | length }} Nutzer registriert</p>
+    <a href="/admin/users" class="btn btn--secondary">Nutzerverwaltung</a>
+  </div>
+  <div class="card">
+    <h2>Admin-Buchung</h2>
+    <p>Buchung mit freiem Zweck und Kontakt anlegen (beliebige Zeiten)</p>
+    <a href="/admin/booking" class="btn btn--secondary">Buchung anlegen</a>
+  </div>
+  <div class="card">
+    <h2>DFBnet-Buchung</h2>
+    <p>Einzelnes Pflichtspiel mit höchster Priorität eintragen</p>
+    <a href="/admin/dfbnet" class="btn btn--secondary">DFBnet-Buchung anlegen</a>
+  </div>
+  <div class="card">
+    <h2>Spielplan importieren (ICS)</h2>
+    <p>ICS-Datei von DFBnet / fussball.de importieren</p>
+    <a href="/admin/dfbnet-import" class="btn btn--secondary">ICS-Import</a>
+  </div>
+  <div class="card">
+    <h2>Platzbelegung importieren (CSV)</h2>
+    <p>DFBnet-Platzbelegungs-CSV importieren und Heimspiele als DFBnet-Buchungen anlegen</p>
+    <a href="/admin/csv-import" class="btn btn--secondary">CSV-Import</a>
+  </div>
+  <div class="card">
+    <h2>Sperrzeiten</h2>
+    <p>Rasen-Sperrzeiten für den Platzwart</p>
+    <a href="/blackouts" class="btn btn--secondary">Sperrzeiten verwalten</a>
+  </div>
+  <div class="card">
+    <h2>Aufgaben &amp; Meldungen</h2>
+    <p>Defekte, Nutzeranfragen und Turniermeldungen verwalten</p>
+    <a href="/tasks" class="btn btn--secondary">Aufgaben ansehen</a>
+  </div>
+</div>
+{% endblock %}

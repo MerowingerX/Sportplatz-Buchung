@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Sportplatz-Buchung{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body hx-boost="true">
+
+  <nav class="navbar">
+    <a class="navbar__brand" href="/calendar">⚽ Sportplatz-Buchung</a>
+    <div class="navbar__links">
+      <a href="/calendar">Kalender</a>
+      {% if current_user %}
+        {% if current_user.role.value in ["Administrator", "DFBnet"] %}
+          <a href="/admin">Admin</a>
+          <a href="/admin/dfbnet">DFBnet-Buchung</a>
+        {% endif %}
+        {% if current_user.role.value in ["Platzwart", "Administrator"] %}
+          <a href="/blackouts">Sperrzeiten</a>
+        {% endif %}
+        <a href="/tasks">Aufgaben</a>
+        <span class="navbar__user">{{ current_user.username }} ({{ current_user.role.value }})</span>
+        <a href="/change-password" class="btn btn--ghost">Passwort</a>
+        <form method="post" action="/logout" style="display:inline">
+          <button type="submit" class="btn btn--ghost">Abmelden</button>
+        </form>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toast-Container -->
+  <div id="toast" class="toast toast--hidden" aria-live="polite"></div>
+
+  <script>
+    // Toast auto-hide
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      const toast = document.getElementById('toast');
+      if (toast && !toast.classList.contains('toast--hidden')) {
+        setTimeout(() => toast.classList.add('toast--hidden'), 3500);
+      }
+    });
+  </script>
+</body>
+</html>

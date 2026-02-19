@@ -1,0 +1,19 @@
+{# Erwartet: found[0] = Booking-Objekt #}
+{% set b = found[0] %}
+<div class="slot slot--booked slot--{{ b.booking_type.value | lower }}"
+     title="{{ b.zweck or b.mannschaft or b.booked_by_name }}{% if b.kontakt %} – {{ b.kontakt }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}{% if b.sunset_note %} | {{ b.sunset_note }}{% endif %}">
+  <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
+  <span class="slot__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
+  {% if b.sunset_note %}
+    <span class="slot__sun" title="{{ b.sunset_note }}">🌅</span>
+  {% endif %}
+  {% if current_user and (current_user.sub == b.booked_by_id or current_user.role.value in ["Administrator", "DFBnet"]) %}
+    <button class="slot__cancel"
+            hx-delete="/bookings/{{ b.notion_id }}"
+            hx-confirm="Buchung wirklich stornieren?"
+            hx-target="closest .slot"
+            hx-swap="outerHTML">
+      ✕
+    </button>
+  {% endif %}
+</div>

@@ -1,0 +1,126 @@
+{% if events %}
+{% set new_count = events | selectattr('already_known', 'false') | list | length %}
+{% set known_count = events | selectattr('already_known') | list | length %}
+<div class="card" style="margin-top: 1.5rem;">
+  <h2>{{ events | length }} Termin(e) gefunden</h2>
+  {% if known_count %}
+  <p>
+    Davon <strong>{{ known_count }} bereits bekannt</strong> (werden beim Import &uuml;bersprungen).
+    {{ new_count }} neue Termine k&ouml;nnen importiert werden.
+  </p>
+  {% else %}
+  <p>
+    Alle Termine sind neu. W&auml;hle den Zielplatz, passe Zeiten ggf. an
+    und klicke dann auf <strong>DFBnet-Buchungen erstellen</strong>.
+  </p>
+  {% endif %}
+
+  <form hx-post="{{ confirm_url | default('/admin/csv-import/confirm') }}"
+        hx-target="#toast"
+        hx-swap="outerHTML"
+        hx-indicator="#confirm-spinner"
+        hx-on::after-request="if(event.detail.successful) this.closest('.card').remove();"
+        style="margin-top: 1rem;">
+
+    <input type="hidden" name="count" value="{{ events | length }}">
+
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label for="field">Zielplatz f&uuml;r alle Spiele</label>
+      <select name="field" id="field" class="select-compact">
+        {% for f in fields %}
+          <option value="{{ f.value }}">{{ f.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>
+              <input type="checkbox" id="select-all" title="Alle ausw&auml;hlen"
+                     onclick="document.querySelectorAll('[name^=include_]:not(:disabled)').forEach(c => c.checked = this.checked)">
+            </th>
+            <th>Datum</th>
+            <th>Startzeit</th>
+            <th>Dauer</th>
+            <th>Spiel</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, ev in events | enumerate %}
+          <tr{% if ev.already_known %} style="opacity: 0.5;"{% endif %}>
+            <td>
+              {% if ev.already_known %}
+                <input type="checkbox" name="include_{{ i }}" value="1" disabled>
+              {% else %}
+                <input type="checkbox" name="include_{{ i }}" value="1" checked>
+              {% endif %}
+              <input type="hidden" name="date_{{ i }}" value="{{ ev.date.isoformat() }}">
+              <input type="hidden" name="spielkennung_{{ i }}" value="{{ ev.spielkennung | default('') }}">
+              <input type="hidden" name="summary_{{ i }}" value="{{ ev.summary }}">
+            </td>
+            <td style="white-space: nowrap;">
+              {{ ev.date.strftime('%d.%m.%Y') }}
+            </td>
+            <td>
+              <select name="start_time_{{ i }}" class="select-compact"{% if ev.already_known %} disabled{% endif %}>
+                {% for slot in start_slots %}
+                  <option value="{{ slot.strftime('%H:%M') }}"
+                          {{ 'selected' if slot == ev.start_time }}>
+                    {{ slot.strftime('%H:%M') }}
+                  </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <select name="duration_{{ i }}" class="select-compact"{% if ev.already_known %} disabled{% endif %}>
+                {% for d in durations %}
+                  <option value="{{ d }}" {{ 'selected' if d == ev.duration_min }}>
+                    {{ d }} Min
+                  </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="text-muted" style="font-size: 0.875rem; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                title="{{ ev.summary }}">
+              {{ ev.summary }}
+            </td>
+            <td>
+              {% if ev.already_known %}
+                <span class="badge badge--neutral">bekannt</span>
+              {% else %}
+                <span class="badge badge--success">neu</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="form-actions" style="margin-top: 1rem;">
+      <button type="submit" class="btn btn--danger"{% if new_count == 0 %} disabled{% endif %}>
+        DFBnet-Buchungen erstellen
+        <span id="confirm-spinner" class="htmx-indicator">…</span>
+      </button>
+      <button type="button" class="btn btn--ghost"
+              onclick="this.closest('.card').remove();">
+        Abbrechen
+      </button>
+      <span class="form-hint">
+        Nur markierte neue Zeilen werden gebucht. Bestehende Konflikte werden automatisch verdr&auml;ngt.
+      </span>
+    </div>
+  </form>
+</div>
+
+{% else %}
+<div class="card card--warning" style="margin-top: 1.5rem;">
+  <p>
+    Keine g&uuml;ltigen zuk&uuml;nftigen Termine in der CSV-Datei gefunden.
+    Bitte pr&uuml;fe, ob die richtige Datei ausgew&auml;hlt wurde.
+  </p>
+</div>
+{% endif %}

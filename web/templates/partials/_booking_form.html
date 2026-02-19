@@ -1,0 +1,210 @@
+<form id="booking-form"
+      hx-post="/bookings"
+      hx-target="#booking-modal-content"
+      hx-swap="innerHTML"
+      hx-indicator="#submit-btn">
+
+  <div id="form-errors"></div>
+
+  <div class="form-group">
+    <label for="field">Platz</label>
+    <select id="field" name="field" required
+            hx-get="/bookings/check-availability"
+            hx-include="[name='date'],[name='start_time'],[name='duration_min']"
+            hx-trigger="change"
+            hx-target="#availability-result"
+            hx-swap="innerHTML">
+      <option value="">– Bitte wählen –</option>
+      {% for f in fields %}
+        <option value="{{ f.value }}" {{ 'selected' if prefill_field == f.value }}>{{ f.value }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="date" id="date-label">Datum</label>
+    <input type="date" id="date" name="date" required
+           value="{{ prefill_date if prefill_date else '' }}"
+           hx-get="/bookings/check-availability"
+           hx-include="[name='field'],[name='start_time'],[name='duration_min']"
+           hx-trigger="change"
+           hx-target="#availability-result"
+           hx-swap="innerHTML">
+    <div id="season-warning"
+         hx-get="/bookings/validate-rasen-season"
+         hx-include="[name='field'],[name='date']"
+         hx-trigger="{% if prefill_date %}load, {% endif %}change from:[name='field'], change from:[name='date']"
+         hx-target="this"
+         hx-swap="innerHTML">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="start_time">Startzeit</label>
+    <select id="start_time" name="start_time" required
+            hx-get="/bookings/check-availability"
+            hx-include="[name='field'],[name='date'],[name='duration_min']"
+            hx-trigger="change"
+            hx-target="#availability-result"
+            hx-swap="innerHTML">
+      {% for slot in start_slots %}
+        <option value="{{ slot.strftime('%H:%M') }}"
+                {{ 'selected' if prefill_start_time == slot.strftime('%H:%M') }}>
+          {{ slot.strftime('%H:%M') }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="duration_min">Dauer</label>
+    <select id="duration_min" name="duration_min" required
+            hx-get="/bookings/check-availability"
+            hx-include="[name='field'],[name='date'],[name='start_time']"
+            hx-trigger="change"
+            hx-target="#availability-result"
+            hx-swap="innerHTML">
+      {% for d in durations %}
+        <option value="{{ d }}">{{ d }} Min</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Einzelbuchung: Art -->
+  <div id="single-fields">
+    <div class="form-group">
+      <label for="booking_type">Art</label>
+      <select id="booking_type" name="booking_type" required>
+        {% for t in booking_types %}
+          <option value="{{ t.value }}">{{ t.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Serienfelder nur für Admins -->
+  {% if current_user and current_user.role.value in ["Administrator", "DFBnet"] %}
+  <div class="form-group">
+    <label class="toggle-label">
+      <input type="checkbox" id="recurring-toggle" onchange="toggleRecurring()">
+      Wiederkehrend (Serie)
+    </label>
+  </div>
+
+  <div id="series-fields" style="display:none">
+    <div class="form-group">
+      <label for="series-mannschaft">Mannschaft</label>
+      <select id="series-mannschaft" name="mannschaft"
+              hx-get="/series/trainers"
+              hx-target="#series-trainer"
+              hx-trigger="change"
+              hx-include="this">
+        <option value="">– Mannschaft wählen –</option>
+        {% for m in mannschaften %}
+          <option value="{{ m.value }}">{{ m.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="series-trainer">Trainer</label>
+      <select id="series-trainer" name="trainer_id">
+        <option value="">– Zuerst Mannschaft wählen –</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="end_date">Serie bis (Enddatum)</label>
+      <input type="date" id="end_date" name="end_date">
+    </div>
+    <div class="form-group">
+      <label for="rhythm">Rhythmus</label>
+      <select id="rhythm" name="rhythm">
+        {% for r in rhythms %}
+          <option value="{{ r.value }}">{{ r.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% endif %}
+
+  <div id="availability-result" class="availability-result"
+       {% if prefill_date and prefill_field and prefill_start_time %}
+       hx-get="/bookings/check-availability"
+       hx-include="[name='field'],[name='date'],[name='start_time'],[name='duration_min']"
+       hx-trigger="load"
+       hx-target="this"
+       hx-swap="innerHTML"
+       {% endif %}>
+  </div>
+
+  <div id="sunset-warning"
+       hx-get="/bookings/sunset-info"
+       hx-include="[name='field'],[name='date'],[name='start_time'],[name='duration_min']"
+       hx-trigger="{% if prefill_date %}load, {% endif %}change from:[name='field'], change from:[name='date'], change from:[name='start_time'], change from:[name='duration_min']"
+       hx-target="this"
+       hx-swap="innerHTML">
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="btn btn--ghost"
+            onclick="document.getElementById('booking-modal').close()">
+      Abbrechen
+    </button>
+    <button type="submit" class="btn btn--primary" id="submit-btn">
+      <span class="btn__label">Buchen</span>
+      <span class="btn__loading htmx-indicator">Wird gebucht…</span>
+    </button>
+  </div>
+</form>
+
+<script>
+function toggleRecurring() {
+  var cb = document.getElementById('recurring-toggle');
+  if (!cb) return;
+  var isRecurring = cb.checked;
+  var form = document.getElementById('booking-form');
+  var singleFields = document.getElementById('single-fields');
+  var seriesFields = document.getElementById('series-fields');
+  var submitBtn = document.getElementById('submit-btn');
+  var endDate = document.getElementById('end_date');
+  var bookingType = document.getElementById('booking_type');
+  var dateField = document.getElementById('date');
+  var dateLabel = document.getElementById('date-label');
+
+  var seriesMannschaft = document.getElementById('series-mannschaft');
+  var seriesTrainer = document.getElementById('series-trainer');
+
+  if (isRecurring) {
+    singleFields.style.display = 'none';
+    seriesFields.style.display = '';
+    bookingType.removeAttribute('required');
+    bookingType.setAttribute('disabled', '');
+    endDate.setAttribute('required', '');
+    seriesMannschaft.setAttribute('required', '');
+    seriesTrainer.setAttribute('required', '');
+    // Saisonende als max: 30. Juni des aktuellen/nächsten Jahres
+    var now = new Date();
+    var seasonEnd = new Date(now.getFullYear(), 5, 30); // Monat 5 = Juni
+    if (now > seasonEnd) seasonEnd = new Date(now.getFullYear() + 1, 5, 30);
+    endDate.setAttribute('max', seasonEnd.toISOString().split('T')[0]);
+    endDate.value = endDate.value || seasonEnd.toISOString().split('T')[0];
+    submitBtn.querySelector('.btn__label').textContent = 'Serie anlegen';
+    form.setAttribute('hx-post', '/series');
+    dateField.setAttribute('name', 'start_date');
+    dateLabel.textContent = 'Startdatum (erster Termin)';
+  } else {
+    singleFields.style.display = '';
+    seriesFields.style.display = 'none';
+    bookingType.setAttribute('required', '');
+    bookingType.removeAttribute('disabled');
+    endDate.removeAttribute('required');
+    endDate.removeAttribute('max');
+    seriesMannschaft.removeAttribute('required');
+    seriesTrainer.removeAttribute('required');
+    submitBtn.querySelector('.btn__label').textContent = 'Buchen';
+    form.setAttribute('hx-post', '/bookings');
+    dateField.setAttribute('name', 'date');
+    dateLabel.textContent = 'Datum';
+  }
+  htmx.process(form);
+}
+</script>

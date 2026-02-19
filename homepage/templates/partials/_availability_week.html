@@ -1,0 +1,131 @@
+{% set day_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}
+{% set conflict_sources = {
+  "Kura Ganz": ["Kura Halb A", "Kura Halb B"],
+  "Kura Halb A": ["Kura Ganz"],
+  "Kura Halb B": ["Kura Ganz"],
+  "Rasen Ganz": ["Rasen Halb A", "Rasen Halb B"],
+  "Rasen Halb A": ["Rasen Ganz"],
+  "Rasen Halb B": ["Rasen Ganz"],
+  "Halle Ganz": ["Halle 2/3", "Halle 1/3"],
+  "Halle 2/3": ["Halle Ganz"],
+  "Halle 1/3": ["Halle Ganz"],
+} %}
+{% set n_fields = fields | length %}
+
+<div class="avail-week">
+
+  <!-- Navigation -->
+  <div class="avail-nav">
+    <button class="btn btn--ghost"
+            hx-get="/availability/week?year={{ prev_year }}&week={{ prev_week }}&venue={{ venue }}"
+            hx-target="#availability"
+            hx-swap="innerHTML">
+      &larr;
+    </button>
+    <span class="avail-nav__title">
+      KW {{ week }} &middot; {{ monday.strftime('%d.%m.') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
+    </span>
+    <button class="btn btn--ghost"
+            hx-get="/availability/week?year={{ next_year }}&week={{ next_week }}&venue={{ venue }}"
+            hx-target="#availability"
+            hx-swap="innerHTML">
+      &rarr;
+    </button>
+  </div>
+
+  <div class="hp-table-scroll">
+    <table class="hp-cal">
+      <thead>
+        <tr>
+          <th class="hp-cal__corner" rowspan="2"></th>
+          {% for i in range(7) %}
+            <th class="hp-cal__day {% if days[i].isoformat() == today %}hp-cal__day--today{% endif %}"
+                colspan="{{ n_fields }}">
+              {{ day_names[i] }}
+              <span class="hp-cal__date">{{ days[i].strftime('%d.%m.') }}</span>
+            </th>
+          {% endfor %}
+        </tr>
+        <tr>
+          {% for i in range(7) %}
+            {% for f in fields %}
+              <th class="hp-cal__field {% if days[i].isoformat() == today %}hp-cal__field--today{% endif %}">
+                {{ f.value.replace(venue_prefix + ' ', '') }}
+              </th>
+            {% endfor %}
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for slot in slots %}
+        <tr>
+          <td class="hp-cal__time">{{ slot.strftime('%H:%M') }}</td>
+          {% for i in range(7) %}
+            {% set day = days[i] %}
+            {% set day_iso = day.isoformat() %}
+            {% for field in fields %}
+              {# Direkte Buchung auf diesem Feld? #}
+              {% set found = [] %}
+              {% for b in bookings if b.field.value == field.value
+                    and b.date.isoformat() == day_iso
+                    and b.start_time <= slot and b.end_time > slot %}
+                {% set _ = found.append(b) %}
+              {% endfor %}
+              {# Sperrzeiten (nur Rasen) #}
+              {% set blocked = [] %}
+              {% if field.is_rasen %}
+                {# Außer Saison? #}
+                {% if day.month < 3 or day.month > 11 %}
+                  {% set _ = blocked.append("offseason") %}
+                {% else %}
+                  {% for bl in blackouts if bl.date.isoformat() == day_iso %}
+                    {% if bl.blackout_type.value == "Ganztägig" %}
+                      {% set _ = blocked.append(bl.reason) %}
+                    {% elif bl.blackout_type.value == "Zeitlich" and bl.start_time and bl.end_time %}
+                      {% if slot >= bl.start_time and slot < bl.end_time %}
+                        {% set _ = blocked.append(bl.reason) %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                {% endif %}
+              {% endif %}
+              {# Konflikt durch anderes Feld? #}
+              {% set conflicted = [] %}
+              {% if not found and not blocked %}
+                {% for cf in conflict_sources.get(field.value, []) %}
+                  {% for b in bookings if b.field.value == cf
+                        and b.date.isoformat() == day_iso
+                        and b.start_time <= slot and b.end_time > slot %}
+                    {% set _ = conflicted.append(b) %}
+                  {% endfor %}
+                {% endfor %}
+              {% endif %}
+              <td class="hp-cal__cell {% if day_iso == today %}hp-cal__cell--today{% endif %}">
+                {% if found %}
+                  {% set b = found[0] %}
+                  <div class="hp-slot hp-slot--booked" data-team="{{ b.mannschaft or '' }}" data-role="{{ b.role.value }}" title="{{ b.mannschaft or b.zweck or b.booked_by_name }} {{ b.start_time.strftime('%H:%M') }}&ndash;{{ b.end_time.strftime('%H:%M') }}">
+                    <span class="hp-slot__name">{{ b.mannschaft or b.zweck or b.booked_by_name }}</span>
+                  </div>
+                {% elif blocked %}
+                  {% if blocked[0] == "offseason" %}
+                    <div class="hp-slot hp-slot--offseason" title="Außer Saison"></div>
+                  {% else %}
+                    <div class="hp-slot hp-slot--blocked" title="Gesperrt: {{ blocked[0] }}"></div>
+                  {% endif %}
+                {% elif conflicted %}
+                  <div class="hp-slot hp-slot--unavailable" title="Belegt ({{ conflicted[0].mannschaft or conflicted[0].booked_by_name }})"></div>
+                {% else %}
+                  <div class="hp-slot hp-slot--free"></div>
+                {% endif %}
+              </td>
+            {% endfor %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>updateNavState({year: {{ year }}, week: {{ week }}});</script>

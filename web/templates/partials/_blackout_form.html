@@ -1,0 +1,50 @@
+<form hx-post="/blackouts"
+      hx-target="#toast"
+      hx-swap="outerHTML">
+
+  <div class="form-group">
+    <label for="date">Datum</label>
+    <input type="date" id="date" name="date" required>
+  </div>
+
+  <div class="form-group">
+    <label for="blackout_type">Art der Sperrzeit</label>
+    <select id="blackout_type" name="blackout_type" required
+            hx-on:change="document.getElementById('time-fields').style.display = this.value === 'Zeitlich' ? 'block' : 'none'">
+      {% for t in blackout_types %}
+        <option value="{{ t.value }}">{{ t.value }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div id="time-fields" style="display:none">
+    <div class="form-group">
+      <label for="start_time">Sperrzeit ab</label>
+      <select id="start_time" name="start_time">
+        <option value="">–</option>
+        {% for slot in start_slots %}
+          <option value="{{ slot.strftime('%H:%M') }}">{{ slot.strftime('%H:%M') }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="end_time">Sperrzeit bis</label>
+      <select id="end_time" name="end_time">
+        <option value="">–</option>
+        {% for slot in start_slots %}
+          <option value="{{ slot.strftime('%H:%M') }}">{{ slot.strftime('%H:%M') }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="reason">Grund</label>
+    <input type="text" id="reason" name="reason" placeholder="z.B. Zu nass, Turnier">
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn--primary">Sperrzeit eintragen</button>
+  </div>
+</form>

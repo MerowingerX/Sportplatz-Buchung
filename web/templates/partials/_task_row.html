@@ -1,0 +1,38 @@
+<tr id="task-{{ aufgabe.notion_id }}"
+    class="task-row task-row--{{ aufgabe.status.value | lower | replace(' ', '-') }}">
+  <td>
+    <span class="badge badge--typ-{{ aufgabe.typ.value | lower }}">{{ aufgabe.typ.value }}</span>
+  </td>
+  <td>
+    <strong>{{ aufgabe.titel }}</strong>
+    {% if aufgabe.beschreibung %}
+      <div class="text-muted text-small">{{ aufgabe.beschreibung }}</div>
+    {% endif %}
+  </td>
+  <td>{{ aufgabe.ort or '—' }}</td>
+  <td>
+    <span class="badge badge--prio-{{ aufgabe.prioritaet.value | lower }}">{{ aufgabe.prioritaet.value }}</span>
+  </td>
+  <td>
+    <form hx-patch="/tasks/{{ aufgabe.notion_id }}/status"
+          hx-target="#task-{{ aufgabe.notion_id }}"
+          hx-swap="outerHTML">
+      <select name="status" onchange="this.form.requestSubmit()" class="select--inline">
+        {% for s in ['Offen', 'In Bearbeitung', 'Erledigt'] %}
+          <option value="{{ s }}" {{ 'selected' if aufgabe.status.value == s }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </td>
+  <td>{{ aufgabe.faellig_am.strftime('%d.%m.%Y') if aufgabe.faellig_am else '—' }}</td>
+  <td>{{ aufgabe.erstellt_von_name }}</td>
+  <td>
+    {% if current_user and current_user.role.value == 'Administrator' %}
+      <button class="btn btn--ghost btn--sm"
+              hx-delete="/tasks/{{ aufgabe.notion_id }}"
+              hx-target="#task-{{ aufgabe.notion_id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Aufgabe wirklich löschen?">✕</button>
+    {% endif %}
+  </td>
+</tr>
