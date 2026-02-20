@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from auth.auth import decode_jwt
 from notion.client import NotionRepository
 from web.config import get_settings
-from web.routers import auth, bookings, calendar, series, blackouts, admin, tasks
+from web.routers import auth, bookings, calendar, series, blackouts, admin, tasks, events
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app.include_router(series.router)
 app.include_router(blackouts.router)
 app.include_router(admin.router)
 app.include_router(tasks.router)
+app.include_router(events.router)
 
 templates = Jinja2Templates(directory="web/templates")
 

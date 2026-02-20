@@ -12,7 +12,7 @@
   <header>
     <div class="header-inner">
       <a href="/" class="logo">
-        <div class="logo__emblem">TC</div>
+        <div class="logo__emblem"><img src="/userdata/logo.svg" alt="TuS Cremlingen Wappen"></div>
         <div>
           <div class="logo__name">TuS Cremlingen</div>
           <div class="logo__sub">TURN- UND SPORTVEREIN</div>
@@ -88,27 +88,12 @@
 
   <main>
 
-    <!-- Nächste Spiele -->
+    <!-- Nächste Termine (Spiele + externe Events) -->
     <section id="spiele">
-      <h2 class="section-title">Nächste Spiele</h2>
-      {% if upcoming_games %}
-      <div class="event-list">
-        {% for game in upcoming_games %}
-        <div class="event-item">
-          <div class="event-item__date">
-            <span class="event-item__day">{{ game.date.strftime('%d') }}</span>
-            <span class="event-item__month">{{ game.date.strftime('%b') }}</span>
-          </div>
-          <div class="event-item__details">
-            <div class="event-item__time">{{ game.start_time.strftime('%H:%M') }} Uhr &middot; {{ game.field.value }}</div>
-            <div class="event-item__match">{{ game.zweck or game.title }}</div>
-          </div>
-        </div>
-        {% endfor %}
+      <h2 class="section-title">Nächste Termine</h2>
+      <div id="upcoming-container">
+        {% include "partials/_upcoming.html" %}
       </div>
-      {% else %}
-      <p class="text-muted" style="text-align: center;">Keine anstehenden Spiele.</p>
-      {% endif %}
     </section>
 
     <!-- Aktuelles -->
@@ -208,7 +193,7 @@
   </main>
 
   <footer>
-    <p>© 2026 TuS Cremlingen e.V. &nbsp;|&nbsp; <a href="#kontakt">Impressum</a></p>
+    <p>© 2026 TuS Cremlingen e.V. &nbsp;|&nbsp; <a href="/impressum">Impressum</a></p>
   </footer>
 
   <script>

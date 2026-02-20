@@ -17,6 +17,8 @@ from booking.models import (
     BookingCreate,
     BookingStatus,
     BookingType,
+    ExternalEvent,
+    ExternalEventCreate,
     FieldName,
     Prioritaet,
     Series,
@@ -105,6 +107,7 @@ class NotionRepository:
         self._client = Client(auth=settings.notion_api_key)
         self._settings = settings
         self._db_props_ensured = False
+        self._events_db_ensured = False
         self._ensure_db_properties()
 
     # Properties, die ggf. nachträglich zur Buchungen-DB hinzugefügt wurden
@@ -134,6 +137,38 @@ class NotionRepository:
         except Exception:
             pass
         self._db_props_ensured = True
+
+    # Properties für die Events-DB
+    _REQUIRED_EVENTS_PROPS: dict[str, dict] = {
+        "Datum":             {"date": {}},
+        "Startzeit":         {"rich_text": {}},
+        "Ort":               {"rich_text": {}},
+        "Beschreibung":      {"rich_text": {}},
+        "Erstellt von ID":   {"rich_text": {}},
+        "Erstellt von Name": {"rich_text": {}},
+    }
+
+    def _ensure_events_db_properties(self) -> None:
+        """Legt fehlende Properties in der Events-DB an (sofern konfiguriert)."""
+        if self._events_db_ensured:
+            return
+        db_id = self._settings.notion_events_db_id
+        if not db_id:
+            self._events_db_ensured = True
+            return
+        try:
+            db = self._client.databases.retrieve(db_id)
+            existing = db.get("properties", {})
+            missing = {
+                name: schema
+                for name, schema in self._REQUIRED_EVENTS_PROPS.items()
+                if name not in existing
+            }
+            if missing:
+                self._client.databases.update(database_id=db_id, properties=missing)
+        except Exception:
+            pass
+        self._events_db_ensured = True
 
     # ------------------------------------------------------------------ helpers
 
@@ -374,6 +409,73 @@ class NotionRepository:
             sorts=[{"property": "Datum", "direction": "ascending"}],
         )
         return [self._page_to_booking(p) for p in pages[:limit]]
+
+    # ------------------------------------------------------------------ ExternalEvents
+
+    def _page_to_event(self, page: dict) -> ExternalEvent:
+        props = page["properties"]
+        raw_time = _get_rich_text(props, "Startzeit")
+        parsed = _parse_time(raw_time) if raw_time else None
+        return ExternalEvent(
+            notion_id=page["id"],
+            title=_get_title(props, "Name"),
+            date=_get_date(props, "Datum") or date.today(),
+            start_time=parsed or time(0, 0),
+            location=_get_rich_text(props, "Ort") or None,
+            description=_get_rich_text(props, "Beschreibung") or None,
+            created_by_id=_get_rich_text(props, "Erstellt von ID"),
+            created_by_name=_get_rich_text(props, "Erstellt von Name"),
+        )
+
+    def get_upcoming_events(self, limit: int = 10) -> list[ExternalEvent]:
+        """Gibt die nächsten externen Termine ab heute zurück."""
+        if not self._settings.notion_events_db_id:
+            return []
+        self._ensure_events_db_properties()
+        pages = self._query_all(
+            self._settings.notion_events_db_id,
+            filter={"property": "Datum", "date": {"on_or_after": date.today().isoformat()}},
+            sorts=[{"property": "Datum", "direction": "ascending"}],
+        )
+        return [self._page_to_event(p) for p in pages[:limit]]
+
+    def get_all_events(self) -> list[ExternalEvent]:
+        """Alle Events (vergangene + zukünftige) für die Verwaltungsseite, neueste zuerst."""
+        if not self._settings.notion_events_db_id:
+            return []
+        self._ensure_events_db_properties()
+        pages = self._query_all(
+            self._settings.notion_events_db_id,
+            sorts=[{"property": "Datum", "direction": "descending"}],
+        )
+        return [self._page_to_event(p) for p in pages]
+
+    def create_event(
+        self, data: ExternalEventCreate, user_id: str, user_name: str
+    ) -> ExternalEvent:
+        db_id = self._settings.notion_events_db_id
+        if not db_id:
+            raise ValueError("NOTION_EVENTS_DB_ID nicht konfiguriert")
+        self._ensure_events_db_properties()
+        props: dict[str, Any] = {
+            "Name":               _title(data.title),
+            "Datum":              _date_prop(data.date),
+            "Startzeit":          _rich_text(data.start_time.strftime("%H:%M")),
+            "Erstellt von ID":    _rich_text(user_id),
+            "Erstellt von Name":  _rich_text(user_name),
+        }
+        if data.location:
+            props["Ort"] = _rich_text(data.location)
+        if data.description:
+            props["Beschreibung"] = _rich_text(data.description)
+        page = self._client.pages.create(
+            parent={"database_id": db_id},
+            properties=props,
+        )
+        return self._page_to_event(page)
+
+    def delete_event(self, event_id: str) -> None:
+        self._client.pages.update(page_id=event_id, archived=True)
 
     def get_bookings_by_spielkennung(self, kennungen: list[str]) -> dict[str, Booking]:
         """Gibt ein Dict {spielkennung: Booking} für alle bekannten Spielkennungen zurück."""

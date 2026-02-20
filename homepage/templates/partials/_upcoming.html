@@ -1,0 +1,92 @@
+{% if upcoming_items %}
+<div class="event-list">
+  {% for entry in upcoming_items %}
+  {% set item = entry.item %}
+  {% if entry.kind == "game" %}
+    {% set match_text = item.zweck or item.title %}
+    {% if ' vs ' in match_text %}
+      {% set home_name = match_text.split(' vs ')[0] %}
+      {% set away_name = match_text.split(' vs ')[1] %}
+    {% elif ' - ' in match_text %}
+      {% set home_name = match_text.split(' - ')[0] %}
+      {% set away_name = match_text.split(' - ')[1] %}
+    {% elif ' – ' in match_text %}
+      {% set home_name = match_text.split(' – ')[0] %}
+      {% set away_name = match_text.split(' – ')[1] %}
+    {% else %}
+      {% set home_name = match_text %}
+      {% set away_name = '' %}
+    {% endif %}
+    <div class="event-item">
+      <div class="event-item__date">
+        <span class="event-item__day">{{ item.date.strftime('%d') }}</span>
+        <span class="event-item__month">{{ item.date.strftime('%b') }}</span>
+      </div>
+      <div class="event-match">
+        <div class="event-team">
+          <span class="event-team__logo-wrap">
+            <img src="/userdata/logo.svg" width="36" height="36" alt="TuS">
+          </span>
+          <span class="event-team__name">{{ home_name }}</span>
+        </div>
+        {% if away_name %}
+        <span class="event-match__vs">vs</span>
+        {% set away_logo = away_name | club_logo_url %}
+        <div class="event-team event-team--away">
+          {% if away_logo %}
+          <span class="event-team__logo-wrap">
+            <img src="{{ away_logo }}" width="36" height="36" alt="{{ away_name }}"
+                 onerror="this.parentElement.outerHTML='<span class=\'event-team__badge\'>{{ away_name | team_initials }}</span>'">
+          </span>
+          {% else %}
+          <span class="event-team__badge">{{ away_name | team_initials }}</span>
+          {% endif %}
+          <span class="event-team__name">{{ away_name }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="event-item__meta">
+        <span class="event-item__time">{{ item.start_time.strftime('%H:%M') }} Uhr</span>
+        <span class="event-item__field">{{ item.field.value }}</span>
+      </div>
+    </div>
+  {% else %}
+    <div class="event-item event-item--external">
+      <div class="event-item__date">
+        <span class="event-item__day">{{ item.date.strftime('%d') }}</span>
+        <span class="event-item__month">{{ item.date.strftime('%b') }}</span>
+      </div>
+      <div class="event-match">
+        <div class="event-external">
+          <span class="event-external__title">{{ item.title }}</span>
+          {% if item.location %}
+          <span class="event-external__location">{{ item.location }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="event-item__meta">
+        <span class="event-item__time">{{ item.start_time.strftime('%H:%M') }} Uhr</span>
+      </div>
+    </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted" style="text-align: center;">Keine anstehenden Termine.</p>
+{% endif %}
+
+{% if total_pages > 1 %}
+<div class="upcoming-pagination">
+  <button class="upcoming-pagination__btn"
+          {% if page <= 1 %}disabled{% endif %}
+          hx-get="/upcoming?page={{ page - 1 }}"
+          hx-target="#upcoming-container"
+          hx-swap="innerHTML">&#8592;</button>
+  <span class="upcoming-pagination__info">{{ page }} / {{ total_pages }}</span>
+  <button class="upcoming-pagination__btn"
+          {% if page >= total_pages %}disabled{% endif %}
+          hx-get="/upcoming?page={{ page + 1 }}"
+          hx-target="#upcoming-container"
+          hx-swap="innerHTML">&#8594;</button>
+</div>
+{% endif %}

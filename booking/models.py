@@ -243,6 +243,27 @@ class AufgabeCreate(BaseModel):
     beschreibung: Optional[str] = None
 
 
+# --- Externe Events (keine Platzbuchung) ---
+
+class ExternalEvent(BaseModel):
+    notion_id: str
+    title: str
+    date: date
+    start_time: time
+    location: Optional[str] = None
+    description: Optional[str] = None
+    created_by_id: str
+    created_by_name: str
+
+
+class ExternalEventCreate(BaseModel):
+    title: str
+    date: date
+    start_time: time
+    location: Optional[str] = None
+    description: Optional[str] = None
+
+
 # JWT token payload (kein Pydantic-Model, nur TypedDict-ähnlich)
 class TokenPayload(BaseModel):
     sub: str        # notion_id des Nutzers

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Termine{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Externe Termine</h1>
+  <p class="text-muted" style="margin-top:0.25rem;">Auswärtsspiele, Turniere und andere Termine ohne Platzbuchung</p>
+</div>
+
+{% if not db_configured %}
+<div class="card card--warning">
+  <p>
+    <strong>Hinweis:</strong> Die Events-Datenbank ist noch nicht konfiguriert.
+    Bitte eine neue Notion-Datenbank anlegen und die ID als
+    <code>NOTION_EVENTS_DB_ID</code> in die <code>.env</code>-Datei eintragen.
+  </p>
+</div>
+{% else %}
+
+<!-- Formular: Neuen Termin eintragen -->
+<details class="card card--collapsible" style="margin-bottom:1.5rem;">
+  <summary style="cursor:pointer; font-weight:700; padding:0.25rem 0;">
+    ＋ Neuen Termin eintragen
+  </summary>
+  <form hx-post="/events"
+        hx-target="#event-tbody"
+        hx-swap="afterbegin"
+        hx-indicator="#event-submit-spinner"
+        style="margin-top:1rem;">
+    <div class="form-grid">
+      <div class="form-group form-group--wide">
+        <label for="title">Bezeichnung <span class="label-required">*</span></label>
+        <input type="text" id="title" name="title" required maxlength="150"
+               placeholder="z. B. TuS Cremlingen vs SV Muster, Hallenturnier Wolfenbüttel …">
+      </div>
+      <div class="form-group">
+        <label for="event_date">Datum <span class="label-required">*</span></label>
+        <input type="date" id="event_date" name="event_date" required>
+      </div>
+      <div class="form-group">
+        <label for="start_time">Uhrzeit <span class="label-required">*</span></label>
+        <input type="time" id="start_time" name="start_time" required>
+      </div>
+      <div class="form-group">
+        <label for="location">Ort <span class="label-hint">(optional)</span></label>
+        <input type="text" id="location" name="location" maxlength="120"
+               placeholder="z. B. Sportpark Wolfenbüttel">
+      </div>
+      <div class="form-group form-group--wide">
+        <label for="description">Beschreibung <span class="label-hint">(optional)</span></label>
+        <textarea id="description" name="description" rows="2" maxlength="400"
+                  placeholder="Weitere Infos …"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">
+        Termin eintragen
+        <span id="event-submit-spinner" class="htmx-indicator">…</span>
+      </button>
+    </div>
+  </form>
+</details>
+
+<!-- Terminliste -->
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Uhrzeit</th>
+        <th>Bezeichnung</th>
+        <th>Ort</th>
+        <th>Eingetragen von</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="event-tbody">
+      {% for event in events %}
+        {% include "partials/_event_row.html" %}
+      {% else %}
+        <tr><td colspan="6" class="text-muted">Keine Termine eingetragen.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}
+    <a href="/events?page={{ page - 1 }}" class="btn btn--ghost">&larr; Neuere</a>
+  {% else %}
+    <span class="btn btn--ghost" style="opacity:0.35;">&larr; Neuere</span>
+  {% endif %}
+  <span class="pagination__info">Seite {{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/events?page={{ page + 1 }}" class="btn btn--ghost">Ältere &rarr;</a>
+  {% else %}
+    <span class="btn btn--ghost" style="opacity:0.35;">Ältere &rarr;</span>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

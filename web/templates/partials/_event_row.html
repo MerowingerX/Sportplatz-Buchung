@@ -1,0 +1,21 @@
+<tr id="event-{{ event.notion_id }}">
+  <td style="white-space: nowrap;">{{ event.date.strftime('%d.%m.%Y') }}</td>
+  <td style="white-space: nowrap;">{{ event.start_time.strftime('%H:%M') }} Uhr</td>
+  <td>
+    <strong>{{ event.title }}</strong>
+    {% if event.description %}
+    <div class="text-muted" style="font-size:0.8125rem;">{{ event.description }}</div>
+    {% endif %}
+  </td>
+  <td class="text-muted">{{ event.location or '–' }}</td>
+  <td class="text-muted">{{ event.created_by_name }}</td>
+  <td style="text-align:right;">
+    <button class="btn btn--small btn--danger"
+            hx-delete="/events/{{ event.notion_id }}"
+            hx-target="#event-{{ event.notion_id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Termin „{{ event.title }}" wirklich löschen?">
+      Löschen
+    </button>
+  </td>
+</tr>

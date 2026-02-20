@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +13,7 @@ class Settings(BaseSettings):
     notion_sperrzeiten_db_id: str
     notion_nutzer_db_id: str
     notion_aufgaben_db_id: str
+    notion_events_db_id: Optional[str] = None  # Termine (extern, keine Platzbuchung)
 
     # JWT
     jwt_secret: str

@@ -13,7 +13,8 @@
 
 <form hx-post="/admin/dfbnet"
       hx-target="#toast"
-      hx-swap="outerHTML">
+      hx-swap="outerHTML"
+      hx-indicator="#dfbnet-spinner">
 
   <div class="form-group">
     <label for="field">Platz</label>
@@ -48,7 +49,10 @@
   </div>
 
   <div class="form-actions">
-    <button type="submit" class="btn btn--danger">DFBnet-Buchung eintragen</button>
+    <button type="submit" class="btn btn--danger">
+      DFBnet-Buchung eintragen
+      <span id="dfbnet-spinner" class="htmx-indicator">…</span>
+    </button>
   </div>
 </form>
 {% endblock %}

@@ -532,6 +532,19 @@ body {
   color: var(--color-text-muted);
 }
 
+/* ===== Pagination ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.pagination__info {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
 /* ===== Error Page ===== */
 .error-page { text-align: center; padding: 4rem 2rem; }
 .error-page h1 { font-size: 4rem; color: var(--color-text-muted); margin-bottom: 1rem; }
