@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     smtp_user: str
     smtp_password: str
     smtp_from: str
+    admin_email: Optional[str] = None   # Crash-Mails; fällt auf smtp_from zurück wenn nicht gesetzt
+
+    # Homepage
+    booking_url: str = "http://46.62.212.248:1946"
 
     # Standort (Sonnenuntergang)
     location_lat: float = 48.137154

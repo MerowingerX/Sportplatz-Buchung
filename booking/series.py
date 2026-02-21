@@ -13,7 +13,7 @@ from booking.models import (
     SeriesStatus,
     TokenPayload,
 )
-from booking.booking import build_booking, is_rasen_season
+from booking.booking import build_booking
 from web.config import Settings
 
 
@@ -23,17 +23,11 @@ def generate_series_dates(
     rhythm: SeriesRhythm,
     field_is_rasen: bool = False,
 ) -> list[date]:
-    """
-    Erzeugt alle Termindaten einer Serie.
-    Rasen-Termine außerhalb März–November werden übersprungen.
-    """
+    """Erzeugt alle Termindaten einer Serie."""
     interval_days = 7 if rhythm == SeriesRhythm.WOECHENTLICH else 14
     dates = []
     current = start_date
     while current <= end_date:
-        if field_is_rasen and not is_rasen_season(current):
-            current += timedelta(days=interval_days)
-            continue
         dates.append(current)
         current += timedelta(days=interval_days)
     return dates

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Serien{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Serienbuchungen</h1>
+</div>
+
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Mannschaft</th>
+        <th>Platz</th>
+        <th>Zeit</th>
+        <th>Rhythmus</th>
+        <th>Zeitraum</th>
+        <th>Trainer</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="series-tbody">
+      {% for s in series_list %}
+        {% include "partials/_series_row.html" %}
+      {% else %}
+        <tr><td colspan="8" class="text-muted">Keine Serien vorhanden.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

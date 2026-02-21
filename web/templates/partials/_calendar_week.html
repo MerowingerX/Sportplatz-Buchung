@@ -97,8 +97,7 @@
               {# Sperrzeiten nur fuer Rasen #}
               {% set blocked = [] %}
               {% if "Rasen" in field_name %}
-                {% for bl in blackouts if bl.date is defined
-                      and bl.date.isoformat() == day_iso %}
+                {% for bl in blackouts if bl.start_date <= day and bl.end_date >= day %}
                   {% set _ = blocked.append(bl) %}
                 {% endfor %}
               {% endif %}
@@ -124,7 +123,15 @@
                     <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
                   </div>
                 {% elif blocked %}
-                  <div class="slot slot--blocked" title="{{ blocked[0].reason }}">&#x1F6AB;</div>
+                  {% set ps_reason = blocked[0].reason or "keine Angabe" %}
+                  <button class="slot slot--platzsperre slot--clickable"
+                          hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
+                          hx-target="#booking-modal-content"
+                          hx-swap="innerHTML"
+                          onclick="document.getElementById('booking-modal').showModal()"
+                          title="Platzsperre: {{ ps_reason }}">
+                    <span class="slot__platzsperre-label">Pl.sperre</span>
+                  </button>
                 {% elif conflicted %}
                   <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
                 {% else %}

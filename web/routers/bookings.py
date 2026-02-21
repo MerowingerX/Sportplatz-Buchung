@@ -12,8 +12,8 @@ from utils.time_slots import (
     compute_end_time,
     get_all_start_slots,
 )
-from booking.booking import is_rasen_season
 from utils.sunset import sunset_warning_text
+from web.audit_log import log_booking, log_cancel
 from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
 
@@ -98,6 +98,7 @@ async def create_booking(
         )
 
     invalidate_week_cache(booking_date)
+    log_booking(request, current_user.username, booking)
 
     owner = repo.get_user_by_id(current_user.sub)
     if owner:
@@ -126,6 +127,7 @@ async def cancel_booking(
     settings = get_settings()
     booking = repo.update_booking_status(booking_id, BookingStatus.STORNIERT)
     invalidate_week_cache(booking.date)
+    log_cancel(request, current_user.username, booking)
 
     owner = repo.get_user_by_id(booking.booked_by_id)
     if owner:
@@ -232,8 +234,15 @@ async def validate_rasen_season(
         return HTMLResponse("")
     if not field_enum.is_rasen:
         return HTMLResponse("")
-    if not is_rasen_season(booking_date):
+
+    reasons = []
+    blackouts = request.app.state.repo.get_blackouts_for_date(booking_date)
+    for bl in blackouts:
+        reasons.append(f"Platzsperre: {bl.reason}" if bl.reason else "Platzsperre")
+
+    if reasons:
+        text = ", ".join(reasons)
         return HTMLResponse(
-            '<div class="season-warning">Rasen ist außerhalb der Saison (März–November) nicht buchbar.</div>'
+            f'<div class="platzsperre-warning">&#9888; {text} – Buchung trotzdem möglich</div>'
         )
     return HTMLResponse("")

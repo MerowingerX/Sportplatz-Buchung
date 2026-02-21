@@ -64,7 +64,7 @@
               {% if day.month < 3 or day.month > 11 %}
                 {% set _ = blocked.append("offseason") %}
               {% else %}
-                {% for bl in blackouts if bl.date.isoformat() == day_iso %}
+                {% for bl in blackouts if bl.start_date <= day and bl.end_date >= day %}
                   {% if bl.blackout_type.value == "Ganztägig" %}
                     {% set _ = blocked.append(bl.reason) %}
                   {% elif bl.blackout_type.value == "Zeitlich" and bl.start_time and bl.end_time %}

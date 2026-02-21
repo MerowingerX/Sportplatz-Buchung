@@ -6,7 +6,7 @@ import os
 import time
 from urllib.parse import quote_plus
 
-token ="snip"
+token ="Y1t797t1t5Z8Y5h2D2b6r736X5M6HVEYzhWbM6DIeU"
 
 def vereins_info(club_id):
     url = f"https://api-fussball.de/api/club/{club_id}"

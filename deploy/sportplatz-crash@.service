@@ -1,0 +1,9 @@
+[Unit]
+Description=Crash-Benachrichtigung für %i
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/git.com/Sportplatz-Buchung
+ExecStart=/root/git.com/Sportplatz-Buchung/.venv/bin/python scripts/notify_crash.py %i

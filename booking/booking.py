@@ -144,18 +144,12 @@ def build_booking(
 
     end_time = compute_end_time(data.start_time, data.duration_min)
 
-    # Rasen: Saisoncheck
-    if data.field.is_rasen and not is_rasen_season(data.date):
-        errors.append("Rasen ist nur von März bis November buchbar.")
-        return None, errors
-
-    # Rasen: Sperrzeitcheck
+    # Rasen: Sperrzeit → soft warning, kein Hard-Block
+    platzsperre_note = None
     if data.field.is_rasen and blackouts:
         blocked = check_blackout(blackouts, data.date, data.start_time, end_time)
         if blocked:
-            reason = blocked.reason or "keine Angabe"
-            errors.append(f"Rasen ist gesperrt: {reason}")
-            return None, errors
+            platzsperre_note = f"Platzsperre: {blocked.reason or 'keine Angabe'}"
 
     # Konfliktcheck
     conflicts = check_availability(existing_bookings, data.field, data.start_time, data.duration_min)
@@ -175,13 +169,14 @@ def build_booking(
             settings.location_lat, settings.location_lon, settings.location_name,
         )
 
+    notes = [n for n in [platzsperre_note, sunset_note] if n]
     booking = repo.create_booking(
         data=data,
         booked_by_id=current_user.sub,
         booked_by_name=current_user.username,
         role=current_user.role,
         end_time=end_time,
-        sunset_note=sunset_note,
+        sunset_note=" | ".join(notes) if notes else None,
         series_id=series_id,
         mannschaft=mannschaft_override or current_user.mannschaft,
         zweck=data.zweck,

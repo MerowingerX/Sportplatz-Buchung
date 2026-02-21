@@ -25,6 +25,17 @@ def _toast(message: str, kind: str = "success") -> str:
     return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
 
 
+@router.get("", response_class=HTMLResponse, dependencies=[_admin_required])
+async def series_list(request: Request, current_user: CurrentUser):
+    """Listet alle Serien auf."""
+    repo = request.app.state.repo
+    series_list = repo.get_all_series()
+    return templates.TemplateResponse(
+        "series/index.html",
+        {"request": request, "current_user": current_user, "series_list": series_list},
+    )
+
+
 @router.get("/new", response_class=HTMLResponse, dependencies=[_admin_required])
 async def series_form(request: Request, current_user: CurrentUser):
     return templates.TemplateResponse(
@@ -43,15 +54,26 @@ async def series_form(request: Request, current_user: CurrentUser):
 
 @router.get("/trainers", response_class=HTMLResponse, dependencies=[_admin_required])
 async def get_trainers(request: Request, mannschaft: str):
-    """Gibt <option>-Tags für alle Trainer einer Mannschaft zurück (HTMX)."""
+    """Gibt <option>-Tags für alle Trainer einer Mannschaft zurück (HTMX).
+    Wenn kein Trainer eingetragen ist, werden die Administratoren als Fallback angeboten."""
     repo = request.app.state.repo
     trainers = repo.get_trainers_for_mannschaft(mannschaft)
-    if not trainers:
-        return HTMLResponse('<option value="">– Kein Trainer für diese Mannschaft –</option>')
-    html = '<option value="">– Trainer wählen –</option>'
-    for t in trainers:
-        html += f'<option value="{t.notion_id}">{t.name}</option>'
-    return HTMLResponse(html)
+    if trainers:
+        html = '<option value="">– Trainer wählen –</option>'
+        for t in trainers:
+            html += f'<option value="{t.notion_id}">{t.name}</option>'
+        return HTMLResponse(html)
+
+    # Kein Trainer für diese Mannschaft → Administratoren als Fallback
+    all_users = repo.get_all_users()
+    admins = [u for u in all_users if u.role == UserRole.ADMINISTRATOR]
+    if admins:
+        html = '<option value="">– Kein Trainer, bitte Administrator wählen –</option>'
+        for a in admins:
+            html += f'<option value="{a.notion_id}">{a.name} (Administrator)</option>'
+        return HTMLResponse(html)
+
+    return HTMLResponse('<option value="">– Kein Trainer oder Administrator gefunden –</option>')
 
 
 @router.post("", response_class=HTMLResponse, dependencies=[_admin_required])
@@ -204,6 +226,11 @@ async def cancel_series_endpoint(
     for booking in cancelled:
         invalidate_week_cache(booking.date)
 
+    # Zeile in-place auf "Beendet" aktualisieren
+    updated_row = templates.get_template("partials/_series_row.html").render(
+        {"s": series, "current_user": current_user}
+    )
     return HTMLResponse(
-        _toast(f"Serie beendet. {len(cancelled)} zukünftige Termine storniert.")
+        updated_row
+        + _toast(f"Serie beendet. {len(cancelled)} zukünftige Termine storniert.")
     )

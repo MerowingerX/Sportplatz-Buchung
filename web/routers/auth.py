@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 
 from auth.auth import create_jwt, hash_password, verify_password
 from auth.dependencies import CurrentUser
+from web.audit_log import log_login_ok, log_login_fail, log_logout
 from web.config import get_settings
 
 router = APIRouter()
@@ -15,8 +16,8 @@ def _set_session_cookie(response, token: str, settings):
         key="session",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=False,
+        samesite="lax",
         max_age=settings.jwt_expire_hours * 3600,
     )
 
@@ -38,6 +39,7 @@ async def login(
 
     user = repo.get_user_by_name(username)
     if not user or not verify_password(password, user.password_hash):
+        log_login_fail(request, username)
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "error": "Ungültiger Nutzername oder Passwort"},
@@ -50,6 +52,7 @@ async def login(
         must_change_password=user.must_change_password,
     )
 
+    log_login_ok(request, user.name)
     target_url = "/change-password" if user.must_change_password else "/calendar"
     redirect = RedirectResponse(url=target_url, status_code=303)
     _set_session_cookie(redirect, token, settings)
@@ -127,7 +130,8 @@ async def change_password(
 
 
 @router.post("/logout")
-async def logout():
+async def logout(request: Request, current_user: CurrentUser):
+    log_logout(request, current_user.username)
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("session")
     return response

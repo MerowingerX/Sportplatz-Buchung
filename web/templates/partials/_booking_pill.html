@@ -8,12 +8,23 @@
     <span class="slot__sun" title="{{ b.sunset_note }}">🌅</span>
   {% endif %}
   {% if current_user and (current_user.sub == b.booked_by_id or current_user.role.value in ["Administrator", "DFBnet"]) %}
-    <button class="slot__cancel"
-            hx-delete="/bookings/{{ b.notion_id }}"
-            hx-confirm="Buchung wirklich stornieren?"
-            hx-target="closest .slot"
-            hx-swap="outerHTML">
-      ✕
-    </button>
+    {% if b.series_id and current_user.role.value in ["Administrator", "DFBnet"] %}
+      <button class="slot__cancel slot__cancel--series"
+              hx-patch="/series/{{ b.notion_id }}/remove-date"
+              hx-confirm="Nur diesen Termin aus der Serie entfernen?"
+              hx-target="closest .slot"
+              hx-swap="outerHTML"
+              title="Einzeltermin aus Serie entfernen">
+        ✕
+      </button>
+    {% else %}
+      <button class="slot__cancel"
+              hx-delete="/bookings/{{ b.notion_id }}"
+              hx-confirm="Buchung wirklich stornieren?"
+              hx-target="closest .slot"
+              hx-swap="outerHTML">
+        ✕
+      </button>
+    {% endif %}
   {% endif %}
 </div>

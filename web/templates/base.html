@@ -17,9 +17,19 @@
         {% if current_user.role.value in ["Administrator", "DFBnet"] %}
           <a href="/admin">Admin</a>
           <a href="/admin/dfbnet">DFBnet-Buchung</a>
+          <button class="btn btn--ghost btn--small"
+                  hx-post="/admin/fetch-spielplan"
+                  hx-target="#toast"
+                  hx-swap="outerHTML"
+                  title="Spielplan von api-fussball.de abrufen und platzbelegung.csv aktualisieren">
+            Spielplan ↓
+          </button>
         {% endif %}
         {% if current_user.role.value in ["Platzwart", "Administrator"] %}
           <a href="/blackouts">Sperrzeiten</a>
+        {% endif %}
+        {% if current_user.role.value in ["Administrator", "DFBnet"] %}
+          <a href="/series">Serien</a>
         {% endif %}
         <a href="/tasks">Aufgaben</a>
         <a href="/events">Termine</a>
@@ -43,7 +53,7 @@
     // Toast auto-hide
     document.body.addEventListener('htmx:afterSwap', function(evt) {
       const toast = document.getElementById('toast');
-      if (toast && !toast.classList.contains('toast--hidden')) {
+      if (toast && !toast.classList.contains('toast--hidden') && !toast.classList.contains('toast--progress')) {
         setTimeout(() => toast.classList.add('toast--hidden'), 3500);
       }
     });

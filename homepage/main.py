@@ -20,14 +20,38 @@ from utils.time_slots import get_all_start_slots
 from web.config import get_settings
 
 BASE_DIR = os.path.dirname(__file__)
+VEREINSINFO_DIR = os.path.join(BASE_DIR, "userdata", "vereinsinfo")
 
-# Club-Name → fussball.de Club-ID (für Logos)
-_clubs_path = os.path.join(BASE_DIR, "userdata", "clubs.json")
-try:
-    with open(_clubs_path, encoding="utf-8") as _f:
-        CLUBS_MAP: dict[str, str] = json.load(_f)
-except FileNotFoundError:
-    CLUBS_MAP = {}
+
+def _load_vereins_map() -> dict[str, str]:
+    """Baut ein Mapping von Vereinsnamen (normalisiert) → Club-ID aus vereinsinfo/."""
+    result: dict[str, str] = {}
+    if not os.path.isdir(VEREINSINFO_DIR):
+        return result
+    for fname in os.listdir(VEREINSINFO_DIR):
+        if not fname.endswith(".json"):
+            continue
+        club_id = fname[:-5]
+        try:
+            with open(os.path.join(VEREINSINFO_DIR, fname), encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        for team in data.get("data", []):
+            if not isinstance(team, dict):
+                continue
+            raw: str = team.get("name", "")
+            # "Herren - FT Braunschweig" → "FT Braunschweig"
+            club_part = raw.split(" - ", 1)[1] if " - " in raw else raw
+            # Nullbreite Leerzeichen entfernen (kommen in manchen Namen vor)
+            club_part = club_part.replace("\u200b", "").strip()
+            key = club_part.lower()
+            if key and key not in result:
+                result[key] = club_id
+    return result
+
+
+CLUBS_MAP: dict[str, str] = _load_vereins_map()
 
 # Mapping: venue-Kürzel → (Label, Feld-Filter-Attr, Prefix)
 VENUES = {
@@ -63,17 +87,20 @@ templates.env.filters["team_initials"] = _team_initials
 
 
 def _club_logo_url(name: str) -> str:
-    """Gibt die fussball.de-Logo-URL zurück, oder '' wenn kein Eintrag vorhanden."""
-    club_id = CLUBS_MAP.get(name) or CLUBS_MAP.get(name.strip())
+    """Gibt den lokalen Pfad zum Vereinslogo zurück, oder '' wenn nicht gefunden."""
+    if not name:
+        return ""
+    key = name.strip().replace("\u200b", "").lower()
+    # 1. Exakter Treffer
+    club_id = CLUBS_MAP.get(key)
     if not club_id:
-        # Case-insensitive fallback
-        lower = name.lower()
-        for k, v in CLUBS_MAP.items():
-            if k.lower() == lower:
-                club_id = v
+        # 2. Teilstring-Treffer: bekannter Vereinsname ist in gegnerischem Namen enthalten
+        for known, cid in CLUBS_MAP.items():
+            if known and known in key:
+                club_id = cid
                 break
-    if club_id:
-        return f"https://www.fussball.de/export.media/-/action/getLogo/format/2/id/{club_id}"
+    if club_id and os.path.exists(os.path.join(VEREINSINFO_DIR, f"{club_id}.png")):
+        return f"/userdata/vereinsinfo/{club_id}.png"
     return ""
 
 
@@ -137,6 +164,7 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {
         "request": request, **ctx, "today": today,
         "upcoming_items": upcoming_items, "page": page, "total_pages": total_pages,
+        "booking_url": request.app.state.settings.booking_url,
     })
 
 

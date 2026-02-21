@@ -1,0 +1,25 @@
+<tr id="blackout-{{ blackout.notion_id }}">
+  <td>{{ blackout.start_date.strftime('%d.%m.%Y') }}</td>
+  <td>{{ blackout.end_date.strftime('%d.%m.%Y') }}</td>
+  <td>
+    <span class="badge badge--typ-{{ blackout.blackout_type.value | lower | replace('ä', 'ae') }}">
+      {{ blackout.blackout_type.value }}
+    </span>
+  </td>
+  <td>
+    {% if blackout.blackout_type.value == 'Zeitlich' and blackout.start_time and blackout.end_time %}
+      {{ blackout.start_time.strftime('%H:%M') }} – {{ blackout.end_time.strftime('%H:%M') }}
+    {% else %}
+      Ganztägig
+    {% endif %}
+  </td>
+  <td>{{ blackout.reason or '—' }}</td>
+  <td>{{ blackout.entered_by_name }}</td>
+  <td>
+    <button class="btn btn--ghost btn--sm"
+            hx-delete="/blackouts/{{ blackout.notion_id }}"
+            hx-target="#blackout-{{ blackout.notion_id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Sperrzeit wirklich löschen?">✕</button>
+  </td>
+</tr>

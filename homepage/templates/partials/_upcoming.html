@@ -4,6 +4,13 @@
   {% set item = entry.item %}
   {% if entry.kind == "game" %}
     {% set match_text = item.zweck or item.title %}
+    {# [Spielbezeichnung] vor dem Teamnamen extrahieren #}
+    {% if match_text.startswith('[') and ']' in match_text %}
+      {% set game_label = match_text.split(']')[0][1:] %}
+      {% set match_text = match_text.split(']', 1)[1].strip() %}
+    {% else %}
+      {% set game_label = '' %}
+    {% endif %}
     {% if ' vs ' in match_text %}
       {% set home_name = match_text.split(' vs ')[0] %}
       {% set away_name = match_text.split(' vs ')[1] %}
@@ -22,17 +29,22 @@
         <span class="event-item__day">{{ item.date.strftime('%d') }}</span>
         <span class="event-item__month">{{ item.date.strftime('%b') }}</span>
       </div>
-      <div class="event-match">
+      <div class="event-item__center">
+        {# Zelle 1: Spielart / Label #}
+        <span class="event-item__label">{{ game_label }}</span>
+        {# Zelle 2: Heimteam #}
         <div class="event-team">
           <span class="event-team__logo-wrap">
             <img src="/userdata/logo.svg" width="36" height="36" alt="TuS">
           </span>
           <span class="event-team__name">{{ home_name }}</span>
         </div>
-        {% if away_name %}
-        <span class="event-match__vs">vs</span>
-        {% set away_logo = away_name | club_logo_url %}
+        {# Zelle 3: vs #}
+        <span class="event-match__vs">{% if away_name %}vs{% endif %}</span>
+        {# Zelle 4: Gastteam #}
         <div class="event-team event-team--away">
+          {% if away_name %}
+          {% set away_logo = away_name | club_logo_url %}
           {% if away_logo %}
           <span class="event-team__logo-wrap">
             <img src="{{ away_logo }}" width="36" height="36" alt="{{ away_name }}"
@@ -42,9 +54,9 @@
           <span class="event-team__badge">{{ away_name | team_initials }}</span>
           {% endif %}
           <span class="event-team__name">{{ away_name }}</span>
+          {% endif %}
         </div>
-        {% endif %}
-      </div>
+      </div>{# /event-item__center #}
       <div class="event-item__meta">
         <span class="event-item__time">{{ item.start_time.strftime('%H:%M') }} Uhr</span>
         <span class="event-item__field">{{ item.field.value }}</span>
@@ -60,7 +72,9 @@
         <div class="event-external">
           <span class="event-external__title">{{ item.title }}</span>
           {% if item.location %}
-          <span class="event-external__location">{{ item.location }}</span>
+          <a class="event-external__location"
+             href="https://www.google.com/maps/dir/?api=1&destination={{ item.location | urlencode }}"
+             target="_blank" rel="noopener">{{ item.location }}</a>
           {% endif %}
         </div>
       </div>

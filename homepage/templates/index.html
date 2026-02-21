@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TuS Cremlingen e.V.</title>
   <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
 
@@ -27,7 +27,7 @@
         <a href="#news" onclick="closeNav()">Aktuelles</a>
         <a href="#mannschaften" onclick="closeNav()">Mannschaften</a>
         <a href="#" onclick="openAvailability(); closeNav(); return false;">Verfügbarkeit</a>
-        <a href="http://localhost:1946" target="_blank" class="nav-booking" onclick="closeNav()">⚽ Platzbuchung</a>
+        <a href="{{ booking_url }}" target="platzbuchung" class="nav-booking" onclick="closeNav()">⚽ Platzbuchung</a>
         <a href="#links" onclick="closeNav()">Links</a>
         <a href="#kontakt" onclick="closeNav()">Kontakt</a>
       </nav>
@@ -90,7 +90,7 @@
 
     <!-- Nächste Termine (Spiele + externe Events) -->
     <section id="spiele">
-      <h2 class="section-title">Nächste Termine</h2>
+      <h2 class="section-title">Nächste Heimspiele / Events</h2>
       <div id="upcoming-container">
         {% include "partials/_upcoming.html" %}
       </div>
@@ -181,6 +181,8 @@
           <div class="card__icon">📍</div>
           <div class="card__title">Adresse</div>
           <div class="card__text">TuS Cremlingen e.V.<br>Sportplatz, 38162 Cremlingen</div>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=Sportplatz+TuS+Cremlingen+38162+Cremlingen"
+             target="_blank" rel="noopener" class="card__link">Route planen →</a>
         </div>
         <div class="card">
           <div class="card__icon">✉️</div>

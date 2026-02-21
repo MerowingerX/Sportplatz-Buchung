@@ -1,0 +1,18 @@
+[Unit]
+Description=TuS Cremlingen Homepage
+After=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=120
+OnFailure=sportplatz-crash@%n.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/git.com/Sportplatz-Buchung
+ExecStart=/root/git.com/Sportplatz-Buchung/.venv/bin/uvicorn homepage.main:app --host 0.0.0.0 --port 8046
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

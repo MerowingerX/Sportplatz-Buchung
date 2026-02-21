@@ -17,16 +17,33 @@ def _toast(message: str, kind: str = "success") -> str:
     return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
 
 
+def _invalidate_range(start: date, end: date) -> None:
+    """Invalidiert den Wochen-Cache für alle Wochen im Sperrzeitraum."""
+    from datetime import timedelta
+    d = start
+    seen_weeks: set[tuple[int, int]] = set()
+    while d <= end:
+        iso = d.isocalendar()
+        week_key = (iso[0], iso[1])
+        if week_key not in seen_weeks:
+            invalidate_week_cache(d)
+            seen_weeks.add(week_key)
+        d += timedelta(days=7)
+
+
 @router.get("", response_class=HTMLResponse)
 async def blackouts_page(
     request: Request,
     current_user: CurrentUser,
 ):
+    repo = request.app.state.repo
+    blackouts = repo.get_all_blackouts()
     return templates.TemplateResponse(
-        "partials/_blackout_form.html",
+        "blackouts/index.html",
         {
             "request": request,
             "current_user": current_user,
+            "blackouts": blackouts,
             "blackout_types": list(BlackoutType),
             "start_slots": get_all_start_slots(),
         },
@@ -37,7 +54,8 @@ async def blackouts_page(
 async def create_blackout(
     request: Request,
     current_user: CurrentUser,
-    blackout_date: date = Form(..., alias="date"),
+    start_date: date = Form(...),
+    end_date: date = Form(...),
     blackout_type: str = Form(...),
     start_time: str = Form(None),
     end_time: str = Form(None),
@@ -46,6 +64,13 @@ async def create_blackout(
     from datetime import time as dtime
 
     repo = request.app.state.repo
+
+    # end_date darf nicht vor start_date liegen
+    if end_date < start_date:
+        return HTMLResponse(
+            _toast("Ende-Datum darf nicht vor Beginn-Datum liegen.", "error"),
+            status_code=422,
+        )
 
     parsed_start = None
     parsed_end = None
@@ -57,7 +82,8 @@ async def create_blackout(
         parsed_end = dtime(int(h), int(m))
 
     data = BlackoutCreate(
-        date=blackout_date,
+        start_date=start_date,
+        end_date=end_date,
         blackout_type=BlackoutType(blackout_type),
         start_time=parsed_start,
         end_time=parsed_end,
@@ -69,9 +95,19 @@ async def create_blackout(
         entered_by_id=current_user.sub,
         entered_by_name=current_user.username,
     )
-    invalidate_week_cache(blackout_date)
+    _invalidate_range(start_date, end_date)
 
-    return HTMLResponse(_toast(f"Sperrzeit für {blackout_date} eingetragen."))
+    label = (
+        f"{start_date.strftime('%d.%m.%Y')} – {end_date.strftime('%d.%m.%Y')}"
+        if end_date > start_date
+        else start_date.strftime('%d.%m.%Y')
+    )
+    return HTMLResponse(
+        templates.get_template("partials/_blackout_row.html").render(
+            {"blackout": blackout, "current_user": current_user}
+        )
+        + _toast(f"Sperrzeit {label} eingetragen.")
+    )
 
 
 @router.delete("/{blackout_id}", response_class=HTMLResponse)

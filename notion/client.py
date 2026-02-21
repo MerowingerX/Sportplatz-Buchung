@@ -82,6 +82,17 @@ def _get_date(props: dict, key: str) -> Optional[date]:
     return None
 
 
+def _get_date_end(props: dict, key: str) -> Optional[date]:
+    d = props.get(key, {}).get("date")
+    if d and d.get("end"):
+        return date.fromisoformat(d["end"])
+    return None
+
+
+def _date_range_prop(start: date, end: date) -> dict:
+    return {"date": {"start": start.isoformat(), "end": end.isoformat()}}
+
+
 def _get_checkbox(props: dict, key: str) -> bool:
     return props.get(key, {}).get("checkbox", False)
 
@@ -571,6 +582,18 @@ class NotionRepository:
         )
         return self._page_to_series(page)
 
+    def get_all_series(self, only_active: bool = False) -> list[Series]:
+        """Alle Serien, neueste zuerst. Optional nur aktive."""
+        filter_: Optional[dict] = None
+        if only_active:
+            filter_ = {"property": "Status", "select": {"equals": SeriesStatus.AKTIV.value}}
+        pages = self._query_all(
+            self._settings.notion_serien_db_id,
+            filter=filter_,
+            sorts=[{"property": "Startdatum", "direction": "descending"}],
+        )
+        return [self._page_to_series(p) for p in pages]
+
     def update_series_status(self, series_id: str, status: SeriesStatus) -> Series:
         page = self._update_page(series_id, {"Status": _select(status.value)})
         return self._page_to_series(page)
@@ -584,13 +607,20 @@ class NotionRepository:
 
     # ------------------------------------------------------------------ blackout
 
-    def _page_to_blackout(self, page: dict) -> BlackoutPeriod:
+    def _page_to_blackout(self, page: dict) -> Optional[BlackoutPeriod]:
+        """Gibt None zurück wenn der Eintrag kein gültiges Datum hat."""
         props = page["properties"]
+        start_date = _get_date(props, "Datum")
+        if start_date is None:
+            return None
+        end_date = _get_date_end(props, "Datum") or start_date
+        art = _get_select(props, "Art") or BlackoutType.GANZTAEGIG.value
         return BlackoutPeriod(
             notion_id=page["id"],
             title=_get_title(props, "Titel"),
-            date=_get_date(props, "Datum"),
-            blackout_type=BlackoutType(_get_select(props, "Art")),
+            start_date=start_date,
+            end_date=end_date,
+            blackout_type=BlackoutType(art),
             start_time=_parse_time(_get_select(props, "Startzeit")),
             end_time=_parse_time(_get_select(props, "Endzeit")),
             reason=_get_rich_text(props, "Grund"),
@@ -598,27 +628,35 @@ class NotionRepository:
             entered_by_name=_get_rich_text(props, "Eingetragen von Name"),
         )
 
+    def _blackouts_from_pages(self, pages: list[dict]) -> list[BlackoutPeriod]:
+        return [bl for p in pages if (bl := self._page_to_blackout(p)) is not None]
+
     def get_blackouts_for_date(self, blackout_date: date) -> list[BlackoutPeriod]:
+        # Fetch blackouts whose start_date <= blackout_date, then filter in Python for end_date >= blackout_date
         pages = self._query_all(
             self._settings.notion_sperrzeiten_db_id,
-            filter={"property": "Datum", "date": {"equals": blackout_date.isoformat()}},
+            filter={"property": "Datum", "date": {"on_or_before": blackout_date.isoformat()}},
         )
-        return [self._page_to_blackout(p) for p in pages]
+        return [bl for bl in self._blackouts_from_pages(pages) if bl.end_date >= blackout_date]
 
     def get_blackouts_for_week(self, year: int, week: int) -> list[BlackoutPeriod]:
         from datetime import timedelta
         monday = date.fromisocalendar(year, week, 1)
         sunday = monday + timedelta(days=6)
+        # Fetch blackouts whose start_date <= sunday, then filter for end_date >= monday
         pages = self._query_all(
             self._settings.notion_sperrzeiten_db_id,
-            filter={
-                "and": [
-                    {"property": "Datum", "date": {"on_or_after": monday.isoformat()}},
-                    {"property": "Datum", "date": {"on_or_before": sunday.isoformat()}},
-                ]
-            },
+            filter={"property": "Datum", "date": {"on_or_before": sunday.isoformat()}},
         )
-        return [self._page_to_blackout(p) for p in pages]
+        return [bl for bl in self._blackouts_from_pages(pages) if bl.end_date >= monday]
+
+    def get_all_blackouts(self) -> list[BlackoutPeriod]:
+        """Alle Sperrzeiten, neueste zuerst."""
+        pages = self._query_all(
+            self._settings.notion_sperrzeiten_db_id,
+            sorts=[{"property": "Datum", "direction": "descending"}],
+        )
+        return self._blackouts_from_pages(pages)
 
     def create_blackout(
         self,
@@ -626,10 +664,13 @@ class NotionRepository:
         entered_by_id: str,
         entered_by_name: str,
     ) -> BlackoutPeriod:
-        title = f"Sperrzeit Rasen {data.date.isoformat()}"
+        if data.end_date > data.start_date:
+            title = f"Sperrzeit Rasen {data.start_date.isoformat()} – {data.end_date.isoformat()}"
+        else:
+            title = f"Sperrzeit Rasen {data.start_date.isoformat()}"
         props: dict = {
             "Titel": _title(title),
-            "Datum": _date_prop(data.date),
+            "Datum": _date_range_prop(data.start_date, data.end_date),
             "Art": _select(data.blackout_type.value),
             "Grund": _rich_text(data.reason),
             "Eingetragen von ID": _rich_text(entered_by_id),

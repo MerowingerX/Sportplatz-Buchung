@@ -7,7 +7,12 @@
     <div class="text-muted" style="font-size:0.8125rem;">{{ event.description }}</div>
     {% endif %}
   </td>
-  <td class="text-muted">{{ event.location or '–' }}</td>
+  <td class="text-muted">
+    {% if event.location %}
+    <a href="https://www.google.com/maps/dir/?api=1&destination={{ event.location | urlencode }}"
+       target="_blank" rel="noopener" style="color:inherit;">{{ event.location }}</a>
+    {% else %}–{% endif %}
+  </td>
   <td class="text-muted">{{ event.created_by_name }}</td>
   <td style="text-align:right;">
     <button class="btn btn--small btn--danger"

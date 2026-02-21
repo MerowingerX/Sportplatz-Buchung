@@ -1,0 +1,28 @@
+<tr id="series-{{ s.notion_id }}"
+    class="{% if s.status.value == 'Beendet' %}text-muted{% endif %}">
+  <td><strong>{{ s.mannschaft or '—' }}</strong></td>
+  <td>{{ s.field.value }}</td>
+  <td>{{ s.start_time.strftime('%H:%M') }}, {{ s.duration_min }} Min</td>
+  <td>{{ s.rhythm.value }}</td>
+  <td>
+    {{ s.start_date.strftime('%d.%m.%Y') }} –
+    {{ s.end_date.strftime('%d.%m.%Y') }}
+  </td>
+  <td>{{ s.trainer_name or s.booked_by_name }}</td>
+  <td>
+    <span class="badge badge--status-{{ s.status.value | lower | replace(' ', '-') }}">
+      {{ s.status.value }}
+    </span>
+  </td>
+  <td>
+    {% if s.status.value == 'Aktiv' %}
+      <button class="btn btn--ghost btn--sm"
+              hx-delete="/series/{{ s.notion_id }}"
+              hx-target="#series-{{ s.notion_id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Serie '{{ s.mannschaft }}' wirklich beenden? Alle zukünftigen Termine werden storniert.">
+        Serie beenden
+      </button>
+    {% endif %}
+  </td>
+</tr>

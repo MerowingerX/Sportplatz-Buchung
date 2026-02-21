@@ -162,7 +162,8 @@ class SeriesCreate(BaseModel):
 class BlackoutPeriod(BaseModel):
     notion_id: str
     title: str
-    date: date
+    start_date: date
+    end_date: date
     blackout_type: BlackoutType
     start_time: Optional[time] = None
     end_time: Optional[time] = None
@@ -172,7 +173,8 @@ class BlackoutPeriod(BaseModel):
 
 
 class BlackoutCreate(BaseModel):
-    date: date
+    start_date: date
+    end_date: date
     blackout_type: BlackoutType
     start_time: Optional[time] = None
     end_time: Optional[time] = None

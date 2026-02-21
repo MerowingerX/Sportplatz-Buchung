@@ -657,3 +657,84 @@ async def csv_import_confirm(
         msg += f" {displaced_total} bestehende Buchung(en) verdrängt."
 
     return HTMLResponse(_toast(msg, "warning" if skipped_known else "success"))
+
+
+# ── Spielplan-CSV von api-fussball.de abrufen ─────────────────────────────────
+
+import asyncio as _asyncio
+import importlib.util as _importlib_util
+import pathlib as _pathlib
+
+# Gemeinsamer Job-Zustand (einfaches In-Memory-Dict, ausreichend für Einzel-Nutzer)
+_spielplan_job: dict = {"running": False, "current": 0, "total": 0, "team": "", "result": "", "error": ""}
+
+
+def _load_fetch_mod():
+    script_path = _pathlib.Path(__file__).parent.parent.parent / "scripts" / "fetch_spielplan.py"
+    spec = _importlib_util.spec_from_file_location("fetch_spielplan", script_path)
+    mod  = _importlib_util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _run_generate_csv():
+    global _spielplan_job
+    mod = _load_fetch_mod()
+
+    def _cb(current: int, total: int, team_name: str):
+        _spielplan_job["current"] = current
+        _spielplan_job["total"]   = total
+        _spielplan_job["team"]    = team_name
+
+    try:
+        count, csv_path = mod.generate_csv(progress_cb=_cb)
+        _spielplan_job["result"] = f"{count} Heimspiele → {os.path.relpath(csv_path)}"
+        _spielplan_job["error"]  = ""
+    except Exception as exc:
+        _spielplan_job["error"]  = str(exc)
+        _spielplan_job["result"] = ""
+    finally:
+        _spielplan_job["running"] = False
+
+
+def _progress_toast(current: int, total: int, team: str) -> str:
+    label = f"{current} / {total}" if total else str(current)
+    team_short = team.split(" - ")[-1] if " - " in team else team
+    return (
+        f'<div id="toast" class="toast toast--progress"'
+        f' hx-get="/admin/fetch-spielplan/progress"'
+        f' hx-trigger="every 2s"'
+        f' hx-swap="outerHTML">'
+        f'&#8987; Spielplan wird geladen … {label}'
+        + (f'<br><small>{team_short}</small>' if team_short else '')
+        + '</div>'
+    )
+
+
+@router.post("/fetch-spielplan", response_class=HTMLResponse, dependencies=[_admin_required])
+async def fetch_spielplan(request: Request):
+    """Startet den Spielplan-Abruf im Hintergrund und gibt sofort einen Progress-Toast zurück."""
+    global _spielplan_job
+    if _spielplan_job.get("running"):
+        return HTMLResponse(_progress_toast(
+            _spielplan_job["current"], _spielplan_job["total"], _spielplan_job["team"]
+        ))
+    _spielplan_job = {"running": True, "current": 0, "total": 0, "team": "", "result": "", "error": ""}
+    loop = _asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_generate_csv)
+    return HTMLResponse(_progress_toast(0, 0, ""))
+
+
+@router.get("/fetch-spielplan/progress", response_class=HTMLResponse, dependencies=[_admin_required])
+async def fetch_spielplan_progress():
+    """Liefert den aktuellen Fortschritt des Spielplan-Abrufs."""
+    global _spielplan_job
+    if _spielplan_job.get("running"):
+        return HTMLResponse(_progress_toast(
+            _spielplan_job["current"], _spielplan_job["total"], _spielplan_job["team"]
+        ))
+    if _spielplan_job.get("error"):
+        return HTMLResponse(_toast(f'Fehler: {_spielplan_job["error"]}', "error"))
+    if _spielplan_job.get("result"):
+        return HTMLResponse(_toast(f'\u2705 {_spielplan_job["result"]}', "success"))
+    return HTMLResponse("")  # Kein aktiver Job

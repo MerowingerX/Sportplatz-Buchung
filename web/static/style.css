@@ -323,6 +323,9 @@ body {
 .slot--clickable { cursor: pointer; }
 .slot--clickable:hover { background: #dbeafe; }
 .slot--blocked { background: var(--color-slot-blocked); color: var(--color-danger); font-size: 0.7rem; align-items: center; justify-content: center; }
+.slot--platzsperre { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; align-items: center; justify-content: center; }
+.slot--platzsperre:hover { background: #fecaca; }
+.slot__platzsperre-label { font-size: 0.62rem; font-weight: 700; }
 .slot--unavailable { background: repeating-linear-gradient(135deg, var(--color-slot-free), var(--color-slot-free) 3px, var(--color-border) 3px, var(--color-border) 4px); cursor: not-allowed; }
 .slot--booked { cursor: default; }
 .slot--continuation { opacity: 0.7; border-top: 1px dashed rgba(0,0,0,0.15); }
@@ -383,6 +386,17 @@ body {
   margin-top: 0.5rem;
 }
 
+.platzsperre-warning {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+  color: #991b1b;
+  font-weight: 500;
+}
+
 .availability-result { margin-top: 0.5rem; }
 
 /* ===== Errors ===== */
@@ -433,9 +447,10 @@ body {
   transition: opacity 0.3s;
 }
 
-.toast--success { background: #166534; color: #fff; }
-.toast--error   { background: var(--color-danger); color: #fff; }
-.toast--hidden  { opacity: 0; pointer-events: none; }
+.toast--success  { background: #166534; color: #fff; }
+.toast--error    { background: var(--color-danger); color: #fff; }
+.toast--hidden   { opacity: 0; pointer-events: none; }
+.toast--progress { background: #1e3a5f; color: #fff; min-width: 220px; line-height: 1.5; }
 
 /* ===== Modal ===== */
 .modal {
