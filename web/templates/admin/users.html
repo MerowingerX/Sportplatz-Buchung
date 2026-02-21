@@ -7,78 +7,69 @@
   <a href="/admin" class="btn btn--ghost">← Admin</a>
 </div>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Rolle</th>
-      <th>Mannschaft</th>
-      <th>E-Mail</th>
-      <th>Aktionen</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for user in users %}
-    <tr>
-      <td>{{ user.name }}</td>
-      <td>{{ user.role.value }}</td>
-      <td>{{ user.mannschaft.value if user.mannschaft else '–' }}</td>
-      <td>{{ user.email }}</td>
-      <td>
-        <form class="inline-form"
-              hx-post="/admin/users/{{ user.notion_id }}/reset-password"
-              hx-target="#toast"
-              hx-swap="outerHTML"
-              hx-confirm="Passwort für '{{ user.name }}' wirklich zurücksetzen?">
-          <input type="password" name="new_password" placeholder="Neues PW" required minlength="8"
-                 class="input--small">
-          <button type="submit" class="btn btn--ghost btn--small">Reset</button>
-        </form>
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="5">Keine Nutzer vorhanden.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Rolle</th>
+        <th>Mannschaft</th>
+        <th>E-Mail</th>
+        <th>Passwort zurücksetzen</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+        {% include "partials/_user_row.html" %}
+      {% else %}
+      <tr><td colspan="6">Keine Nutzer vorhanden.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-<hr>
+<hr style="margin: 2rem 0;">
 
-<h2>Neuen Nutzer anlegen</h2>
-<form hx-post="/admin/users"
-      hx-target="#toast"
-      hx-swap="outerHTML">
-  <div class="form-row">
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" name="name" required>
+<h2 style="margin-bottom: 1rem;">Neuen Nutzer anlegen</h2>
+<div class="card">
+  <form hx-post="/admin/users"
+        hx-target="#toast"
+        hx-swap="outerHTML">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Name <span class="label-required">*</span></label>
+        <input type="text" name="name" required placeholder="Nutzername">
+      </div>
+      <div class="form-group">
+        <label>Rolle <span class="label-required">*</span></label>
+        <select name="role" required>
+          {% for r in roles %}
+            <option value="{{ r.value }}">{{ r.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>E-Mail <span class="label-required">*</span></label>
+        <input type="email" name="email" required placeholder="name@beispiel.de">
+      </div>
+      <div class="form-group">
+        <label>Passwort <span class="label-required">*</span></label>
+        <input type="password" name="password" required minlength="8" placeholder="mind. 8 Zeichen">
+      </div>
+      <div class="form-group">
+        <label>Mannschaft <span class="label-hint">(optional)</span></label>
+        <select name="mannschaft">
+          <option value="">– keine –</option>
+          {% for m in mannschaften %}
+            <option value="{{ m.value }}">{{ m.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Rolle</label>
-      <select name="role" required>
-        {% for r in roles %}
-          <option value="{{ r.value }}">{{ r.value }}</option>
-        {% endfor %}
-      </select>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Nutzer anlegen</button>
     </div>
-    <div class="form-group">
-      <label>E-Mail</label>
-      <input type="email" name="email" required>
-    </div>
-    <div class="form-group">
-      <label>Passwort</label>
-      <input type="password" name="password" required minlength="8">
-    </div>
-    <div class="form-group">
-      <label>Mannschaft <span class="label-hint">(optional)</span></label>
-      <select name="mannschaft">
-        <option value="">– keine –</option>
-        {% for m in mannschaften %}
-          <option value="{{ m.value }}">{{ m.value }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-  <button type="submit" class="btn btn--primary">Nutzer anlegen</button>
-</form>
+  </form>
+</div>
 {% endblock %}

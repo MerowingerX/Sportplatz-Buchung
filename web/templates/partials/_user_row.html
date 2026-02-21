@@ -1,0 +1,36 @@
+<tr id="user-{{ user.notion_id }}">
+  <td>{{ user.name }}</td>
+  <td>{{ user.role.value }}</td>
+  <td>{{ user.mannschaft.value if user.mannschaft else '–' }}</td>
+  <td>{{ user.email }}</td>
+  <td>
+    <form class="inline-form"
+          hx-post="/admin/users/{{ user.notion_id }}/reset-password"
+          hx-target="#toast"
+          hx-swap="outerHTML"
+          hx-confirm="Passwort für '{{ user.name }}' wirklich zurücksetzen?">
+      <input type="password" name="new_password" placeholder="Neues PW" required minlength="8"
+             class="input--small">
+      <button type="submit" class="btn btn--ghost btn--small">Reset</button>
+    </form>
+  </td>
+  <td style="text-align:right; white-space:nowrap;">
+    <button class="btn btn--secondary btn--small"
+            hx-get="/admin/users/{{ user.notion_id }}/edit"
+            hx-target="#user-{{ user.notion_id }}"
+            hx-swap="outerHTML">
+      Bearbeiten
+    </button>
+    {% if user.notion_id != current_user.sub %}
+    <button class="btn btn--danger btn--small"
+            hx-delete="/admin/users/{{ user.notion_id }}"
+            hx-target="#user-{{ user.notion_id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Nutzer '{{ user.name }}' wirklich löschen? Dies kann nicht rückgängig gemacht werden.">
+      Löschen
+    </button>
+    {% else %}
+    <span class="text-muted" style="font-size:0.8rem;">(du)</span>
+    {% endif %}
+  </td>
+</tr>

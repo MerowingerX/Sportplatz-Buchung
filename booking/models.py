@@ -54,6 +54,72 @@ class UserRole(str, Enum):
     DFBNET = "DFBnet"
 
 
+class Permission(str, Enum):
+    # Nutzerverwaltung
+    MANAGE_USERS        = "manage_users"        # anlegen, löschen, Passwort-Reset
+    # Admin-Dashboard
+    ACCESS_ADMIN        = "access_admin"
+    # Platzbuchungen
+    CREATE_BOOKING      = "create_booking"
+    DELETE_OWN_BOOKING  = "delete_own_booking"
+    DELETE_ALL_BOOKINGS = "delete_all_bookings"
+    # Externe Termine
+    CREATE_EVENT        = "create_event"
+    DELETE_OWN_EVENT    = "delete_own_event"
+    DELETE_ALL_EVENTS   = "delete_all_events"
+    # Aufgaben / Meldungen
+    CREATE_TASK         = "create_task"
+    DELETE_OWN_TASK     = "delete_own_task"
+    DELETE_ALL_TASKS    = "delete_all_tasks"
+    # Sperrzeiten & Serien
+    MANAGE_BLACKOUTS    = "manage_blackouts"
+    MANAGE_SERIES       = "manage_series"
+    # DFBnet
+    DFBNET_SPIELPLAN    = "dfbnet_spielplan"    # Spielplan abrufen / CSV-Import
+    DFBNET_BOOKING      = "dfbnet_booking"      # manuelle DFBnet-Buchung
+
+
+ROLE_PERMISSIONS: dict["UserRole", frozenset["Permission"]] = {
+    UserRole.ADMINISTRATOR: frozenset(Permission),  # alles
+    UserRole.DFBNET: frozenset({
+        Permission.ACCESS_ADMIN,
+        Permission.CREATE_BOOKING,
+        Permission.DELETE_OWN_BOOKING,
+        Permission.CREATE_EVENT,
+        Permission.DELETE_OWN_EVENT,
+        Permission.CREATE_TASK,
+        Permission.DELETE_OWN_TASK,
+        Permission.MANAGE_SERIES,
+        Permission.DFBNET_SPIELPLAN,
+        Permission.DFBNET_BOOKING,
+    }),
+    UserRole.PLATZWART: frozenset({
+        Permission.ACCESS_ADMIN,
+        Permission.CREATE_BOOKING,
+        Permission.DELETE_OWN_BOOKING,
+        Permission.CREATE_EVENT,
+        Permission.DELETE_OWN_EVENT,
+        Permission.CREATE_TASK,
+        Permission.DELETE_OWN_TASK,
+        Permission.DELETE_ALL_TASKS,
+        Permission.MANAGE_BLACKOUTS,
+    }),
+    UserRole.TRAINER: frozenset({
+        Permission.CREATE_BOOKING,
+        Permission.DELETE_OWN_BOOKING,
+        Permission.CREATE_EVENT,
+        Permission.DELETE_OWN_EVENT,
+        Permission.CREATE_TASK,
+        Permission.DELETE_OWN_TASK,
+    }),
+}
+
+
+def has_permission(role: "UserRole", permission: "Permission") -> bool:
+    """Prüft ob eine Rolle eine bestimmte Berechtigung hat."""
+    return permission in ROLE_PERMISSIONS.get(role, frozenset())
+
+
 class SeriesRhythm(str, Enum):
     WOECHENTLICH = "Wöchentlich"
     VIERZEHNTAGIG = "14-tägig"
@@ -256,6 +322,7 @@ class ExternalEvent(BaseModel):
     description: Optional[str] = None
     created_by_id: str
     created_by_name: str
+    mannschaft: Optional[str] = None   # Team, dem der Termin zugeordnet ist
 
 
 class ExternalEventCreate(BaseModel):
@@ -264,6 +331,7 @@ class ExternalEventCreate(BaseModel):
     start_time: time
     location: Optional[str] = None
     description: Optional[str] = None
+    mannschaft: Optional[str] = None   # Team, dem der Termin zugeordnet ist
 
 
 # JWT token payload (kein Pydantic-Model, nur TypedDict-ähnlich)

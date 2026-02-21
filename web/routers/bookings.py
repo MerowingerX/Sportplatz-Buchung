@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, Query, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from auth.dependencies import CurrentUser, require_role
+from auth.dependencies import CurrentUser, require_permission
 from booking.booking import build_booking, check_availability, dfbnet_displace
-from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Mannschaft, SeriesRhythm, UserRole
+from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Mannschaft, Permission, SeriesRhythm, has_permission
 from utils.time_slots import (
     compute_end_time,
     get_all_start_slots,
@@ -125,6 +125,15 @@ async def cancel_booking(
 ):
     repo = request.app.state.repo
     settings = get_settings()
+
+    # Eigentumscheck: nur eigene Buchungen stornieren, außer DELETE_ALL_BOOKINGS
+    if not has_permission(current_user.role, Permission.DELETE_ALL_BOOKINGS):
+        booking_check = repo.get_booking_by_id(booking_id)
+        if not booking_check:
+            return HTMLResponse(_toast("Buchung nicht gefunden.", "error"), status_code=404)
+        if booking_check.booked_by_id != current_user.sub:
+            return HTMLResponse(_toast("Keine Berechtigung.", "error"), status_code=403)
+
     booking = repo.update_booking_status(booking_id, BookingStatus.STORNIERT)
     invalidate_week_cache(booking.date)
     log_cancel(request, current_user.username, booking)

@@ -1,0 +1,37 @@
+<tr id="user-{{ user.notion_id }}" class="user-row--editing">
+  <td><strong>{{ user.name }}</strong></td>
+  <td>
+    <select name="role" class="input--small" style="width:120px;">
+      {% for r in roles %}
+        <option value="{{ r.value }}" {{ 'selected' if r.value == user.role.value }}>{{ r.value }}</option>
+      {% endfor %}
+    </select>
+  </td>
+  <td>
+    <select name="mannschaft" class="input--small" style="width:110px;">
+      <option value="">– keine –</option>
+      {% for m in mannschaften %}
+        <option value="{{ m.value }}" {{ 'selected' if user.mannschaft and user.mannschaft.value == m.value }}>{{ m.value }}</option>
+      {% endfor %}
+    </select>
+  </td>
+  <td>
+    <input type="email" name="email" value="{{ user.email }}" class="input--small" style="width:160px;" required>
+  </td>
+  <td></td>
+  <td style="text-align:right; white-space:nowrap;">
+    <button class="btn btn--primary btn--small"
+            hx-patch="/admin/users/{{ user.notion_id }}"
+            hx-include="closest tr"
+            hx-target="#user-{{ user.notion_id }}"
+            hx-swap="outerHTML">
+      Speichern
+    </button>
+    <button class="btn btn--ghost btn--small"
+            hx-get="/admin/users/{{ user.notion_id }}/row"
+            hx-target="#user-{{ user.notion_id }}"
+            hx-swap="outerHTML">
+      Abbrechen
+    </button>
+  </td>
+</tr>

@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from auth.dependencies import CurrentUser, require_role
-from booking.models import FieldName, Mannschaft, SeriesCreate, SeriesRhythm, UserRole
+from auth.dependencies import CurrentUser, require_permission
+from booking.models import FieldName, Mannschaft, Permission, SeriesCreate, SeriesRhythm, UserRole, has_permission
 
-_admin_required = Depends(require_role(UserRole.ADMINISTRATOR, UserRole.DFBNET))
+_series_required = Depends(require_permission(Permission.MANAGE_SERIES))
 from booking.series import (
     cancel_series,
     create_series_with_bookings,
@@ -25,7 +25,7 @@ def _toast(message: str, kind: str = "success") -> str:
     return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
 
 
-@router.get("", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("", response_class=HTMLResponse, dependencies=[_series_required])
 async def series_list(request: Request, current_user: CurrentUser):
     """Listet alle Serien auf."""
     repo = request.app.state.repo
@@ -36,7 +36,7 @@ async def series_list(request: Request, current_user: CurrentUser):
     )
 
 
-@router.get("/new", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("/new", response_class=HTMLResponse, dependencies=[_series_required])
 async def series_form(request: Request, current_user: CurrentUser):
     return templates.TemplateResponse(
         "partials/_series_form.html",
@@ -52,7 +52,7 @@ async def series_form(request: Request, current_user: CurrentUser):
     )
 
 
-@router.get("/trainers", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("/trainers", response_class=HTMLResponse, dependencies=[_series_required])
 async def get_trainers(request: Request, mannschaft: str):
     """Gibt <option>-Tags für alle Trainer einer Mannschaft zurück (HTMX).
     Wenn kein Trainer eingetragen ist, werden die Administratoren als Fallback angeboten."""
@@ -76,7 +76,7 @@ async def get_trainers(request: Request, mannschaft: str):
     return HTMLResponse('<option value="">– Kein Trainer oder Administrator gefunden –</option>')
 
 
-@router.post("", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("", response_class=HTMLResponse, dependencies=[_series_required])
 async def create_series(
     request: Request,
     current_user: CurrentUser,
@@ -195,7 +195,7 @@ async def remove_date(
         raise HTTPException(status_code=404, detail="Buchung nicht gefunden.")
 
     # Berechtigung prüfen: Admin oder zugewiesener Trainer der Serie
-    is_admin = current_user.role in (UserRole.ADMINISTRATOR, UserRole.DFBNET)
+    is_admin = has_permission(current_user.role, Permission.DELETE_ALL_BOOKINGS)
     is_series_trainer = False
 
     if booking_page.series_id:
@@ -214,7 +214,7 @@ async def remove_date(
     )
 
 
-@router.delete("/{series_id}", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.delete("/{series_id}", response_class=HTMLResponse, dependencies=[_series_required])
 async def cancel_series_endpoint(
     request: Request,
     series_id: str,

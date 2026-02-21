@@ -1,0 +1,132 @@
+{% set time_slots = ["16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"] %}
+{% set wochentage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
+{% set field_short = {
+  "Kura Ganz": "Ganz", "Kura Halb A": "Halb A", "Kura Halb B": "Halb B",
+  "Rasen Ganz": "Ganz", "Rasen Halb A": "Halb A", "Rasen Halb B": "Halb B",
+  "Halle Ganz": "Ganz", "Halle 2/3": "2/3", "Halle 1/3": "1/3",
+} %}
+{% set field_groups = [
+  ("Kura (Kunstrasen)", ["Kura Ganz", "Kura Halb A", "Kura Halb B"]),
+  ("Rasen (Naturrasen)", ["Rasen Ganz", "Rasen Halb A", "Rasen Halb B"]),
+  ("Turnhalle", ["Halle Ganz", "Halle 2/3", "Halle 1/3"]),
+] %}
+{% set conflict_sources = {
+  "Kura Ganz": ["Kura Halb A", "Kura Halb B"],
+  "Kura Halb A": ["Kura Ganz"],
+  "Kura Halb B": ["Kura Ganz"],
+  "Rasen Ganz": ["Rasen Halb A", "Rasen Halb B"],
+  "Rasen Halb A": ["Rasen Ganz"],
+  "Rasen Halb B": ["Rasen Ganz"],
+  "Halle Ganz": ["Halle 2/3", "Halle 1/3"],
+  "Halle 2/3": ["Halle Ganz"],
+  "Halle 1/3": ["Halle Ganz"],
+} %}
+{% set day_iso = day.isoformat() %}
+
+<!-- Tag-Navigation -->
+<div class="day-nav">
+  <button id="day-nav-prev" class="btn btn--ghost day-nav__btn"
+          hx-get="/calendar/day?d={{ prev_day.isoformat() }}"
+          hx-target="#calendar-week"
+          hx-swap="innerHTML">
+    &larr; {{ prev_day.strftime('%d.%m.') }}
+  </button>
+  <span class="day-nav__title">
+    {{ wochentage[day.weekday()] }}, {{ day.strftime('%d.%m.%Y') }}
+    {% if day_iso == today %}<span class="day-nav__today-badge">Heute</span>{% endif %}
+  </span>
+  <button id="day-nav-next" class="btn btn--ghost day-nav__btn"
+          hx-get="/calendar/day?d={{ next_day.isoformat() }}"
+          hx-target="#calendar-week"
+          hx-swap="innerHTML">
+    {{ next_day.strftime('%d.%m.') }} &rarr;
+  </button>
+</div>
+
+{% for group_name, group_fields in field_groups %}
+<section class="field-section">
+  <h2 class="field-section__title">{{ group_name }}</h2>
+  <div class="table-scroll">
+    <table class="cal-table cal-table--day">
+      <thead>
+        <tr>
+          <th class="cal-table__corner"></th>
+          {% for fname in group_fields %}
+            <th class="cal-table__field">{{ field_short[fname] }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for slot in time_slots %}
+        {% set slot_parts = slot.split(':') %}
+        {% set slot_time = time_module(slot_parts[0] | int, slot_parts[1] | int) %}
+        <tr>
+          <td class="cal-table__time">{{ slot }}</td>
+          {% for field_name in group_fields %}
+            {% set found_start = [] %}
+            {% set found_cont = [] %}
+            {% for b in bookings if b.field.value == field_name
+                  and b.start_time <= slot_time and b.end_time > slot_time %}
+              {% if b.start_time.strftime('%H:%M') == slot %}
+                {% set _ = found_start.append(b) %}
+              {% else %}
+                {% set _ = found_cont.append(b) %}
+              {% endif %}
+            {% endfor %}
+            {% set found = found_start + found_cont %}
+            {# Sperrzeiten nur für Rasen #}
+            {% set blocked = [] %}
+            {% if "Rasen" in field_name %}
+              {% for bl in blackouts if bl.start_date <= day and bl.end_date >= day %}
+                {% set _ = blocked.append(bl) %}
+              {% endfor %}
+            {% endif %}
+            {# Konfliktprüfung #}
+            {% set conflicted = [] %}
+            {% if not found and not blocked %}
+              {% for cf in conflict_sources.get(field_name, []) %}
+                {% for b in bookings if b.field.value == cf
+                      and b.start_time <= slot_time and b.end_time > slot_time %}
+                  {% set _ = conflicted.append(cf) %}
+                {% endfor %}
+              {% endfor %}
+            {% endif %}
+            <td class="cal-table__cell {% if day_iso == today %}cal-table__cell--today{% endif %}">
+              {% if found_start %}
+                {% include "partials/_booking_pill.html" with context %}
+              {% elif found_cont %}
+                {% set b = found_cont[0] %}
+                <div class="slot slot--booked slot--continuation slot--{{ b.booking_type.value | lower }}"
+                     title="{{ b.zweck or b.mannschaft or b.booked_by_name }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
+                  <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
+                </div>
+              {% elif blocked %}
+                {% set ps_reason = blocked[0].reason or "keine Angabe" %}
+                <button class="slot slot--platzsperre slot--clickable"
+                        hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
+                        hx-target="#booking-modal-content"
+                        hx-swap="innerHTML"
+                        onclick="document.getElementById('booking-modal').showModal()"
+                        title="Platzsperre: {{ ps_reason }}">
+                  <span class="slot__platzsperre-label">Pl.sperre</span>
+                </button>
+              {% elif conflicted %}
+                <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
+              {% else %}
+                <button class="slot slot--free slot--clickable"
+                        hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
+                        hx-target="#booking-modal-content"
+                        hx-swap="innerHTML"
+                        onclick="document.getElementById('booking-modal').showModal()"
+                        title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_short[field_name] }}">
+                </button>
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}

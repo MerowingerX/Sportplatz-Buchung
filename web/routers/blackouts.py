@@ -1,16 +1,18 @@
 from datetime import date
 
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from auth.dependencies import CurrentUser, require_role
-from booking.models import BlackoutCreate, BlackoutType, UserRole
+from auth.dependencies import CurrentUser, require_permission
+from booking.models import BlackoutCreate, BlackoutType, Permission
 from utils.time_slots import get_all_start_slots
 from web.routers.calendar import invalidate_week_cache
 
 router = APIRouter(prefix="/blackouts")
 templates = Jinja2Templates(directory="web/templates")
+
+_blackout_required = Depends(require_permission(Permission.MANAGE_BLACKOUTS))
 
 
 def _toast(message: str, kind: str = "success") -> str:
@@ -31,7 +33,7 @@ def _invalidate_range(start: date, end: date) -> None:
         d += timedelta(days=7)
 
 
-@router.get("", response_class=HTMLResponse)
+@router.get("", response_class=HTMLResponse, dependencies=[_blackout_required])
 async def blackouts_page(
     request: Request,
     current_user: CurrentUser,
@@ -50,7 +52,7 @@ async def blackouts_page(
     )
 
 
-@router.post("", response_class=HTMLResponse)
+@router.post("", response_class=HTMLResponse, dependencies=[_blackout_required])
 async def create_blackout(
     request: Request,
     current_user: CurrentUser,
@@ -110,7 +112,7 @@ async def create_blackout(
     )
 
 
-@router.delete("/{blackout_id}", response_class=HTMLResponse)
+@router.delete("/{blackout_id}", response_class=HTMLResponse, dependencies=[_blackout_required])
 async def delete_blackout(
     request: Request,
     blackout_id: str,

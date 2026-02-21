@@ -1,3 +1,8 @@
+{% set can_delete = current_user and (
+  current_user.role.value in ["Administrator", "DFBnet", "Platzwart"]
+  or event.created_by_id == current_user.sub
+  or (event.mannschaft and current_user.mannschaft == event.mannschaft)
+) %}
 <tr id="event-{{ event.notion_id }}">
   <td style="white-space: nowrap;">{{ event.date.strftime('%d.%m.%Y') }}</td>
   <td style="white-space: nowrap;">{{ event.start_time.strftime('%H:%M') }} Uhr</td>
@@ -13,8 +18,10 @@
        target="_blank" rel="noopener" style="color:inherit;">{{ event.location }}</a>
     {% else %}–{% endif %}
   </td>
+  <td class="text-muted">{{ event.mannschaft or '–' }}</td>
   <td class="text-muted">{{ event.created_by_name }}</td>
   <td style="text-align:right;">
+    {% if can_delete %}
     <button class="btn btn--small btn--danger"
             hx-delete="/events/{{ event.notion_id }}"
             hx-target="#event-{{ event.notion_id }}"
@@ -22,5 +29,6 @@
             hx-confirm="Termin „{{ event.title }}" wirklich löschen?">
       Löschen
     </button>
+    {% endif %}
   </td>
 </tr>

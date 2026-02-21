@@ -8,9 +8,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from auth.auth import hash_password
-from auth.dependencies import CurrentUser, require_role
+from auth.dependencies import CurrentUser, require_permission
 from booking.booking import dfbnet_displace
-from booking.models import BookingCreate, BookingType, FieldName, Mannschaft, UserCreate, UserRole
+from booking.models import BookingCreate, BookingType, FieldName, Mannschaft, Permission, UserCreate, UserRole
 from utils.time_slots import get_all_start_slots
 from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
@@ -19,7 +19,9 @@ router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="web/templates")
 templates.env.filters["enumerate"] = enumerate
 
-_admin_required = Depends(require_role(UserRole.ADMINISTRATOR, UserRole.DFBNET))
+_admin_required = Depends(require_permission(Permission.ACCESS_ADMIN))
+_manage_users   = Depends(require_permission(Permission.MANAGE_USERS))
+_dfbnet_required = Depends(require_permission(Permission.DFBNET_BOOKING))
 
 
 def _toast(message: str, kind: str = "success") -> str:
@@ -38,7 +40,7 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
 
 # ------------------------------------------------------------------ Nutzerverwaltung
 
-@router.get("/users", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("/users", response_class=HTMLResponse, dependencies=[_manage_users])
 async def users_page(request: Request, current_user: CurrentUser):
     repo = request.app.state.repo
     users = repo.get_all_users()
@@ -54,7 +56,7 @@ async def users_page(request: Request, current_user: CurrentUser):
     )
 
 
-@router.post("/users", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/users", response_class=HTMLResponse, dependencies=[_manage_users])
 async def create_user(
     request: Request,
     current_user: CurrentUser,
@@ -65,6 +67,8 @@ async def create_user(
     mannschaft: Optional[str] = Form(None),
 ):
     repo = request.app.state.repo
+    if repo.get_user_by_name(name):
+        return HTMLResponse(_toast(f"Nutzername '{name}' ist bereits vergeben.", "error"))
     user_data = UserCreate(
         name=name,
         role=UserRole(role),
@@ -77,7 +81,7 @@ async def create_user(
     return HTMLResponse(_toast(f"Nutzer '{name}' angelegt. Passwortänderung wird beim ersten Login erzwungen."))
 
 
-@router.post("/users/{user_id}/reset-password", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/users/{user_id}/reset-password", response_class=HTMLResponse, dependencies=[_manage_users])
 async def reset_user_password(
     request: Request,
     user_id: str,
@@ -92,14 +96,71 @@ async def reset_user_password(
     )
 
 
+def _user_row_ctx(user, current_user):
+    return {"user": user, "current_user": current_user, "roles": list(UserRole), "mannschaften": list(Mannschaft)}
+
+
+@router.get("/users/{user_id}/row", response_class=HTMLResponse, dependencies=[_manage_users])
+async def user_row(request: Request, user_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    user = repo.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(_toast("Nutzer nicht gefunden.", "error"), status_code=404)
+    return HTMLResponse(
+        templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user))
+    )
+
+
+@router.get("/users/{user_id}/edit", response_class=HTMLResponse, dependencies=[_manage_users])
+async def user_edit_row(request: Request, user_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    user = repo.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(_toast("Nutzer nicht gefunden.", "error"), status_code=404)
+    return HTMLResponse(
+        templates.get_template("partials/_user_row_edit.html").render(_user_row_ctx(user, current_user))
+    )
+
+
+@router.patch("/users/{user_id}", response_class=HTMLResponse, dependencies=[_manage_users])
+async def update_user(
+    request: Request,
+    user_id: str,
+    current_user: CurrentUser,
+    role: str = Form(...),
+    email: str = Form(...),
+    mannschaft: Optional[str] = Form(None),
+):
+    repo = request.app.state.repo
+    user = repo.update_user(user_id, role=role, email=email, mannschaft=mannschaft or None)
+    return HTMLResponse(
+        templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user))
+        + _toast(f"Nutzer '{user.name}' aktualisiert.")
+    )
+
+
+@router.delete("/users/{user_id}", response_class=HTMLResponse, dependencies=[_manage_users])
+async def delete_user(request: Request, user_id: str, current_user: CurrentUser):
+    if user_id == current_user.sub:
+        return HTMLResponse(_toast("Du kannst dich nicht selbst löschen.", "error"))
+    repo = request.app.state.repo
+    user = repo.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(_toast("Nutzer nicht gefunden.", "error"))
+    repo.delete_user(user_id)
+    return HTMLResponse(
+        f'<tr id="user-{user_id}"></tr>'
+        + _toast(f"Nutzer '{user.name}' gelöscht.")
+    )
+
+
 # ------------------------------------------------------------------ DFBnet-Buchung
 
-@router.get("/dfbnet", response_class=HTMLResponse)
+@router.get("/dfbnet", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def dfbnet_form(
     request: Request,
     current_user: CurrentUser,
 ):
-    require_role(UserRole.ADMINISTRATOR, UserRole.DFBNET)(current_user)
     return templates.TemplateResponse(
         "admin/dfbnet_booking.html",
         {
@@ -112,7 +173,7 @@ async def dfbnet_form(
     )
 
 
-@router.post("/dfbnet", response_class=HTMLResponse)
+@router.post("/dfbnet", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def create_dfbnet_booking(
     request: Request,
     current_user: CurrentUser,
@@ -122,7 +183,6 @@ async def create_dfbnet_booking(
     duration_min: int = Form(...),
 ):
     from datetime import time as dtime
-    require_role(UserRole.ADMINISTRATOR, UserRole.DFBNET)(current_user)
 
     repo = request.app.state.repo
     settings = get_settings()
@@ -322,7 +382,7 @@ def _parse_ics(content: bytes) -> list[dict]:
     return events
 
 
-@router.get("/dfbnet-import", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("/dfbnet-import", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def dfbnet_import_page(request: Request, current_user: CurrentUser):
     return templates.TemplateResponse(
         "admin/dfbnet_import.html",
@@ -330,7 +390,7 @@ async def dfbnet_import_page(request: Request, current_user: CurrentUser):
     )
 
 
-@router.post("/dfbnet-import", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/dfbnet-import", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def dfbnet_import_preview(
     request: Request,
     current_user: CurrentUser,
@@ -350,7 +410,7 @@ async def dfbnet_import_preview(
     )
 
 
-@router.post("/dfbnet-import/confirm", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/dfbnet-import/confirm", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def dfbnet_import_confirm(
     request: Request,
     current_user: CurrentUser,
@@ -518,7 +578,7 @@ def _save_csv_file(content: bytes, filename: str) -> str:
     return target
 
 
-@router.get("/csv-import", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("/csv-import", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def csv_import_page(request: Request, current_user: CurrentUser):
     return templates.TemplateResponse(
         "admin/csv_import.html",
@@ -526,7 +586,7 @@ async def csv_import_page(request: Request, current_user: CurrentUser):
     )
 
 
-@router.post("/csv-import", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/csv-import", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def csv_import_preview(
     request: Request,
     current_user: CurrentUser,
@@ -558,7 +618,7 @@ async def csv_import_preview(
     )
 
 
-@router.post("/csv-import/confirm", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/csv-import/confirm", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def csv_import_confirm(
     request: Request,
     current_user: CurrentUser,
@@ -711,7 +771,7 @@ def _progress_toast(current: int, total: int, team: str) -> str:
     )
 
 
-@router.post("/fetch-spielplan", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.post("/fetch-spielplan", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def fetch_spielplan(request: Request):
     """Startet den Spielplan-Abruf im Hintergrund und gibt sofort einen Progress-Toast zurück."""
     global _spielplan_job
@@ -725,7 +785,7 @@ async def fetch_spielplan(request: Request):
     return HTMLResponse(_progress_toast(0, 0, ""))
 
 
-@router.get("/fetch-spielplan/progress", response_class=HTMLResponse, dependencies=[_admin_required])
+@router.get("/fetch-spielplan/progress", response_class=HTMLResponse, dependencies=[_dfbnet_required])
 async def fetch_spielplan_progress():
     """Liefert den aktuellen Fortschritt des Spielplan-Abrufs."""
     global _spielplan_job

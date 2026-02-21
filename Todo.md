@@ -9,7 +9,7 @@
 
 ## Homepage – Eventliste
 - [ ] Anmeldung von Events durch Nutzer, nach Admin-Genehmigung in die Eventliste
-- [ ] Separate Eventliste pflegen (ohne Platzbuchung), auf der Startseite anzeigen
+- [x] Separate Eventliste pflegen (ohne Platzbuchung), auf der Startseite anzeigen
 
 ## DFBnet-Integration
 - [ ] Automatische Verarbeitung von DFBnet-E-Mails (Spielansetzung, Spielabsetzung, Spielverlegung) – Anmeldung durch Josh

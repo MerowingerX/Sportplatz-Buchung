@@ -15,10 +15,7 @@
 
 <!-- Kalender-Navigation & Wochenansicht -->
 <div id="calendar-container">
-  <div id="calendar-week"
-       hx-get="/calendar/week?year={{ year }}&week={{ week }}"
-       hx-trigger="load"
-       hx-swap="innerHTML">
+  <div id="calendar-week" hx-swap="innerHTML">
     <div class="loading">Lade Kalender…</div>
   </div>
 </div>
@@ -38,5 +35,31 @@
   document.body.addEventListener('closeModal', function() {
     document.getElementById('booking-modal').close();
   });
+
+  // Ansicht je nach Bildschirmbreite wählen
+  (function () {
+    const isMobile = window.innerWidth < 768;
+    const url = isMobile
+      ? '/calendar/day?d={{ today }}'
+      : '/calendar/week?year={{ year }}&week={{ week }}';
+    htmx.ajax('GET', url, { target: '#calendar-week', swap: 'innerHTML' });
+  })();
+
+  // Touch-Wischen zum Blättern (nur Tagesansicht)
+  (function () {
+    let startX = 0;
+    const container = document.getElementById('calendar-week');
+    container.addEventListener('touchstart', function (e) {
+      startX = e.touches[0].clientX;
+    }, { passive: true });
+    container.addEventListener('touchend', function (e) {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) < 60) return;
+      const btn = dx < 0
+        ? document.getElementById('day-nav-next')
+        : document.getElementById('day-nav-prev');
+      if (btn) btn.click();
+    });
+  })();
 </script>
 {% endblock %}

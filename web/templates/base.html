@@ -11,10 +11,13 @@
 
   <nav class="navbar">
     <a class="navbar__brand" href="/calendar">
-      <img src="/static/logo.svg" alt="" class="navbar__logo">
+      <img src="/static/wappen.png" alt="" class="navbar__logo">
       TuS Cremlingen – Buchung
     </a>
-    <div class="navbar__links">
+    <button class="navbar__hamburger" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar__links" id="nav-links">
       <a href="/calendar">Kalender</a>
       {% if current_user %}
         {% if current_user.role.value in ["Administrator", "DFBnet"] %}
@@ -34,6 +37,9 @@
         {% if current_user.role.value in ["Administrator", "DFBnet"] %}
           <a href="/series">Serien</a>
         {% endif %}
+        {% if current_user.role.value == "Administrator" %}
+          <a href="/admin/users">Nutzer</a>
+        {% endif %}
         <a href="/tasks">Aufgaben</a>
         <a href="/events">Termine</a>
         <span class="navbar__user">{{ current_user.username }} ({{ current_user.role.value }})</span>
@@ -52,7 +58,35 @@
   <!-- Toast-Container -->
   <div id="toast" class="toast toast--hidden" aria-live="polite"></div>
 
+  <!-- Loading-Overlay -->
+  <div id="loading-overlay" class="loading-overlay loading-overlay--hidden" role="status" aria-live="assertive">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <span class="loading-text" id="loading-text">Bitte warten …</span>
+    </div>
+  </div>
+
   <script>
+    // Hamburger-Menü
+    (function () {
+      const toggle = document.getElementById('nav-toggle');
+      const links  = document.getElementById('nav-links');
+      if (!toggle) return;
+      toggle.addEventListener('click', function () {
+        const open = links.classList.toggle('is-open');
+        toggle.setAttribute('aria-expanded', open);
+        toggle.classList.toggle('is-open', open);
+      });
+      // Menü schließen wenn Link oder Button geklickt
+      links.addEventListener('click', function (e) {
+        if (e.target.closest('a, button[type="submit"]')) {
+          links.classList.remove('is-open');
+          toggle.classList.remove('is-open');
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+
     // Toast auto-hide
     document.body.addEventListener('htmx:afterSwap', function(evt) {
       const toast = document.getElementById('toast');
@@ -60,6 +94,41 @@
         setTimeout(() => toast.classList.add('toast--hidden'), 3500);
       }
     });
+
+    // Loading-Overlay: erscheint bei jeder HTMX-Anfrage, verschwindet danach
+    (function () {
+      const overlay = document.getElementById('loading-overlay');
+      const loadingText = document.getElementById('loading-text');
+      let showTimer = null;
+
+      const LABELS = {
+        'POST':   'Wird gespeichert …',
+        'PATCH':  'Wird aktualisiert …',
+        'DELETE': 'Wird gelöscht …',
+        'GET':    'Wird geladen …',
+      };
+
+      function show(method) {
+        loadingText.textContent = LABELS[method] || 'Bitte warten …';
+        overlay.classList.remove('loading-overlay--hidden');
+      }
+
+      function hide() {
+        clearTimeout(showTimer);
+        showTimer = null;
+        overlay.classList.add('loading-overlay--hidden');
+      }
+
+      document.body.addEventListener('htmx:beforeRequest', function (evt) {
+        const method = (evt.detail.requestConfig?.verb || 'GET').toUpperCase();
+        // Kleiner Delay: verhindert Flackern bei schnellen Antworten
+        showTimer = setTimeout(() => show(method), 120);
+      });
+
+      document.body.addEventListener('htmx:afterRequest', hide);
+      // Fallback: auch bei Netzwerkfehlern ausblenden
+      document.body.addEventListener('htmx:sendError', hide);
+    })();
   </script>
 </body>
 </html>

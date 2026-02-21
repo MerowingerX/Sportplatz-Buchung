@@ -155,6 +155,7 @@ class NotionRepository:
         "Startzeit":         {"rich_text": {}},
         "Ort":               {"rich_text": {}},
         "Beschreibung":      {"rich_text": {}},
+        "Mannschaft":        {"rich_text": {}},
         "Erstellt von ID":   {"rich_text": {}},
         "Erstellt von Name": {"rich_text": {}},
     }
@@ -269,6 +270,19 @@ class NotionRepository:
             "Passwort ändern": _checkbox(True),
         })
         return self._page_to_user(page)
+
+    def update_user(
+        self, user_id: str, role: str, email: str, mannschaft: Optional[str]
+    ) -> User:
+        props: dict = {
+            "Rolle":  _select(role),
+            "E-Mail": _email(email),
+            "Mannschaft": _select(mannschaft) if mannschaft else {"select": None},
+        }
+        return self._page_to_user(self._update_page(user_id, props))
+
+    def delete_user(self, user_id: str) -> None:
+        self._client.pages.update(page_id=user_id, archived=True)
 
     def get_all_users(self) -> list[User]:
         pages = self._query_all(self._settings.notion_nutzer_db_id)
@@ -436,6 +450,7 @@ class NotionRepository:
             description=_get_rich_text(props, "Beschreibung") or None,
             created_by_id=_get_rich_text(props, "Erstellt von ID"),
             created_by_name=_get_rich_text(props, "Erstellt von Name"),
+            mannschaft=_get_rich_text(props, "Mannschaft") or None,
         )
 
     def get_upcoming_events(self, limit: int = 10) -> list[ExternalEvent]:
@@ -479,11 +494,20 @@ class NotionRepository:
             props["Ort"] = _rich_text(data.location)
         if data.description:
             props["Beschreibung"] = _rich_text(data.description)
+        if data.mannschaft:
+            props["Mannschaft"] = _rich_text(data.mannschaft)
         page = self._client.pages.create(
             parent={"database_id": db_id},
             properties=props,
         )
         return self._page_to_event(page)
+
+    def get_event_by_id(self, event_id: str) -> Optional["ExternalEvent"]:
+        try:
+            page = self._client.pages.retrieve(page_id=event_id)
+            return self._page_to_event(page)
+        except Exception:
+            return None
 
     def delete_event(self, event_id: str) -> None:
         self._client.pages.update(page_id=event_id, archived=True)
@@ -749,6 +773,13 @@ class NotionRepository:
     def update_aufgabe_status(self, aufgabe_id: str, status: AufgabeStatus) -> Aufgabe:
         page = self._update_page(aufgabe_id, {"Status": _select(status.value)})
         return self._page_to_aufgabe(page)
+
+    def get_aufgabe_by_id(self, aufgabe_id: str) -> Optional["Aufgabe"]:
+        try:
+            page = self._client.pages.retrieve(page_id=aufgabe_id)
+            return self._page_to_aufgabe(page)
+        except Exception:
+            return None
 
     def delete_aufgabe(self, aufgabe_id: str) -> None:
         self._client.pages.update(page_id=aufgabe_id, archived=True)
