@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     booking_url: str = "http://46.62.212.248:1946"
 
     # Standort (Sonnenuntergang)
-    location_lat: float = 48.137154
-    location_lon: float = 11.576124
-    location_name: str = "Munich/Germany"
+    location_lat: float = 52.264
+    location_lon: float = 10.639
+    location_name: str = "Cremlingen/Germany"
 
 
 _settings: Settings | None = None
