@@ -2,36 +2,53 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
+  /* TuS Cremlingen – Vereinsfarben Blau & Weiß */
+  --color-primary: #1e4fa3;
+  --color-primary-hover: #0d2f6b;
   --color-danger: #dc2626;
   --color-success: #16a34a;
   --color-warning: #d97706;
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-text-muted: #64748b;
-  --color-slot-free: #f1f5f9;
+  --color-bg: rgba(180, 212, 255, 0.55);
+  --color-surface: rgba(255, 255, 255, 0.90);
+  --color-border: rgba(100, 148, 218, 0.50);
+  --color-text: #0a1628;
+  --color-text-muted: #4a6080;
+  --color-slot-free: rgba(220, 236, 255, 0.50);
   --color-slot-training: #dbeafe;
   --color-slot-spiel: #fef3c7;
   --color-slot-turnier: #f3e8ff;
   --color-slot-blocked: #fee2e2;
   --radius: 6px;
-  --shadow: 0 1px 3px rgba(0,0,0,.1);
+  --shadow: 0 1px 3px rgba(0,0,0,.15);
 }
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: var(--color-bg);
+  background: linear-gradient(150deg, #1e4fa3 0%, #0d2f6b 50%, #071c44 100%) fixed;
   color: var(--color-text);
   line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* TuS Cremlingen Logo als transparentes Hintergrundwasserzeichen */
+body::before {
+  content: "";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(280px, 40vmin, 500px);
+  aspect-ratio: 3 / 4;
+  background: url('/static/logo.svg') no-repeat center / contain;
+  opacity: 0.20;
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* ===== Navbar ===== */
 .navbar {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: rgba(7, 28, 68, 0.93);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -39,14 +56,25 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  backdrop-filter: blur(4px);
 }
 
 .navbar__brand {
-  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
   font-weight: 700;
   text-decoration: none;
-  color: var(--color-text);
+  color: #fff;
+}
+
+.navbar__logo {
+  height: 40px;
+  width: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
 }
 
 .navbar__links {
@@ -56,16 +84,16 @@ body {
 }
 
 .navbar__links a {
-  color: var(--color-text);
+  color: rgba(255,255,255,0.82);
   text-decoration: none;
   font-size: 0.875rem;
 }
 
-.navbar__links a:hover { color: var(--color-primary); }
+.navbar__links a:hover { color: #fff; }
 
 .navbar__user {
   font-size: 0.875rem;
-  color: var(--color-text-muted);
+  color: rgba(255,255,255,0.55);
 }
 
 /* ===== Main Content ===== */
@@ -73,6 +101,8 @@ body {
   max-width: 100%;
   margin: 0 auto;
   padding: 2rem 1.5rem;
+  position: relative;
+  z-index: 1;
 }
 
 /* ===== Page Header ===== */
@@ -86,6 +116,8 @@ body {
 .page-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
 /* ===== Buttons ===== */
@@ -138,7 +170,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   font-size: 0.875rem;
-  background: var(--color-surface);
+  background: rgba(255, 255, 255, 0.95);
   color: var(--color-text);
 }
 
@@ -164,10 +196,12 @@ body {
 /* ===== Cards ===== */
 .card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(255,255,255,0.25);
   border-radius: var(--radius);
   padding: 1.25rem;
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .card h2 { font-size: 1.125rem; margin-bottom: 0.5rem; }
@@ -192,7 +226,9 @@ body {
 .week-nav__title {
   flex: 1;
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 .field-section {
@@ -201,10 +237,13 @@ body {
 
 .field-section__title {
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 0.75rem;
+  padding: 0.375rem 0.75rem 0.375rem 0;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--color-border);
+  border-bottom: 2px solid var(--color-primary);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 .calendar-grid {
@@ -252,7 +291,15 @@ body {
 }
 
 /* ===== Calendar Table (combined: days + fields) ===== */
-.table-scroll { overflow-x: auto; }
+.table-scroll {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
 
 .cal-table {
   width: 100%;
@@ -269,24 +316,25 @@ body {
   padding: 0.375rem 0;
   font-weight: 600;
   font-size: 0.8125rem;
-  background: var(--color-bg);
+  background: rgba(30, 79, 163, 0.12);
+  color: var(--color-primary);
   border-bottom: 1px solid var(--color-border);
   border-left: 2px solid var(--color-border);
 }
-.cal-table__day--today { background: #dbeafe; }
+.cal-table__day--today { background: rgba(30, 79, 163, 0.22); color: #0d2f6b; }
 .cal-table__date { font-weight: 400; color: var(--color-text-muted); font-size: 0.7rem; margin-left: 0.25rem; }
 
 .cal-table__field {
   text-align: center;
   padding: 0.2rem 0;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.675rem;
-  color: var(--color-text-muted);
-  background: var(--color-bg);
-  border-bottom: 2px solid var(--color-border);
+  color: var(--color-primary);
+  background: rgba(30, 79, 163, 0.08);
+  border-bottom: 2px solid rgba(30, 79, 163, 0.3);
   border-left: 1px solid var(--color-border);
 }
-.cal-table__field--today { background: #dbeafe; }
+.cal-table__field--today { background: rgba(30, 79, 163, 0.18); }
 
 .cal-table__time {
   font-size: 0.7rem;
@@ -303,7 +351,7 @@ body {
   height: 32px;
   vertical-align: top;
 }
-.cal-table__cell--today { background: #eff6ff; }
+.cal-table__cell--today { background: rgba(30, 79, 163, 0.05); }
 
 /* ===== Slots ===== */
 .slot {
@@ -449,6 +497,7 @@ body {
 
 .toast--success  { background: #166534; color: #fff; }
 .toast--error    { background: var(--color-danger); color: #fff; }
+.toast--warning  { background: #92400e; color: #fff; }
 .toast--hidden   { opacity: 0; pointer-events: none; }
 .toast--progress { background: #1e3a5f; color: #fff; min-width: 220px; line-height: 1.5; }
 
@@ -482,17 +531,18 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: var(--color-bg);
 }
 
 .login-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255,255,255,0.35);
   border-radius: var(--radius);
   padding: 2rem;
   width: 100%;
   max-width: 400px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .login-card__logo {
@@ -513,6 +563,13 @@ body {
   font-size: 0.75rem;
   margin-top: 1.25rem;
 }
+.login-card__logo-img {
+  width: 72px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+}
 
 /* ===== Table ===== */
 .table {
@@ -527,7 +584,7 @@ body {
   text-align: left;
 }
 
-.table th { font-weight: 600; background: var(--color-bg); }
+.table th { font-weight: 600; background: rgba(30, 79, 163, 0.12); color: var(--color-primary); }
 
 /* ===== Toggle Label ===== */
 .toggle-label {
