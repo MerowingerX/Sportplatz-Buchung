@@ -1,5 +1,5 @@
 {% set can_delete = current_user and (
-  current_user.role.value in ["Administrator", "DFBnet", "Platzwart"]
+  current_user.role.value == "Administrator"
   or event.created_by_id == current_user.sub
   or (event.mannschaft and current_user.mannschaft == event.mannschaft)
 ) %}

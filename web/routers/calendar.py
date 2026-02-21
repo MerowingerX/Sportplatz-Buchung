@@ -95,7 +95,7 @@ async def calendar_week(request: Request, current_user: CurrentUser, year: int, 
             "current_user": current_user,
             "bookings": bookings,
             "blackouts": blackouts,
-            "today": date.today().isoformat(),
+            "today": Date.today().isoformat(),
             **ctx,
         },
     )

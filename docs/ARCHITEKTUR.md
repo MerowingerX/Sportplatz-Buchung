@@ -18,6 +18,7 @@
    - [Sperrzeiten](#68-sperrzeiten)
 7. [API-Routen Übersicht](#7-api-routen-übersicht)
 8. [Infrastruktur & Betrieb](#8-infrastruktur--betrieb)
+9. [UI-Features](#9-ui-features)
 
 ---
 
@@ -151,6 +152,7 @@ class ExternalEvent {
   start_time: time
   location: str?
   description: str?
+  mannschaft: str?
   created_by_id: str
   created_by_name: str
 }
@@ -748,8 +750,9 @@ BL --> B : Toast "Sperrzeit gelöscht"
 ### Kalender
 | Methode | Route | Beschreibung | Berechtigung |
 |---|---|---|---|
-| GET | `/calendar` | Kalender-Seite | eingeloggt |
+| GET | `/calendar` | Kalender-Seite (lädt auto. Tag oder Woche per JS) | eingeloggt |
 | GET | `/calendar/week` | Wochenansicht (HTMX, gecacht) | eingeloggt |
+| GET | `/calendar/day?d=YYYY-MM-DD` | Tagesansicht für Mobilgeräte (HTMX, gecacht) | eingeloggt |
 
 ### Buchungen
 | Methode | Route | Beschreibung | Berechtigung |
@@ -781,7 +784,10 @@ BL --> B : Toast "Sperrzeit gelöscht"
 | Methode | Route | Beschreibung | Berechtigung |
 |---|---|---|---|
 | GET | `/admin` | Dashboard | Admin/DFBnet |
-| GET/POST | `/admin/users` | Nutzerverwaltung | Admin |
+| GET/POST | `/admin/users` | Nutzerliste + neuen Nutzer anlegen | Admin |
+| GET | `/admin/users/{id}/row` | Nutzerzeile (Anzeigemodus, HTMX) | Admin |
+| GET | `/admin/users/{id}/edit` | Nutzerzeile (Bearbeitungsmodus, HTMX) | Admin |
+| PATCH | `/admin/users/{id}` | Nutzer aktualisieren (Rolle, E-Mail, Mannschaft) | Admin |
 | POST | `/admin/users/{id}/reset-password` | Passwort zurücksetzen | Admin |
 | GET/POST | `/admin/dfbnet` | DFBnet-Einzelbuchung | Admin/DFBnet |
 | GET/POST | `/admin/dfbnet-import` | ICS-Datei importieren | Admin/DFBnet |
@@ -846,3 +852,53 @@ Alle sicherheitsrelevanten Ereignisse werden in `logs/audit.log` geschrieben (Ro
 2026-02-21 15:01:18 AUDIT CANCEL booking_id=abc-123 user=frank.simon
 2026-02-21 18:00:00 AUDIT LOGOUT user=frank.simon
 ```
+
+---
+
+## 9. UI-Features
+
+### 9.1 Responsive Kalender (Mobilgeräte)
+
+Bei `window.innerWidth < 768` lädt `calendar.html` automatisch die **Tagesansicht** (`/calendar/day`) statt der Wochenansicht per `htmx.ajax()`. Die Tagesansicht enthält Vor-/Zurück-Navigation und wird durch Wischgesten (Touch-Swipe, Schwelle 60 px) bedienbar.
+
+Auf Desktop wird weiterhin die klassische 7-Spalten-Wochenansicht geladen.
+
+### 9.2 Hamburger-Navigation
+
+Auf Mobilgeräten (< 768 px) wird die Navigationsleiste durch einen Hamburger-Button ersetzt. Beim Öffnen animiert sich das Icon zu einem ✕; nach Klick auf einen Link schließt sich das Menü automatisch.
+
+Implementierung: `web/templates/base.html` (Button + JS), `web/static/style.css` (CSS-Animation, `@media (max-width: 767px)`).
+
+### 9.3 Lade-Overlay
+
+Bei jedem HTMX-Request erscheint nach 120 ms eine zentrierte Overlay-Box mit Spinner und kontextabhängigem Text:
+
+| HTTP-Verb | Anzeigetext |
+|---|---|
+| POST | Wird gespeichert … |
+| PATCH | Wird aktualisiert … |
+| DELETE | Wird gelöscht … |
+| GET | Wird geladen … |
+
+Das Overlay verschwindet automatisch nach `htmx:afterRequest` bzw. `htmx:sendError`. Implementierung: `web/templates/base.html` (JS), `web/static/style.css` (`.loading-overlay`).
+
+### 9.4 Inline-Nutzereditor (Admin)
+
+In der Nutzerverwaltung (`/admin/users`) können Administratoren Nutzer direkt in der Tabelle bearbeiten (Rolle, E-Mail, Mannschaft). Das Muster folgt dem HTMX-Zeilenswap:
+
+```
+Klick "Bearbeiten"  →  GET /admin/users/{id}/edit   →  Formularzeile (outerHTML)
+Klick "Speichern"   →  PATCH /admin/users/{id}       →  Anzeigezeile (outerHTML) + Toast
+Klick "Abbrechen"   →  GET /admin/users/{id}/row     →  Anzeigezeile (outerHTML)
+```
+
+`hx-include="closest tr"` serialisiert alle Eingaben der Tabellenzeile für den PATCH-Request.
+
+### 9.5 Externe Termine mit Mannschaftszuordnung
+
+Externe Termine (`/events`) können einer Mannschaft zugeordnet werden. Dadurch darf der Trainer der jeweiligen Mannschaft den Termin auch dann löschen, wenn er von einem Administrator angelegt wurde.
+
+Löschen-Berechtigungslogik (Server und Template stimmen überein):
+- Administrator: darf alle Termine löschen
+- Ersteller (`created_by_id == current_user.sub`): darf eigenen Termin löschen
+- Mannschaftstrainer (`event.mannschaft == current_user.mannschaft`): darf Termine seiner Mannschaft löschen

@@ -7,3 +7,7 @@
 2026-02-21 13:50:32 | LOGIN     | 89.182.202.56        | frank                | OK
 2026-02-21 19:14:07 | BUCHUNG   | 89.182.202.56        | frank                | Kura Halb A      | 26.02.2026 | 19:30 | 90 min | Training
 2026-02-21 19:14:35 | BUCHUNG   | 89.182.202.56        | frank                | Kura Halb B      | 26.02.2026 | 19:00 | 90 min | Training
+2026-02-21 19:48:25 | STORNO    | 89.182.202.56        | frank                | Kura Halb A      | 26.02.2026 | 19:30
+2026-02-21 19:48:34 | STORNO    | 89.182.202.56        | frank                | Kura Halb B      | 26.02.2026 | 19:00
+2026-02-21 19:49:07 | BUCHUNG   | 89.182.202.56        | frank                | Kura Halb A      | 26.02.2026 | 19:30 | 90 min | Training
+2026-02-21 19:49:24 | BUCHUNG   | 89.182.202.56        | frank                | Kura Halb B      | 26.02.2026 | 19:00 | 90 min | Training
