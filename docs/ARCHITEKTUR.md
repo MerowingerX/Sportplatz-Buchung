@@ -26,38 +26,25 @@
 
 Das System besteht aus **zwei unabhängigen Webdiensten** und **Notion als Datenbank**:
 
-```plantuml
-@startuml
-!theme plain
-skinparam componentStyle rectangle
+```mermaid
+flowchart LR
+    visitor(["Besucher\n(öffentlich)"])
+    user(["Trainer / Admin"])
+    admin(["DFBnet / Admin"])
 
-actor "Besucher (öffentlich)" as visitor
-actor "Trainer / Admin" as user
-actor "DFBnet / Admin" as admin
+    subgraph server["Server (46.62.212.248)"]
+        direction TB
+        hp["Homepage\n(Port 8046)\nhomepage/main.py"]
+        bs["Buchungssystem\n(Port 1946)\nweb/main.py"]
+        notion[("Notion API\n──────────\n6 Datenbanken:\nBuchungen · Serien\nSperrzeiten · Nutzer\nAufgaben · Events")]
+    end
 
-package "Server (46.62.212.248)" {
-  component "Homepage\n(Port 8046)\nhomepage/main.py" as hp
-  component "Buchungssystem\n(Port 1946)\nweb/main.py" as bs
-  database "Notion API" as notion
-}
-
-visitor --> hp : öffentliche\nPlatz-Verfügbarkeit
-user --> bs : Login, Buchungen\nVerwalten
-admin --> bs : DFBnet-Import\nSerien, Admin
-hp --> notion : Buchungen lesen\nSpiele lesen\nSperrzeiten lesen
-bs --> notion : CRUD alle Entitäten
-bs --> hp : Link (booking_url)
-
-note right of notion
-  6 Datenbanken:
-  - Buchungen
-  - Serien
-  - Sperrzeiten
-  - Nutzer
-  - Aufgaben
-  - Externe Events
-end note
-@enduml
+    visitor -->|"öffentliche Platz-Verfügbarkeit"| hp
+    user -->|"Login, Buchungen verwalten"| bs
+    admin -->|"DFBnet-Import, Serien, Admin"| bs
+    hp -->|"Buchungen / Spiele / Sperrzeiten lesen"| notion
+    bs -->|"CRUD alle Entitäten"| notion
+    bs -.->|"Link (booking_url)"| hp
 ```
 
 ---
@@ -78,167 +65,160 @@ end note
 
 ## 3. Datenmodelle
 
-```plantuml
-@startuml
-!theme plain
-skinparam classAttributeIconSize 0
+```mermaid
+classDiagram
+    class Booking {
+        notion_id: str
+        title: str
+        field: FieldName
+        date: date
+        start_time: time
+        end_time: time
+        duration_min: int
+        booking_type: BookingType
+        booked_by_id: str
+        booked_by_name: str
+        role: UserRole
+        status: BookingStatus
+        mannschaft: str?
+        zweck: str?
+        kontakt: str?
+        series_id: str?
+        series_exception: bool
+        sunset_note: str?
+        spielkennung: str?
+    }
 
-class Booking {
-  notion_id: str
-  title: str
-  field: FieldName
-  date: date
-  start_time: time
-  end_time: time
-  duration_min: int
-  booking_type: BookingType
-  booked_by_id: str
-  booked_by_name: str
-  role: UserRole
-  status: BookingStatus
-  mannschaft: str?
-  zweck: str?
-  kontakt: str?
-  series_id: str?
-  series_exception: bool
-  sunset_note: str?
-  spielkennung: str?
-}
+    class Series {
+        notion_id: str
+        title: str
+        field: FieldName
+        start_time: time
+        duration_min: int
+        rhythm: SeriesRhythm
+        start_date: date
+        end_date: date
+        booked_by_id: str
+        booked_by_name: str
+        status: SeriesStatus
+        mannschaft: str?
+        trainer_id: str?
+        trainer_name: str?
+    }
 
-class Series {
-  notion_id: str
-  title: str
-  field: FieldName
-  start_time: time
-  duration_min: int
-  rhythm: SeriesRhythm
-  start_date: date
-  end_date: date
-  booked_by_id: str
-  booked_by_name: str
-  status: SeriesStatus
-  mannschaft: str?
-  trainer_id: str?
-  trainer_name: str?
-}
+    class BlackoutPeriod {
+        notion_id: str
+        title: str
+        start_date: date
+        end_date: date
+        blackout_type: BlackoutType
+        start_time: time?
+        end_time: time?
+        reason: str
+        entered_by_id: str
+        entered_by_name: str
+    }
 
-class BlackoutPeriod {
-  notion_id: str
-  title: str
-  start_date: date
-  end_date: date
-  blackout_type: BlackoutType
-  start_time: time?
-  end_time: time?
-  reason: str
-  entered_by_id: str
-  entered_by_name: str
-}
+    class User {
+        notion_id: str
+        name: str
+        role: UserRole
+        email: str
+        password_hash: str
+        mannschaft: Mannschaft?
+        must_change_password: bool
+    }
 
-class User {
-  notion_id: str
-  name: str
-  role: UserRole
-  email: str
-  password_hash: str
-  mannschaft: Mannschaft?
-  must_change_password: bool
-}
+    class ExternalEvent {
+        notion_id: str
+        title: str
+        date: date
+        start_time: time
+        location: str?
+        description: str?
+        mannschaft: str?
+        created_by_id: str
+        created_by_name: str
+    }
 
-class ExternalEvent {
-  notion_id: str
-  title: str
-  date: date
-  start_time: time
-  location: str?
-  description: str?
-  mannschaft: str?
-  created_by_id: str
-  created_by_name: str
-}
+    class Aufgabe {
+        notion_id: str
+        titel: str
+        typ: AufgabeTyp
+        status: AufgabeStatus
+        prioritaet: Prioritaet
+        erstellt_von_id: str
+        erstellt_von_name: str
+        erstellt_am: date
+        faellig_am: date?
+        ort: str?
+        beschreibung: str?
+    }
 
-class Aufgabe {
-  notion_id: str
-  titel: str
-  typ: AufgabeTyp
-  status: AufgabeStatus
-  prioritaet: Prioritaet
-  erstellt_von_id: str
-  erstellt_von_name: str
-  erstellt_am: date
-  faellig_am: date?
-  ort: str?
-  beschreibung: str?
-}
+    class UserRole {
+        <<enumeration>>
+        TRAINER
+        ADMINISTRATOR
+        PLATZWART
+        DFBNET
+    }
 
-enum UserRole {
-  TRAINER
-  ADMINISTRATOR
-  PLATZWART
-  DFBNET
-}
+    class BookingStatus {
+        <<enumeration>>
+        BESTAETIGT
+        STORNIERT
+        STORNIERT_DFBNET
+    }
 
-enum BookingStatus {
-  BESTAETIGT
-  STORNIERT
-  STORNIERT_DFBNET
-}
+    class BlackoutType {
+        <<enumeration>>
+        GANZTAEGIG
+        ZEITLICH
+    }
 
-enum BlackoutType {
-  GANZTAEGIG
-  ZEITLICH
-}
+    class SeriesStatus {
+        <<enumeration>>
+        AKTIV
+        PAUSIERT
+        BEENDET
+    }
 
-enum SeriesStatus {
-  AKTIV
-  PAUSIERT
-  BEENDET
-}
-
-Booking "N" --> "0..1" Series : series_id
-Booking --> BookingStatus
-Booking --> UserRole
-User --> UserRole
-BlackoutPeriod --> BlackoutType
-Series --> SeriesStatus
-@enduml
+    Booking "N" --> "0..1" Series : series_id
+    Booking --> BookingStatus
+    Booking --> UserRole
+    User --> UserRole
+    BlackoutPeriod --> BlackoutType
+    Series --> SeriesStatus
 ```
 
 ### Konflikt-Mapping der Plätze
 
-```plantuml
-@startuml
-!theme plain
-skinparam rectangle {
-  BackgroundColor<<ganz>> #ffcccc
-  BackgroundColor<<halb>> #ffe0b2
-}
+```mermaid
+flowchart TD
+    subgraph kura["Kunstrasen (Kura)"]
+        KG["Kura Ganz"]
+        KHA["Kura Halb A"]
+        KHB["Kura Halb B"]
+    end
+    subgraph rasen["Naturrasen (Rasen)"]
+        RG["Rasen Ganz"]
+        RHA["Rasen Halb A"]
+        RHB["Rasen Halb B"]
+    end
+    subgraph halle["Turnhalle"]
+        HG["Halle Ganz"]
+        HZD["Halle 2/3"]
+        HED["Halle 1/3"]
+    end
 
-package "Kunstrasen (Kura)" {
-  rectangle "Kura Ganz" <<ganz>>
-  rectangle "Kura Halb A" <<halb>>
-  rectangle "Kura Halb B" <<halb>>
-}
+    KG <-->|"sperrt gegenseitig"| KHA
+    KG <-->|"sperrt gegenseitig"| KHB
+    RG <-->|"sperrt gegenseitig"| RHA
+    RG <-->|"sperrt gegenseitig"| RHB
+    HG <-->|"sperrt gegenseitig"| HZD
+    HG <-->|"sperrt gegenseitig"| HED
 
-package "Naturrasen (Rasen)" {
-  rectangle "Rasen Ganz" <<ganz>>
-  rectangle "Rasen Halb A" <<halb>>
-  rectangle "Rasen Halb B" <<halb>>
-}
-
-package "Turnhalle" {
-  rectangle "Halle Ganz" <<ganz>>
-  rectangle "Halle 2/3" <<halb>>
-  rectangle "Halle 1/3" <<halb>>
-}
-
-note bottom of "Kunstrasen (Kura)"
-  Ganz sperrt Halb A + B
-  Halb A sperrt Ganz
-  Halb B sperrt Ganz
-  (Halb A + Halb B können gleichzeitig laufen)
-end note
-@enduml
+    note1["Halb A + Halb B\nkönnen gleichzeitig laufen\n(gilt für alle Platztypen)"]
 ```
 
 ---
@@ -330,409 +310,316 @@ Sportplatz-Buchung/
 
 ### 6.1 Login & Session
 
-```plantuml
-@startuml
-!theme plain
-actor Nutzer
-participant "Browser" as B
-participant "auth.py\n/login" as AUTH
-participant "NotionRepository" as NR
-participant "Notion API" as N
+```mermaid
+sequenceDiagram
+    actor Nutzer
+    participant B as Browser
+    participant AUTH as auth.py /login
+    participant NR as NotionRepository
+    participant N as Notion API
 
-Nutzer -> B : Formular absenden\n(username, password)
-B -> AUTH : POST /login
-AUTH -> NR : get_user_by_name(username)
-NR -> N : Query Nutzer-DB\n(filter: Name = username)
-N --> NR : User-Page
-NR --> AUTH : User-Objekt (mit password_hash)
+    Nutzer->>B: Formular absenden (username, password)
+    B->>AUTH: POST /login
+    AUTH->>NR: get_user_by_name(username)
+    NR->>N: Query Nutzer-DB (filter: Name = username)
+    N-->>NR: User-Page
+    NR-->>AUTH: User-Objekt (mit password_hash)
 
-alt Nutzer nicht gefunden oder Passwort falsch
-  AUTH -> NR : [kein Nutzer] / verify_password → False
-  AUTH --> B : 401, login.html mit Fehlermeldung
-  AUTH -> AUTH : log_login_fail()
-else Passwort korrekt
-  AUTH -> AUTH : log_login_ok()
-  AUTH -> AUTH : create_jwt(user_id, name, role, ...)
-  alt must_change_password = True
-    AUTH --> B : Redirect → /change-password\n+ Set-Cookie: session=<JWT>
-  else
-    AUTH --> B : Redirect → /calendar\n+ Set-Cookie: session=<JWT>
-  end
-end
+    alt Nutzer nicht gefunden oder Passwort falsch
+        AUTH->>NR: [kein Nutzer] / verify_password → False
+        AUTH-->>B: 401, login.html mit Fehlermeldung
+        AUTH->>AUTH: log_login_fail()
+    else Passwort korrekt
+        AUTH->>AUTH: log_login_ok()
+        AUTH->>AUTH: create_jwt(user_id, name, role, ...)
+        alt must_change_password = True
+            AUTH-->>B: Redirect → /change-password + Set-Cookie session=JWT
+        else normal
+            AUTH-->>B: Redirect → /calendar + Set-Cookie session=JWT
+        end
+    end
 
-note right of AUTH
-  JWT enthält:
-  - sub (notion_id)
-  - username
-  - role
-  - mannschaft
-  - must_change_password
-  - exp (8h)
-  Cookie: httponly, samesite=lax
-end note
-@enduml
+    Note right of AUTH: JWT enthält: sub (notion_id), username,<br/>role, mannschaft, must_change_password,<br/>exp (8h) · Cookie: httponly, samesite=lax
 ```
 
 ---
 
 ### 6.2 Einzelbuchung erstellen
 
-```plantuml
-@startuml
-!theme plain
-actor Nutzer
-participant "Browser\n(HTMX)" as B
-participant "bookings.py\nPOST /bookings" as BK
-participant "booking.py\nbuild_booking()" as LOGIC
-participant "NotionRepository" as NR
-participant "notify.py" as MAIL
+```mermaid
+sequenceDiagram
+    actor Nutzer
+    participant B as Browser (HTMX)
+    participant BK as bookings.py POST /bookings
+    participant LOGIC as booking.py build_booking()
+    participant NR as NotionRepository
+    participant MAIL as notify.py
 
-Nutzer -> B : Slot anklicken
-B -> B : GET /bookings?date=&field=&start_time=\n(Formular laden via HTMX → Modal)
-Nutzer -> B : Formular ausfüllen & absenden
+    Nutzer->>B: Slot anklicken
+    B->>B: GET /bookings?date=&field=&start_time= (Modal laden)
+    Nutzer->>B: Formular ausfüllen & absenden
+    B->>BK: POST /bookings (field, date, start_time, duration_min, booking_type)
 
-B -> BK : POST /bookings\n(field, date, start_time, duration_min, booking_type)
+    BK->>NR: get_bookings_for_date(date)
+    NR-->>BK: existing_bookings (nur Status=Bestätigt)
 
-BK -> NR : get_bookings_for_date(date)
-NR --> BK : existing_bookings (nur Status=Bestätigt)
+    opt Rasen-Platz
+        BK->>NR: get_blackouts_for_date(date)
+        NR-->>BK: blackouts
+    end
 
-opt Rasen-Platz
-  BK -> NR : get_blackouts_for_date(date)
-  NR --> BK : blackouts
-end
+    BK->>LOGIC: build_booking(data, existing, blackouts)
 
-BK -> LOGIC : build_booking(data, existing, blackouts)
+    rect rgba(200, 220, 255, 0.3)
+        Note over LOGIC: Validierung
+        LOGIC->>LOGIC: validate_booking_input() – Dauer gültig? Start gültig? Endet vor 22h?
+        LOGIC->>LOGIC: check_availability() – Konflikt-Felder belegt?
+        opt Rasen + Sperrzeit
+            LOGIC->>LOGIC: check_blackout() → platzsperre_note (kein Hard-Block)
+        end
+        opt Rasen
+            LOGIC->>LOGIC: sunset_warning_text() → sunset_note
+        end
+    end
 
-group Validierung
-  LOGIC -> LOGIC : validate_booking_input()\n(Dauer gültig? Start gültig? Endet vor 22h?)
-  LOGIC -> LOGIC : check_availability()\n(Konflikt-Felder belegt?)
-  opt Rasen + Sperrzeit
-    LOGIC -> LOGIC : check_blackout()\n→ platzsperre_note (kein Hard-Block)
-  end
-  opt Rasen
-    LOGIC -> LOGIC : sunset_warning_text()\n→ sunset_note
-  end
-end
-
-alt Validierung fehlgeschlagen
-  LOGIC --> BK : (None, [Fehler])
-  BK --> B : 422 + Fehlermeldung
-else Validierung erfolgreich
-  LOGIC -> NR : create_booking(data, ...)
-  NR --> LOGIC : Booking-Objekt
-  LOGIC --> BK : (Booking, [])
-
-  BK -> BK : invalidate_week_cache(date)
-  BK -> BK : log_booking()
-  BK -> MAIL : send_booking_confirmation()
-  BK --> B : Toast + Kalender-Refresh (HTMX OOB)
-end
-@enduml
+    alt Validierung fehlgeschlagen
+        LOGIC-->>BK: (None, [Fehler])
+        BK-->>B: 422 + Fehlermeldung
+    else Validierung erfolgreich
+        LOGIC->>NR: create_booking(data, ...)
+        NR-->>LOGIC: Booking-Objekt
+        LOGIC-->>BK: (Booking, [])
+        BK->>BK: invalidate_week_cache(date)
+        BK->>BK: log_booking()
+        BK->>MAIL: send_booking_confirmation()
+        BK-->>B: Toast + Kalender-Refresh (HTMX OOB)
+    end
 ```
 
 ---
 
 ### 6.3 Buchung stornieren
 
-```plantuml
-@startuml
-!theme plain
-actor Nutzer
-participant "Browser\n(HTMX)" as B
-participant "bookings.py\nDELETE /bookings/{id}" as BK
-participant "NotionRepository" as NR
-participant "notify.py" as MAIL
+```mermaid
+sequenceDiagram
+    actor Nutzer
+    participant B as Browser (HTMX)
+    participant BK as bookings.py DELETE /bookings/{id}
+    participant NR as NotionRepository
+    participant MAIL as notify.py
 
-Nutzer -> B : ✕-Button klicken\n(hx-confirm → Bestätigung)
-B -> BK : DELETE /bookings/{booking_id}
+    Nutzer->>B: ✕-Button klicken (hx-confirm → Bestätigung)
+    B->>BK: DELETE /bookings/{booking_id}
+    BK->>NR: update_booking_status(id, STORNIERT)
+    NR-->>BK: Booking (aktualisiert)
+    BK->>BK: invalidate_week_cache()
+    BK->>BK: log_cancel()
+    BK->>MAIL: send_cancellation_notice() – an Buchenden
+    BK-->>B: Slot wird frei (HTMX outerHTML) + Toast
 
-BK -> NR : update_booking_status(id, STORNIERT)
-NR --> BK : Booking (aktualisiert)
-
-BK -> BK : invalidate_week_cache()
-BK -> BK : log_cancel()
-BK -> MAIL : send_cancellation_notice()\n(an Buchenden)
-BK --> B : Slot wird frei (HTMX outerHTML)\n+ Toast
-
-note right of BK
-  Bei Serienbuchungen:
-  hx-patch → /series/{id}/remove-date
-  → Status=Storniert
-  → Serienausnahme=True
-end note
-@enduml
+    Note right of BK: Bei Serienbuchungen:<br/>hx-patch → /series/{id}/remove-date<br/>→ Status=Storniert, Serienausnahme=True
 ```
 
 ---
 
 ### 6.4 Serienbuchung anlegen
 
-```plantuml
-@startuml
-!theme plain
-actor Admin
-participant "Browser\n(HTMX)" as B
-participant "series.py\nPOST /series" as SR
-participant "series.py\ncreate_series_with_bookings()" as LOGIC
-participant "NotionRepository" as NR
-participant "notify.py" as MAIL
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant B as Browser (HTMX)
+    participant SR as series.py POST /series
+    participant LOGIC as series.py create_series_with_bookings()
+    participant NR as NotionRepository
+    participant MAIL as notify.py
 
-Admin -> B : Serienbuchungs-Formular\n(Platz, Zeit, Mannschaft,\nTrainer, Start, Ende, Rhythmus)
+    Admin->>B: Serienbuchungs-Formular (Platz, Zeit, Mannschaft, Trainer, Start, Ende, Rhythmus)
+    Note over B: GET /series/trainers?mannschaft=X<br/>→ Trainer-Dropdown per HTMX<br/>→ Falls kein Trainer: Admins als Fallback
 
-note over B
-  GET /series/trainers?mannschaft=X
-  → Trainer-Dropdown per HTMX
-  → Falls kein Trainer: Admins als Fallback
-end note
+    B->>SR: POST /series
+    SR->>SR: Validierung (Enddatum > Startdatum? Saisonende = 30.06. als max)
+    SR->>NR: get_user_by_id(trainer_id)
+    NR-->>SR: Trainer-Objekt
+    SR->>NR: create_series(data, ...)
+    NR-->>SR: Series-Objekt (in Notion angelegt)
+    SR->>LOGIC: create_series_with_bookings()
 
-B -> SR : POST /series
+    loop für jedes Datum im Zeitraum (wöchentlich oder 14-tägig)
+        LOGIC->>NR: get_bookings_for_date(d)
+        LOGIC->>NR: get_blackouts_for_date(d) – nur bei Rasen
+        LOGIC->>LOGIC: build_booking() – Konflikt-Check, Platzsperre-Prüfung
+        alt Termin frei
+            LOGIC->>NR: create_booking(..., series_id=series.notion_id)
+            LOGIC->>LOGIC: created.append(booking)
+        else Konflikt
+            LOGIC->>LOGIC: skipped.append(date)
+        end
+    end
 
-SR -> SR : Validierung\n(Enddatum > Startdatum?\nSaisonende = 30.06. als max)
-SR -> NR : get_user_by_id(trainer_id)
-NR --> SR : Trainer-Objekt
+    LOGIC-->>SR: (series, created[], skipped[])
 
-SR -> NR : create_series(data, ...)
-NR --> SR : Series-Objekt (in Notion angelegt)
+    alt Kein einziger Termin angelegt
+        SR-->>B: 422 Fehler
+    else mind. ein Termin angelegt
+        SR->>SR: invalidate_week_cache() für alle erstellten Termine
+        SR->>MAIL: send_series_confirmation() – Zusammenfassung an Admin
+        SR-->>B: Toast + Kalender-Refresh
+    end
 
-SR -> LOGIC : create_series_with_bookings()
-
-loop für jedes Datum im Zeitraum\n(wöchentlich oder 14-tägig)
-  LOGIC -> NR : get_bookings_for_date(d)
-  LOGIC -> NR : get_blackouts_for_date(d)\n[nur bei Rasen]
-  LOGIC -> LOGIC : build_booking()\n(Konflikt-Check, Platzsperre-Prüfung)
-  alt Termin frei
-    LOGIC -> NR : create_booking(..., series_id=series.notion_id)
-    LOGIC -> LOGIC : created.append(booking)
-  else Konflikt
-    LOGIC -> LOGIC : skipped.append(date)
-  end
-end
-
-LOGIC --> SR : (series, created[], skipped[])
-
-alt Kein einziger Termin angelegt
-  SR --> B : 422 Fehler
-else
-  SR -> SR : invalidate_week_cache()\nfür alle erstellten Termine
-  SR -> MAIL : send_series_confirmation()\n(Zusammenfassung an Admin)
-  SR --> B : Toast + Kalender-Refresh
-end
-
-note right of LOGIC
-  Jeder Serientermin ist eine
-  eigenständige Buchungsseite
-  in Notion mit Serie=<series_id>
-end note
-@enduml
+    Note right of LOGIC: Jeder Serientermin ist eine<br/>eigenständige Buchungsseite<br/>in Notion mit Serie=series_id
 ```
 
 ---
 
 ### 6.5 Einzeltermin aus Serie entfernen
 
-```plantuml
-@startuml
-!theme plain
-actor "Admin / zugewiesener Trainer" as Admin
-participant "Browser\n(HTMX)" as B
-participant "series.py\nPATCH /series/{booking_id}/remove-date" as SR
-participant "NotionRepository" as NR
+```mermaid
+sequenceDiagram
+    actor Admin as Admin / zugewiesener Trainer
+    participant B as Browser (HTMX)
+    participant SR as series.py PATCH /series/{booking_id}/remove-date
+    participant NR as NotionRepository
 
-Admin -> B : ✕ auf Serientermin klicken\n(hx-confirm → Bestätigung)
-B -> SR : PATCH /series/{booking_id}/remove-date
+    Admin->>B: ✕ auf Serientermin klicken (hx-confirm → Bestätigung)
+    B->>SR: PATCH /series/{booking_id}/remove-date
+    SR->>NR: get_booking_by_id(booking_id)
+    NR-->>SR: Booking (mit series_id)
 
-SR -> NR : get_booking_by_id(booking_id)
-NR --> SR : Booking (mit series_id)
+    alt Admin oder DFBnet
+        SR->>SR: is_admin = True
+    else Trainer prüfen
+        SR->>NR: get_series_by_id(booking.series_id)
+        NR-->>SR: Series
+        SR->>SR: is_series_trainer = (series.trainer_id == current_user.sub)
+    end
 
-alt Admin oder DFBnet
-  SR -> SR : is_admin = True
-else Trainer prüfen
-  SR -> NR : get_series_by_id(booking.series_id)
-  NR --> SR : Series
-  SR -> SR : is_series_trainer =\n(series.trainer_id == current_user.sub)
-end
+    alt Keine Berechtigung
+        SR-->>B: 403 Forbidden
+    else Berechtigt
+        SR->>NR: mark_series_exception(booking_id)
+        Note right of NR: Setzt auf der Buchungsseite:<br/>Status = Storniert<br/>Serienausnahme = True
+        NR-->>SR: Booking (aktualisiert)
+        SR->>SR: invalidate_week_cache()
+        SR-->>B: Slot wird frei + Toast
+    end
 
-alt Keine Berechtigung
-  SR --> B : 403 Forbidden
-else Berechtigt
-  SR -> NR : mark_series_exception(booking_id)
-  note right of NR
-    Setzt auf der Buchungsseite:
-    Status = Storniert
-    Serienausnahme = True
-  end note
-  NR --> SR : Booking (aktualisiert)
-  SR -> SR : invalidate_week_cache()
-  SR --> B : Slot wird frei + Toast
-end
-
-note bottom
-  Die Serie selbst bleibt unverändert.
-  Der Termin bleibt als Notion-Seite
-  erhalten (für Audit-Trail).
-  get_bookings_for_series() filtert
-  Serienausnahme=True heraus.
-end note
-@enduml
+    Note over Admin,NR: Die Serie selbst bleibt unverändert.<br/>Der Termin bleibt als Notion-Seite erhalten (Audit-Trail).<br/>get_bookings_for_series() filtert Serienausnahme=True heraus.
 ```
 
 ---
 
 ### 6.6 Serie beenden
 
-```plantuml
-@startuml
-!theme plain
-actor Admin
-participant "Browser" as B
-participant "series.py\nDELETE /series/{series_id}" as SR
-participant "series.py\ncancel_series()" as LOGIC
-participant "NotionRepository" as NR
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant B as Browser
+    participant SR as series.py DELETE /series/{series_id}
+    participant LOGIC as series.py cancel_series()
+    participant NR as NotionRepository
 
-Admin -> B : "Serie beenden"-Button\n(hx-confirm → Bestätigung)
-B -> SR : DELETE /series/{series_id}
+    Admin->>B: "Serie beenden"-Button (hx-confirm → Bestätigung)
+    B->>SR: DELETE /series/{series_id}
+    SR->>LOGIC: cancel_series(repo, series_id, current_user)
+    LOGIC->>NR: get_bookings_for_series(series_id, only_future=True)
+    Note right of NR: Filter: Serie=series_id, Status=Bestätigt,<br/>Serienausnahme=False, Datum>=heute
 
-SR -> LOGIC : cancel_series(repo, series_id, current_user)
+    NR-->>LOGIC: future_bookings[]
 
-LOGIC -> NR : get_bookings_for_series(series_id,\nonly_future=True)
-note right of NR
-  Filter:
-  - Serie = series_id
-  - Status = Bestätigt
-  - Serienausnahme = False
-  - Datum >= heute
-end note
-NR --> LOGIC : future_bookings[]
+    loop für jede zukünftige Buchung
+        LOGIC->>NR: update_booking_status(id, STORNIERT)
+        NR-->>LOGIC: Booking (aktualisiert)
+    end
 
-loop für jede zukünftige Buchung
-  LOGIC -> NR : update_booking_status(id, STORNIERT)
-  NR --> LOGIC : Booking (aktualisiert)
-end
+    LOGIC->>NR: update_series_status(series_id, BEENDET)
+    NR-->>LOGIC: Series (Status=Beendet)
+    LOGIC-->>SR: (series, cancelled[])
+    SR->>SR: invalidate_week_cache() für alle stornierten Termine
+    SR-->>B: Zeile aktualisiert (Status → Beendet) + Toast "{N} Termine storniert"
 
-LOGIC -> NR : update_series_status(series_id, BEENDET)
-NR --> LOGIC : Series (Status=Beendet)
-
-LOGIC --> SR : (series, cancelled[])
-
-SR -> SR : invalidate_week_cache()\nfür alle stornierten Termine
-SR --> B : Zeile aktualisiert (Status → Beendet)\n+ Toast "{N} Termine storniert"
-
-note right
-  Vergangene Serientermine
-  bleiben als Buchungshistorie
-  erhalten (Status=Bestätigt).
-end note
-@enduml
+    Note right of SR: Vergangene Serientermine bleiben<br/>als Buchungshistorie erhalten<br/>(Status=Bestätigt).
 ```
 
 ---
 
 ### 6.7 DFBnet-Verdrängung
 
-```plantuml
-@startuml
-!theme plain
-actor "Admin / DFBnet" as Admin
-participant "admin.py\nPOST /admin/dfbnet" as AD
-participant "booking.py\ndfbnet_displace()" as LOGIC
-participant "NotionRepository" as NR
-participant "notify.py" as MAIL
+```mermaid
+sequenceDiagram
+    actor Admin as Admin / DFBnet
+    participant AD as admin.py POST /admin/dfbnet
+    participant LOGIC as booking.py dfbnet_displace()
+    participant NR as NotionRepository
+    participant MAIL as notify.py
 
-Admin -> AD : DFBnet-Buchungsformular\n(oder CSV/ICS-Import)
+    Admin->>AD: DFBnet-Buchungsformular (oder CSV/ICS-Import)
+    AD->>NR: get_bookings_for_date(date)
+    NR-->>AD: existing_bookings
+    AD->>LOGIC: dfbnet_displace(repo, data, current_user, ...)
+    LOGIC->>LOGIC: check_availability() – finde konfligierende Buchungen
 
-AD -> NR : get_bookings_for_date(date)
-NR --> AD : existing_bookings
+    loop für jede Konflikt-Buchung
+        LOGIC->>NR: update_booking_status(id, STORNIERT_DFBNET)
+        NR-->>LOGIC: verdrängte Buchung
+    end
 
-AD -> LOGIC : dfbnet_displace(repo, data, current_user, ...)
+    LOGIC->>NR: create_booking(..., role=DFBNET)
+    NR-->>LOGIC: neue DFBnet-Buchung
+    LOGIC-->>AD: (new_booking, displaced[])
 
-LOGIC -> LOGIC : check_availability()\n(finde konfligierende Buchungen)
+    loop für jede verdrängte Buchung
+        AD->>NR: get_user_by_id(booking.booked_by_id)
+        AD->>MAIL: send_dfbnet_displacement_notice() – E-Mail an Verdrängten
+    end
 
-loop für jede Konflikt-Buchung
-  LOGIC -> NR : update_booking_status(id, STORNIERT_DFBNET)
-  NR --> LOGIC : verdrängste Buchung
-end
+    AD->>AD: invalidate_week_cache()
+    AD-->>Admin: Toast (inkl. Anzahl Verdrängter)
 
-LOGIC -> NR : create_booking(..., role=DFBNET)
-NR --> LOGIC : neue DFBnet-Buchung
-
-LOGIC --> AD : (new_booking, displaced[])
-
-loop für jede verdrängte Buchung
-  AD -> NR : get_user_by_id(booking.booked_by_id)
-  AD -> MAIL : send_dfbnet_displacement_notice()\n(E-Mail an Verdrängten)
-end
-
-AD -> AD : invalidate_week_cache()
-AD --> Admin : Toast (inkl. Anzahl Verdrängter)
-
-note right of LOGIC
-  DFBnet-Buchungen haben höchste
-  Priorität – sie überschreiben
-  alle bestehenden Buchungen
-  für den selben Slot.
-  Status der Verdrängten:
-  STORNIERT_DFBNET (unterscheidbar
-  von normalem Storno)
-end note
-@enduml
+    Note right of LOGIC: DFBnet-Buchungen haben höchste Priorität.<br/>Status der Verdrängten: STORNIERT_DFBNET<br/>(unterscheidbar von normalem Storno).
 ```
 
 ---
 
 ### 6.8 Sperrzeiten
 
-```plantuml
-@startuml
-!theme plain
+```mermaid
+sequenceDiagram
+    participant PW as Platzwart / Admin
+    participant B as Browser (HTMX)
+    participant BL as blackouts.py
+    participant NR as NotionRepository
+    participant CAL as Kalender-Rendering (_calendar_week.html)
 
-participant "Platzwart / Admin" as PW
-participant "Browser\n(HTMX)" as B
-participant "blackouts.py" as BL
-participant "NotionRepository" as NR
-participant "Kalender-Rendering\n(_calendar_week.html)" as CAL
+    Note over PW,CAL: Sperrzeit eintragen
 
-== Sperrzeit eintragen ==
+    PW->>B: Formular: Von, Bis, Art, Grund
+    B->>BL: POST /blackouts (start_date, end_date, blackout_type, reason)
+    BL->>BL: Prüfung: end_date >= start_date
+    BL->>NR: create_blackout(data, ...) → Notion Datum = Range {start, end}
+    NR-->>BL: BlackoutPeriod
+    BL->>BL: _invalidate_range() – Cache für alle Wochen im Zeitraum
+    BL-->>B: Neue Zeile prepend + Toast
 
-PW -> B : Formular: Von, Bis, Art, Grund
-B -> BL : POST /blackouts\n(start_date, end_date, blackout_type, reason)
+    Note over PW,CAL: Kalender-Rendering (Woche)
 
-BL -> BL : Prüfung: end_date >= start_date
-BL -> NR : create_blackout(data, ...)\n→ Notion Datum = Range {start, end}
-NR --> BL : BlackoutPeriod
+    Note over CAL: get_blackouts_for_week():<br/>1. Notion: Datum.start <= Sonntag<br/>2. Python-Filter: Datum.end >= Montag<br/>→ liefert alle überlappenden Sperrzeiten
 
-BL -> BL : _invalidate_range()\n(Cache für alle Wochen im Zeitraum)
-BL --> B : Neue Zeile prepend\n+ Toast
+    loop für jeden Tag × jeden Rasen-Slot
+        CAL->>CAL: prüfe: bl.start_date <= day AND bl.end_date >= day
+        alt Sperrzeit aktiv
+            CAL->>CAL: slot--platzsperre (rot, klickbar, Hinweis-Tooltip)
+            Note right of CAL: Buchung trotzdem möglich!<br/>Platzsperre wird als Hinweis<br/>in sunset_note gespeichert.
+        else frei
+            CAL->>CAL: slot--free
+        end
+    end
 
-== Kalender-Rendering (Woche) ==
+    Note over PW,CAL: Sperrzeit löschen
 
-note over CAL
-  get_blackouts_for_week():
-  1. Notion: Datum.start <= Sonntag
-  2. Python-Filter: Datum.end >= Montag
-  → liefert alle überlappenden Sperrzeiten
-end note
-
-loop für jeden Tag × jeden Rasen-Slot
-  CAL -> CAL : prüfe: bl.start_date <= day AND bl.end_date >= day
-  alt Sperrzeit aktiv
-    CAL -> CAL : slot--platzsperre\n(rot, klickbar, Hinweis-Tooltip)
-    note right
-      Buchung trotzdem möglich!
-      Platzsperre wird als Hinweis
-      in sunset_note gespeichert.
-    end note
-  else frei
-    CAL -> CAL : slot--free
-  end
-end
-
-== Sperrzeit löschen ==
-
-PW -> B : ✕-Button
-B -> BL : DELETE /blackouts/{id}
-BL -> NR : pages.update(archived=True)
-BL --> B : Toast "Sperrzeit gelöscht"
-@enduml
+    PW->>B: ✕-Button
+    B->>BL: DELETE /blackouts/{id}
+    BL->>NR: pages.update(archived=True)
+    BL-->>B: Toast "Sperrzeit gelöscht"
 ```
 
 ---
@@ -811,23 +698,14 @@ BL --> B : Toast "Sperrzeit gelöscht"
 
 ### systemd-Dienste
 
-```plantuml
-@startuml
-!theme plain
-skinparam componentStyle rectangle
+```mermaid
+flowchart TD
+    BS["sportplatz-buchung.service\n(Port 1946)\nRestart=on-failure · RestartSec=10s · StartLimitBurst=3"]
+    HP["sportplatz-homepage.service\n(Port 8046)\nRestart=on-failure · RestartSec=10s · StartLimitBurst=3"]
+    CRASH["sportplatz-crash@.service\nType=oneshot\nscripts/notify_crash.py\n→ journalctl dump → Crash-Mail an Admin"]
 
-component "sportplatz-buchung.service\n(Port 1946)" as BS {
-  note "Restart=on-failure\nRestartSec=10s\nStartLimitBurst=3"
-}
-component "sportplatz-homepage.service\n(Port 8046)" as HP {
-  note "Restart=on-failure\nRestartSec=10s\nStartLimitBurst=3"
-}
-component "sportplatz-crash@.service\n(Type=oneshot)" as CRASH
-
-BS -down-> CRASH : OnFailure=\n(nach 3 Crashes)
-HP -down-> CRASH : OnFailure=\n(nach 3 Crashes)
-CRASH -> CRASH : scripts/notify_crash.py\n→ journalctl dump\n→ Surrender-Mail an Admin
-@enduml
+    BS -->|"OnFailure (nach 3 Crashes)"| CRASH
+    HP -->|"OnFailure (nach 3 Crashes)"| CRASH
 ```
 
 ### Verwaltungs-Skripte (`/root/`)

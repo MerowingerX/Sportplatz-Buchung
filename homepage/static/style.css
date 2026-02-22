@@ -1006,6 +1006,30 @@ footer a { color: var(--gold); text-decoration: none; }
   .event-team__badge { width: 30px; height: 30px; font-size: 0.65rem; }
   .booking-banner { flex-direction: column; text-align: center; }
 
+  /* Event-Karte: Label in eigener Zeile über den Logos; Meta klar rechts */
+  .event-item { gap: 0.5rem; padding: 0.625rem 0.875rem; }
+  .event-item__center {
+    flex-wrap: wrap;
+    gap: 0.15rem 0.3rem;
+    justify-content: flex-start;
+    align-items: center;
+  }
+  /* Spielart-Label: volle Breite, linksbündig, eigene Zeile */
+  .event-item__label {
+    flex: 0 0 100%;
+    width: 100%;
+    text-align: left;
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+  }
+  /* Teams und vs bleiben horizontal, aber kompakter */
+  .event-team       { flex: 0 0 30px; width: 30px; }
+  .event-match__vs  { flex: 0 0 1.25rem; width: 1.25rem; font-size: 0.7rem; }
+  /* Meta: schmalere feste Breite reicht, da kein langer Platzname benötigt */
+  .event-item__meta { flex: 0 0 68px; min-width: 68px; }
+  .event-item__time { font-size: 0.75rem; }
+  .event-item__field { font-size: 0.65rem; }
+
   /* Hamburger sichtbar, Desktop-Nav ausblenden */
   .nav-burger { display: flex; }
   nav {
