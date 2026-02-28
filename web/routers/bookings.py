@@ -1,9 +1,9 @@
+from web.templates_instance import templates
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request, Form
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.dependencies import CurrentUser, require_permission
 from booking.booking import build_booking, check_availability, dfbnet_displace
@@ -15,10 +15,14 @@ from utils.time_slots import (
 from utils.sunset import sunset_warning_text
 from web.audit_log import log_booking, log_cancel
 from web.config import get_settings
+from booking.field_config import get_visible_fields
 from web.routers.calendar import invalidate_week_cache
 
 router = APIRouter(prefix="/bookings")
-templates = Jinja2Templates(directory="web/templates")
+
+
+def _visible_fields(current_user) -> list[FieldName]:
+    return get_visible_fields(current_user.role.value)
 
 
 def _toast(message: str, kind: str = "success") -> str:
@@ -39,7 +43,7 @@ async def bookings_page(
         {
             "request": request,
             "current_user": current_user,
-            "fields": list(FieldName),
+            "fields": _visible_fields(current_user),
             "start_slots": start_slots,
             "durations": [60, 90, 180],
             "booking_types": list(BookingType),

@@ -1,8 +1,8 @@
+from web.templates_instance import templates
 from datetime import date
 
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.dependencies import CurrentUser, require_permission
 from booking.models import BlackoutCreate, BlackoutType, Permission
@@ -10,7 +10,6 @@ from utils.time_slots import get_all_start_slots
 from web.routers.calendar import invalidate_week_cache
 
 router = APIRouter(prefix="/blackouts")
-templates = Jinja2Templates(directory="web/templates")
 
 _blackout_required = Depends(require_permission(Permission.MANAGE_BLACKOUTS))
 

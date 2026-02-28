@@ -6,6 +6,60 @@
   <h1>Admin-Dashboard</h1>
 </div>
 
+{# ── Statusleiste ─────────────────────────────────────────────────────────── #}
+<div class="status-bar">
+
+  {# Letzter Sync #}
+  <div class="status-card {% if sync_status %}{% if sync_status.ok %}status-card--ok{% else %}status-card--error{% endif %}{% else %}status-card--neutral{% endif %}">
+    <div class="status-card__icon">🔄</div>
+    <div class="status-card__body">
+      <div class="status-card__label">Letzter Spielplan-Sync</div>
+      {% if sync_status %}
+        <div class="status-card__value">{{ sync_status.timestamp_fmt }}</div>
+        <div class="status-card__detail">
+          {{ sync_status.summary }}
+          <span class="status-card__by">via {{ sync_status.triggered_by }}</span>
+        </div>
+      {% else %}
+        <div class="status-card__value">–</div>
+        <div class="status-card__detail">Noch kein Sync gelaufen</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Nächste Ausführung #}
+  <div class="status-card status-card--neutral">
+    <div class="status-card__icon">⏰</div>
+    <div class="status-card__body">
+      <div class="status-card__label">Nächster automatischer Sync</div>
+      <div class="status-card__value">Täglich 06:00 Uhr</div>
+      <div class="status-card__detail">systemd Timer aktiv</div>
+    </div>
+  </div>
+
+  {# Nutzer #}
+  <div class="status-card status-card--neutral">
+    <div class="status-card__icon">👥</div>
+    <div class="status-card__body">
+      <div class="status-card__label">Registrierte Nutzer</div>
+      <div class="status-card__value">{{ users | length }}</div>
+      <div class="status-card__detail"><a href="/admin/users">Nutzerverwaltung →</a></div>
+    </div>
+  </div>
+
+  {# Serverzeit #}
+  <div class="status-card status-card--neutral">
+    <div class="status-card__icon">🕐</div>
+    <div class="status-card__body">
+      <div class="status-card__label">Serverzeit</div>
+      <div class="status-card__value">{{ server_time }}</div>
+      <div class="status-card__detail">UTC</div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Admin-Kacheln ────────────────────────────────────────────────────────── #}
 <div class="admin-grid">
   <div class="card">
     <h2>Nutzer</h2>
@@ -17,7 +71,8 @@
     <p>Buchung mit freiem Zweck und Kontakt anlegen (beliebige Zeiten)</p>
     <a href="/admin/booking" class="btn btn--secondary">Buchung anlegen</a>
   </div>
-  <div class="card">
+  {# DFBnet-Buchung + ICS-Import: Code bleibt, Kacheln ausgeblendet (Spielplan läuft automatisch) #}
+  {# <div class="card">
     <h2>DFBnet-Buchung</h2>
     <p>Einzelnes Pflichtspiel mit höchster Priorität eintragen</p>
     <a href="/admin/dfbnet" class="btn btn--secondary">DFBnet-Buchung anlegen</a>
@@ -26,11 +81,31 @@
     <h2>Spielplan importieren (ICS)</h2>
     <p>ICS-Datei von DFBnet / fussball.de importieren</p>
     <a href="/admin/dfbnet-import" class="btn btn--secondary">ICS-Import</a>
-  </div>
+  </div> #}
   <div class="card">
     <h2>Platzbelegung importieren (CSV)</h2>
     <p>DFBnet-Platzbelegungs-CSV importieren und Heimspiele als DFBnet-Buchungen anlegen</p>
     <a href="/admin/csv-import" class="btn btn--secondary">CSV-Import</a>
+  </div>
+  <div class="card card--wide">
+    <h2>fussball.de Spielplan-Sync</h2>
+    <p>
+      Spielplan von fussball.de abrufen, fehlende Heimspiele automatisch buchen
+      und verwaiste Spielbuchungen stornieren. Verdrängte Nutzer erhalten eine E-Mail.
+    </p>
+    <button class="btn btn--primary"
+            hx-post="/admin/spielplan-sync"
+            hx-target="#toast"
+            hx-swap="outerHTML"
+            hx-confirm="Spielplan von fussball.de laden und Buchungen automatisch aktualisieren?"
+            data-loading-text="Spielplan wird abgeglichen … (ca. 20 Sek.)">
+      Spielplan abgleichen
+    </button>
+  </div>
+  <div class="card">
+    <h2>Platzkonfiguration</h2>
+    <p>Steuern, welche Platzgruppen für welche Nutzerrollen sichtbar sind</p>
+    <a href="/admin/field-config" class="btn btn--secondary">Plätze konfigurieren</a>
   </div>
   <div class="card">
     <h2>Sperrzeiten</h2>
@@ -43,4 +118,21 @@
     <a href="/tasks" class="btn btn--secondary">Aufgaben ansehen</a>
   </div>
 </div>
+
+<!-- Spielplan-Sync Ergebnis-Modal -->
+<dialog id="sync-modal" class="modal">
+  <div class="modal__header">
+    <h2>Spielplan-Sync Ergebnis</h2>
+    <button class="modal__close" onclick="document.getElementById('sync-modal').close()">✕</button>
+  </div>
+  <div id="sync-modal-content" class="modal__body sync-modal__body">
+    <!-- wird per HTMX OOB befüllt -->
+  </div>
+</dialog>
+
+<script>
+  document.body.addEventListener('openSyncModal', function () {
+    document.getElementById('sync-modal').showModal();
+  });
+</script>
 {% endblock %}

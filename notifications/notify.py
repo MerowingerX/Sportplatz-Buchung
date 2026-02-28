@@ -80,7 +80,8 @@ async def send_dfbnet_displacement_notice(
         f"    Platz:   {new_dfbnet_booking.field.value}\n"
         f"    Datum:   {new_dfbnet_booking.date.strftime('%d.%m.%Y')}\n"
         f"    Uhrzeit: {new_dfbnet_booking.start_time.strftime('%H:%M')} – {new_dfbnet_booking.end_time.strftime('%H:%M')}\n\n"
-        f"Bitte buche einen anderen Termin. Wir bitten um Verständnis.\n"
+        f"Bitte buche einen anderen Termin. Wir bitten um Verständnis.\n\n"
+        f"Zur Buchung: {settings.booking_url}\n"
     )
     await _send_email(displaced_user.email, subject, body, settings)
 

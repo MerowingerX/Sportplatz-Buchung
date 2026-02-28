@@ -1,15 +1,14 @@
+from web.templates_instance import templates
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.dependencies import CurrentUser, require_permission
 from booking.models import AufgabeCreate, AufgabeStatus, AufgabeTyp, Permission, Prioritaet, has_permission
 
 router = APIRouter(prefix="/tasks")
-templates = Jinja2Templates(directory="web/templates")
 
 _task_required = Depends(require_permission(Permission.CREATE_TASK))
 

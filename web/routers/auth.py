@@ -1,6 +1,6 @@
+from web.templates_instance import templates
 from fastapi import APIRouter, Request, Response, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.auth import create_jwt, hash_password, verify_password
 from auth.dependencies import CurrentUser
@@ -8,7 +8,6 @@ from web.audit_log import log_login_ok, log_login_fail, log_logout
 from web.config import get_settings
 
 router = APIRouter()
-templates = Jinja2Templates(directory="web/templates")
 
 
 def _set_session_cookie(response, token: str, settings):

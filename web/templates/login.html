@@ -5,13 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anmelden – Sportplatz-Buchung</title>
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    :root {
+      --color-primary: {{ vereinsfarben.primary }};
+      --color-primary-hover: {{ vereinsfarben.primary_dark }};
+      --color-primary-darker: {{ vereinsfarben.primary_darker }};
+    }
+  </style>
 </head>
 <body class="login-page">
   <div class="login-card">
     <div class="login-card__logo">
-      <img src="/static/logo.svg" alt="TuS Cremlingen Wappen" class="login-card__logo-img">
+      <img src="/static/logo.svg" alt="{{ vereinsname }} Wappen" class="login-card__logo-img">
     </div>
-    <h1>TuS Cremlingen</h1>
+    <h1>{{ vereinsname }}</h1>
     <p class="login-card__subtitle">Melde dich an, um Plätze zu buchen und den Belegungsplan zu sehen.</p>
 
     {% if error %}

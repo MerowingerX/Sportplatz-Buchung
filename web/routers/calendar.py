@@ -1,14 +1,13 @@
+from web.templates_instance import templates
 from datetime import date as Date, time, timedelta
 
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.dependencies import CurrentUser
 
 router = APIRouter()
-templates = Jinja2Templates(directory="web/templates")
 templates.env.globals["time_module"] = time
 
 _cache: TTLCache = TTLCache(maxsize=128, ttl=60)
@@ -76,7 +75,13 @@ async def calendar_day(request: Request, current_user: CurrentUser, d: str):
 
 
 @router.get("/calendar/week", response_class=HTMLResponse)
-async def calendar_week(request: Request, current_user: CurrentUser, year: int, week: int):
+async def calendar_week(
+    request: Request,
+    current_user: CurrentUser,
+    year: int,
+    week: int,
+    start_hour: int = 16,
+):
     repo = request.app.state.repo
     cache_key = f"week:{year}:{week}"
 
@@ -87,6 +92,29 @@ async def calendar_week(request: Request, current_user: CurrentUser, year: int, 
     else:
         bookings, blackouts = _cache[cache_key]
 
+    # Clamp and compute time-navigation context
+    start_hour = max(0, min(18, start_hour))
+    prev_start_hour = max(0, start_hour - 2)
+    next_start_hour = min(18, start_hour + 2)
+
+    # 12 half-hour slots starting at start_hour
+    slots: list[str] = []
+    h, m = start_hour, 0
+    for _ in range(12):
+        slots.append(f"{h:02d}:{m:02d}")
+        m += 30
+        if m >= 60:
+            m = 0
+            h += 1
+        if h >= 24:
+            break
+
+    last_slot = slots[-1]
+    time_range = f"{slots[0]} – {last_slot}"
+
+    from booking.field_config import get_visible_groups
+    field_groups = get_visible_groups(current_user.role.value)
+
     ctx = _get_week_context(year, week)
     return templates.TemplateResponse(
         "partials/_calendar_week.html",
@@ -96,6 +124,12 @@ async def calendar_week(request: Request, current_user: CurrentUser, year: int, 
             "bookings": bookings,
             "blackouts": blackouts,
             "today": Date.today().isoformat(),
+            "time_slots": slots,
+            "start_hour": start_hour,
+            "prev_start_hour": prev_start_hour,
+            "next_start_hour": next_start_hour,
+            "time_range": time_range,
+            "field_groups": field_groups,
             **ctx,
         },
     )

@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from auth.auth import decode_jwt
 from notion.client import NotionRepository
@@ -32,7 +31,7 @@ app.include_router(admin.router)
 app.include_router(tasks.router)
 app.include_router(events.router)
 
-templates = Jinja2Templates(directory="web/templates")
+from web.templates_instance import templates
 
 
 @app.get("/")

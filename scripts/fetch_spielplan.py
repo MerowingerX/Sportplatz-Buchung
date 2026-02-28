@@ -19,18 +19,33 @@ import time
 import urllib.request
 from datetime import date, datetime
 
+# .env laden (falls vorhanden)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# Vereinskonfiguration laden
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_DIR)
+try:
+    from booking.vereinsconfig import get_heim_keyword
+    _HEIM_KEYWORD = get_heim_keyword()
+except Exception:
+    _HEIM_KEYWORD = "cremlingen"  # Fallback
+
 # ── Konfiguration ────────────────────────────────────────────────────────────
-TOKEN    = "Y1t797t1t5Z8Y5h2D2b6r736X5M6HVEYzhWbM6DIeU"
-CLUB_ID  = "00ES8GN75400000VVV0AG08LVUPGND5I"
+TOKEN    = os.environ.get("APIFUSSBALL_TOKEN", "")
+CLUB_ID  = os.environ.get("APIFUSSBALL_CLUB_ID", "00ES8GN75400000VVV0AG08LVUPGND5I")
 API_BASE = "https://api-fussball.de"
 _HEADERS = {"x-auth-token": TOKEN}
 
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CSV_PATH    = os.path.join(PROJECT_DIR, "Platzbelegung", "platzbelegung.csv")
-LOG_DIR     = os.path.join(PROJECT_DIR, "Platzbelegung", "logs")
+CSV_PATH = os.path.join(PROJECT_DIR, "Platzbelegung", "platzbelegung.csv")
+LOG_DIR  = os.path.join(PROJECT_DIR, "Platzbelegung", "logs")
 
 # Schlüsselwörter im Heimteam-Namen, die ein TuS-Heimspiel kennzeichnen
-TUS_HOME_KEYWORDS = {"cremlingen"}
+TUS_HOME_KEYWORDS = {_HEIM_KEYWORD} if _HEIM_KEYWORD else {"cremlingen"}
 
 # Deutsche Wochentagsabkürzungen (DFBnet-Format)
 _DE_DAYS = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."]

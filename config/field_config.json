@@ -1,0 +1,19 @@
+{
+  "field_groups": [
+    {
+      "name": "Kura (Kunstrasen)",
+      "fields": ["Kura Ganz", "Kura Halb A", "Kura Halb B"],
+      "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
+    },
+    {
+      "name": "Rasen (Naturrasen)",
+      "fields": ["Rasen Ganz", "Rasen Halb A", "Rasen Halb B"],
+      "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
+    },
+    {
+      "name": "Turnhalle",
+      "fields": ["Halle Ganz", "Halle 2/3", "Halle 1/3"],
+      "visible_to": ["Administrator"]
+    }
+  ]
+}

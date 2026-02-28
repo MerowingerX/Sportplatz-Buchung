@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from booking.models import BlackoutType, FieldName
+from booking.vereinsconfig import load as _load_vc
 from notion.client import NotionRepository
 from utils.time_slots import get_all_start_slots
 from web.config import get_settings
@@ -69,11 +70,22 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="TuS Cremlingen", lifespan=lifespan)
+_vc = _load_vc()
+app = FastAPI(title=_vc.get("vereinsname", "Sportverein"), lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 app.mount("/userdata", StaticFiles(directory=os.path.join(BASE_DIR, "userdata")), name="userdata")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 templates.env.filters["enumerate"] = enumerate
+
+# Vereinsspezifische Template-Globals aus config/vereinsconfig.json
+templates.env.globals["vereinsname"] = _vc.get("vereinsname", "Sportverein")
+templates.env.globals["vereinsname_lang"] = _vc.get("vereinsname_lang", _vc.get("vereinsname", "Sportverein"))
+templates.env.globals["vereinsfarben"] = {
+    "primary":        _vc.get("primary_color", "#1e4fa3"),
+    "primary_dark":   _vc.get("primary_color_dark", "#0d2f6b"),
+    "primary_darker": _vc.get("primary_color_darker", "#071c44"),
+    "gold":           _vc.get("gold_color", "#e8c04a"),
+}
 
 
 def _team_initials(name: str) -> str:

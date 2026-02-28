@@ -1,8 +1,8 @@
+from web.templates_instance import templates
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.dependencies import CurrentUser, require_permission
 from booking.models import FieldName, Mannschaft, Permission, SeriesCreate, SeriesRhythm, UserRole, has_permission
@@ -18,7 +18,6 @@ from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
 
 router = APIRouter(prefix="/series")
-templates = Jinja2Templates(directory="web/templates")
 
 
 def _toast(message: str, kind: str = "success") -> str:

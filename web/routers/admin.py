@@ -1,3 +1,4 @@
+from web.templates_instance import templates
 from datetime import date, datetime, time
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -5,7 +6,6 @@ from zoneinfo import ZoneInfo
 import os
 from fastapi import APIRouter, Request, Form, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.auth import hash_password
 from auth.dependencies import CurrentUser, require_permission
@@ -16,7 +16,6 @@ from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
 
 router = APIRouter(prefix="/admin")
-templates = Jinja2Templates(directory="web/templates")
 templates.env.filters["enumerate"] = enumerate
 
 _admin_required = Depends(require_permission(Permission.ACCESS_ADMIN))
@@ -30,11 +29,30 @@ def _toast(message: str, kind: str = "success") -> str:
 
 @router.get("", response_class=HTMLResponse, dependencies=[_admin_required])
 async def admin_dashboard(request: Request, current_user: CurrentUser):
+    from booking.spielplan_sync import read_sync_status
+    from datetime import datetime as _dt
+
     repo = request.app.state.repo
     users = repo.get_all_users()
+    sync_status = read_sync_status()
+
+    # Zeitstempel leserlich formatieren
+    if sync_status and sync_status.get("timestamp"):
+        try:
+            ts = _dt.fromisoformat(sync_status["timestamp"])
+            sync_status["timestamp_fmt"] = ts.strftime("%d.%m.%Y %H:%M:%S")
+        except ValueError:
+            sync_status["timestamp_fmt"] = sync_status["timestamp"]
+
     return templates.TemplateResponse(
         "admin/dashboard.html",
-        {"request": request, "current_user": current_user, "users": users},
+        {
+            "request": request,
+            "current_user": current_user,
+            "users": users,
+            "sync_status": sync_status,
+            "server_time": _dt.now().strftime("%d.%m.%Y %H:%M:%S"),
+        },
     )
 
 
@@ -798,3 +816,93 @@ async def fetch_spielplan_progress():
     if _spielplan_job.get("result"):
         return HTMLResponse(_toast(f'\u2705 {_spielplan_job["result"]}', "success"))
     return HTMLResponse("")  # Kein aktiver Job
+
+
+# ------------------------------------------------------------------ Spielplan-Sync
+
+@router.post("/spielplan-sync", response_class=HTMLResponse, dependencies=[_dfbnet_required])
+async def spielplan_sync(request: Request):
+    """
+    Vollständiger Spielplan-Abgleich:
+      1. fussball.de Spielplan laden
+      2. Fehlende Heimspiele buchen (mit Verdrängung + E-Mail)
+      3. Verwaiste Buchungen stornieren (+ E-Mail)
+    """
+    from booking.spielplan_sync import sync_spielplan
+
+    repo = request.app.state.repo
+    settings = get_settings()
+
+    try:
+        sync_result = await sync_spielplan(repo, settings)
+    except Exception as exc:
+        from booking.spielplan_sync import SyncResult, write_sync_status
+        err = SyncResult(fehler=[str(exc)])
+        write_sync_status(err, "admin")
+        return HTMLResponse(_toast(f"Fehler beim Spielplan-Sync: {exc}", "error"))
+
+    kind = "success" if sync_result.ok else "warning"
+    toast = _toast(f"✅ Spielplan-Sync: {sync_result.zusammenfassung()}", kind)
+
+    # Detailinhalt für das Modal
+    def _section(title: str, items: list[str], css: str) -> str:
+        rows = "".join(f'<li class="sync-item sync-item--{css}">{s}</li>' for s in items)
+        return f'<h3 class="sync-section__title">{title}</h3><ul class="sync-list">{rows}</ul>'
+
+    sections: list[str] = []
+    if sync_result.gebucht:
+        sections.append(_section(f"✓ Neu eingetragen ({len(sync_result.gebucht)})", sync_result.gebucht, "ok"))
+    if sync_result.uebersprungen:
+        sections.append(_section(f"⏭ Bereits vorhanden ({len(sync_result.uebersprungen)})", sync_result.uebersprungen, "skip"))
+    if sync_result.storniert:
+        sections.append(_section(f"✗ Storniert ({len(sync_result.storniert)})", sync_result.storniert, "warn"))
+    if sync_result.fehler:
+        sections.append(_section(f"⚠ Fehler ({len(sync_result.fehler)})", sync_result.fehler, "error"))
+
+    from booking.spielplan_sync import write_sync_status
+    write_sync_status(sync_result, "admin")
+
+    body = "".join(sections) if sections else '<p class="sync-empty">Keine Änderungen notwendig.</p>'
+    modal_oob = f'<div id="sync-modal-content" hx-swap-oob="true">{body}</div>'
+
+    response = HTMLResponse(toast + modal_oob)
+    if sections:
+        response.headers["HX-Trigger"] = "openSyncModal"
+    return response
+
+
+# ------------------------------------------------------------------ Platzkonfiguration
+
+@router.get("/field-config", response_class=HTMLResponse, dependencies=[_admin_required])
+async def field_config_page(request: Request, current_user: CurrentUser):
+    from booking.field_config import ALL_ROLES, load
+    cfg = load()
+    return templates.TemplateResponse(
+        "admin/field_config.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "field_groups": cfg["field_groups"],
+            "all_roles": ALL_ROLES,
+        },
+    )
+
+
+@router.post("/field-config", response_class=HTMLResponse, dependencies=[_admin_required])
+async def field_config_save(request: Request, current_user: CurrentUser):
+    from booking.field_config import ALL_ROLES, load, save
+    form = await request.form()
+    cfg = load()
+
+    for group in cfg["field_groups"]:
+        group_key = group["name"].replace(" ", "_").replace("(", "").replace(")", "")
+        group["visible_to"] = [
+            role for role in ALL_ROLES
+            if form.get(f"{group_key}__{role}") == "on"
+        ]
+
+    save(cfg)
+    return HTMLResponse(
+        _toast("Platzkonfiguration gespeichert.")
+        + '<script>setTimeout(()=>history.back(),1200)</script>'
+    )

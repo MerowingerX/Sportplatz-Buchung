@@ -1,15 +1,10 @@
-{% set time_slots = ["16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"] %}
 {% set day_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}
 {% set field_short = {
   "Kura Ganz": "Ganz", "Kura Halb A": "Halb A", "Kura Halb B": "Halb B",
   "Rasen Ganz": "Ganz", "Rasen Halb A": "Halb A", "Rasen Halb B": "Halb B",
   "Halle Ganz": "Ganz", "Halle 2/3": "2/3", "Halle 1/3": "1/3",
 } %}
-{% set field_groups = [
-  ("Kura (Kunstrasen)", ["Kura Ganz", "Kura Halb A", "Kura Halb B"]),
-  ("Rasen (Naturrasen)", ["Rasen Ganz", "Rasen Halb A", "Rasen Halb B"]),
-  ("Turnhalle", ["Halle Ganz", "Halle 2/3", "Halle 1/3"]),
-] %}
+{# field_groups wird vom Router übergeben (gefiltert nach Rolle) #}
 {# Konflikt-Map: Welche anderen Felder blockieren dieses Feld? #}
 {% set conflict_sources = {
   "Kura Ganz": ["Kura Halb A", "Kura Halb B"],
@@ -26,7 +21,7 @@
 <!-- Wochennavigation -->
 <div class="week-nav">
   <button class="btn btn--ghost"
-          hx-get="/calendar/week?year={{ prev_year }}&week={{ prev_week }}"
+          hx-get="/calendar/week?year={{ prev_year }}&week={{ prev_week }}&start_hour={{ start_hour }}"
           hx-target="#calendar-week"
           hx-swap="innerHTML">
     &larr; Vorwoche
@@ -35,10 +30,27 @@
     KW {{ week }} &nbsp;|&nbsp; {{ monday.strftime('%d.%m.%Y') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
   </span>
   <button class="btn btn--ghost"
-          hx-get="/calendar/week?year={{ next_year }}&week={{ next_week }}"
+          hx-get="/calendar/week?year={{ next_year }}&week={{ next_week }}&start_hour={{ start_hour }}"
           hx-target="#calendar-week"
           hx-swap="innerHTML">
     N&auml;chste Woche &rarr;
+  </button>
+</div>
+<div class="week-nav week-nav--time">
+  <button class="btn btn--ghost btn--small"
+          hx-get="/calendar/week?year={{ year }}&week={{ week }}&start_hour={{ prev_start_hour }}"
+          hx-target="#calendar-week"
+          hx-swap="innerHTML"
+          {% if start_hour == 0 %}disabled{% endif %}>
+    &uarr; Fr&uuml;her
+  </button>
+  <span class="week-nav__time-label">{{ time_range }}</span>
+  <button class="btn btn--ghost btn--small"
+          hx-get="/calendar/week?year={{ year }}&week={{ week }}&start_hour={{ next_start_hour }}"
+          hx-target="#calendar-week"
+          hx-swap="innerHTML"
+          {% if start_hour >= 18 %}disabled{% endif %}>
+    &darr; Sp&auml;ter
   </button>
 </div>
 

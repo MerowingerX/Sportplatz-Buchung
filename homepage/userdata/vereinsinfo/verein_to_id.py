@@ -6,7 +6,13 @@ import os
 import time
 from urllib.parse import quote_plus
 
-token ="Y1t797t1t5Z8Y5h2D2b6r736X5M6HVEYzhWbM6DIeU"
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+token = os.environ.get("APIFUSSBALL_TOKEN", "")
 
 def vereins_info(club_id):
     url = f"https://api-fussball.de/api/club/{club_id}"

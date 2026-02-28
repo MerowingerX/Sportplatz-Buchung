@@ -6,13 +6,21 @@
   <title>{% block title %}Sportplatz-Buchung{% endblock %}</title>
   <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    :root {
+      --color-primary: {{ vereinsfarben.primary }};
+      --color-primary-hover: {{ vereinsfarben.primary_dark }};
+      --color-primary-darker: {{ vereinsfarben.primary_darker }};
+      --color-gold: {{ vereinsfarben.gold }};
+    }
+  </style>
 </head>
 <body hx-boost="true">
 
   <nav class="navbar">
     <a class="navbar__brand" href="/calendar">
       <img src="/static/wappen.png" alt="" class="navbar__logo">
-      TuS Cremlingen – Buchung
+      {{ vereinsname }} – Buchung
     </a>
     <button class="navbar__hamburger" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -22,7 +30,7 @@
       {% if current_user %}
         {% if current_user.role.value in ["Administrator", "DFBnet"] %}
           <a href="/admin">Admin</a>
-          <a href="/admin/dfbnet">DFBnet-Buchung</a>
+          {# <a href="/admin/dfbnet">DFBnet-Buchung</a> – ausgeblendet, Spielplan läuft automatisch #}
           <button class="btn btn--ghost btn--small"
                   hx-post="/admin/fetch-spielplan"
                   hx-target="#toast"
@@ -121,8 +129,9 @@
 
       document.body.addEventListener('htmx:beforeRequest', function (evt) {
         const method = (evt.detail.requestConfig?.verb || 'GET').toUpperCase();
+        const customText = evt.detail.elt?.dataset?.loadingText;
         // Kleiner Delay: verhindert Flackern bei schnellen Antworten
-        showTimer = setTimeout(() => show(method), 120);
+        showTimer = setTimeout(() => show(customText || LABELS[method] || 'Bitte warten …'), 120);
       });
 
       document.body.addEventListener('htmx:afterRequest', hide);

@@ -28,8 +28,12 @@ class Settings(BaseSettings):
     smtp_from: str
     admin_email: Optional[str] = None   # Crash-Mails; fällt auf smtp_from zurück wenn nicht gesetzt
 
-    # Homepage
-    booking_url: str = "http://46.62.212.248:1946"
+    # fussball.de
+    fussball_de_vereinsseite: Optional[str] = None  # z. B. https://www.fussball.de/verein/.../-/verein-id/00ES8GN…
+    apifussball_token: Optional[str] = None          # api-fussball.de API-Token
+
+    # Buchungssystem-URL (öffentlich erreichbar, wird in E-Mails verlinkt)
+    booking_url: str = "http://localhost:1946"  # Fallback; wird durch BOOKING_URL in .env überschrieben
 
     # Standort (Sonnenuntergang)
     location_lat: float = 52.264

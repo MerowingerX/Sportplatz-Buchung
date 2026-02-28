@@ -1,0 +1,21 @@
+{
+  "vereinsname": "TuS Cremlingen",
+  "vereinsname_lang": "Turn- und Sportverein Cremlingen 1946 e. V.",
+  "heim_keyword": "cremlingen",
+  "primary_color": "#1e4fa3",
+  "primary_color_dark": "#0d2f6b",
+  "primary_color_darker": "#071c44",
+  "gold_color": "#e8c04a",
+  "spielorte": [
+    {
+      "fussball_de_string": "cremlingen b-platz",
+      "feld": "Kura Ganz",
+      "platz_praefix": ["Kura"]
+    },
+    {
+      "fussball_de_string": "cremlingen a-platz rasen",
+      "feld": "Rasen Ganz",
+      "platz_praefix": ["Rasen"]
+    }
+  ]
+}

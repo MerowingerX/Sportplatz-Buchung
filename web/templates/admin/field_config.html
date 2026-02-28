@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Platzkonfiguration – Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Platzkonfiguration</h1>
+  <a href="/admin" class="btn btn--ghost">&larr; Zurück</a>
+</div>
+
+<div class="card card--wide">
+  <p style="margin-bottom:1.25rem;color:var(--color-text-muted)">
+    Lege fest, welche Platzgruppen für welche Nutzerrollen sichtbar und buchbar sind.
+    Die Änderungen gelten sofort für alle Sitzungen.
+  </p>
+
+  <form method="post" action="/admin/field-config">
+    <table class="field-cfg-table">
+      <thead>
+        <tr>
+          <th class="field-cfg-table__group">Platzgruppe</th>
+          {% for role in all_roles %}
+            <th class="field-cfg-table__role">{{ role }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in field_groups %}
+          {% set gkey = group.name | replace(" ", "_") | replace("(", "") | replace(")", "") %}
+          <tr class="field-cfg-table__row">
+            <td class="field-cfg-table__name">
+              <strong>{{ group.name }}</strong>
+              <div class="field-cfg-table__fields">{{ group.fields | join(", ") }}</div>
+            </td>
+            {% for role in all_roles %}
+              <td class="field-cfg-table__check">
+                <label class="field-cfg-table__toggle" title="{{ role }}">
+                  <input type="checkbox"
+                         name="{{ gkey }}__{{ role }}"
+                         {% if role in group.visible_to %}checked{% endif %}
+                         {% if role == "Administrator" %}
+                           onclick="return false"
+                           title="Administratoren haben immer Zugriff"
+                         {% endif %}>
+                  <span class="field-cfg-table__checkmark"></span>
+                </label>
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="margin-top:1.5rem;display:flex;gap:0.75rem;align-items:center">
+      <button type="submit" class="btn btn--primary">Speichern</button>
+      <a href="/admin" class="btn btn--ghost">Abbrechen</a>
+      <span style="font-size:0.8rem;color:var(--color-text-muted);margin-left:auto">
+        * Administratoren sehen immer alle Plätze
+      </span>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="toast toast--hidden" aria-live="polite"></div>
+{% endblock %}

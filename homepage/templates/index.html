@@ -3,18 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TuS Cremlingen e.V.</title>
+  <title>{{ vereinsname_lang }}</title>
   <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/static/style.css?v=5">
+  <style>
+    :root {
+      --green:       {{ vereinsfarben.primary }};
+      --green-light: {{ vereinsfarben.primary_dark }};
+      --green-dark:  {{ vereinsfarben.primary_darker }};
+      --gold:        {{ vereinsfarben.gold }};
+    }
+  </style>
 </head>
 <body>
 
   <header>
     <div class="header-inner">
       <a href="/" class="logo">
-        <div class="logo__emblem"><img src="/userdata/logo.svg" alt="TuS Cremlingen Wappen"></div>
+        <div class="logo__emblem"><img src="/userdata/logo.svg" alt="{{ vereinsname }} Wappen"></div>
         <div>
-          <div class="logo__name">TuS Cremlingen</div>
+          <div class="logo__name">{{ vereinsname }}</div>
           <div class="logo__sub">TURN- UND SPORTVEREIN</div>
         </div>
       </a>
