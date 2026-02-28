@@ -89,21 +89,35 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 | Aktion | Trainer | Administrator | Platzwart | DFBnet |
 |--------|---------|---------------|-----------|--------|
-| Eigene Buchung erstellen | Ja | Ja | – | Ja |
-| Buchung stornieren | Eigene | Alle | – | Alle |
+| Eigene Buchung erstellen | Ja | Ja | Ja | Ja |
+| Buchung stornieren | Eigene | Alle | Eigene | Alle |
 | Serie anlegen | – | Ja | – | Ja |
 | Serie stornieren | – | Ja | – | Ja |
 | Einzeltermin aus Serie entfernen | Zugewiesener Trainer | Ja | – | Ja |
-| Sperrzeiten verwalten | – | Ja | Ja (nur Rasen) | Ja |
+| Sperrzeiten verwalten | – | Ja | Ja | Ja |
 | Nutzerverwaltung | – | Ja | – | Ja |
 | DFBnet-Buchung (Verdrängung) | – | Ja | – | Ja |
 | Admin-Buchung (ohne Zeitprüfung) | – | Ja | – | Ja |
+| Externen Termin erstellen | Ja | Ja | Ja | Ja |
+| Externen Termin löschen (alle) | – | Ja | – | – |
 | Aufgaben erstellen | Ja | Ja | Ja | Ja |
-| Aufgaben löschen | – | Ja | – | Ja |
+| Aufgaben löschen (alle) | – | Ja | Ja | – |
 
 ---
 
-## 5. DFBnet-Verdrängung
+## 5. Externe Termine
+
+- Sichtbar für alle authentifizierten Nutzer (Menüpunkt „Termine")
+- Dienen zur Ankündigung von Auswärtsspielen, Turnieren und anderen Terminen **ohne Platzbuchung**
+- **Felder:** Bezeichnung, Datum, Uhrzeit, Mannschaft (optional), Ort (optional), Beschreibung (optional)
+- Erstellen: alle eingeloggten Rollen
+- Löschen: Ersteller, Trainer derselben Mannschaft, Administrator
+- Erscheinen auf der öffentlichen Homepage gemischt mit DFBnet-Spielen, sortiert nach Datum
+- Konfiguration: `NOTION_EVENTS_DB_ID` in `.env` (Feature wird deaktiviert wenn nicht gesetzt)
+
+---
+
+## 6. DFBnet-Verdrängung
 
 - DFBnet-Buchungen haben **höchste Priorität**
 - Bestehende Buchungen im gleichen Zeitfenster werden **verdrängt**
@@ -120,7 +134,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 6. Sperrzeiten (nur Rasen)
+## 7. Sperrzeiten (nur Rasen)
 
 - **Ganztägig:** gesamter Tag gesperrt
 - **Zeitlich:** bestimmter Zeitraum gesperrt (Start- und Endzeit)
@@ -130,7 +144,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 7. Homepage (öffentlich)
+## 8. Homepage (öffentlich)
 
 - Keine Authentifizierung nötig
 - Zeigt **Platzverfügbarkeit** als read-only Ansicht
@@ -150,7 +164,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 8. Aufgaben / Schwarzes Brett
+## 9. Aufgaben / Schwarzes Brett
 
 - Sichtbar für alle authentifizierten Nutzer
 - **Typen:** Defekt, Nutzeranfrage, Turniertermin, Sonstiges
@@ -158,11 +172,11 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 - **Priorität:** Niedrig, Mittel (Standard), Hoch
 - **Felder:** Titel, Typ, Priorität, Fällig am, Ort, Beschreibung
 - Filterbar nach Typ und Status
-- Löschen nur durch Administrator
+- Löschen (alle): Administrator und Platzwart
 
 ---
 
-## 9. Benachrichtigungen (E-Mail)
+## 10. Benachrichtigungen (E-Mail)
 
 | Anlass | Empfänger | Inhalt |
 |--------|-----------|--------|
@@ -175,7 +189,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 10. Authentifizierung
+## 11. Authentifizierung
 
 ### Login
 - Benutzername + Passwort

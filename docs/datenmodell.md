@@ -21,6 +21,7 @@
 | Serie | Rich Text | Serien-ID (optional) |
 | Serienausnahme | Checkbox | Termin aus Serie herausgelöst |
 | Hinweis Sonnenuntergang | Rich Text | Auto bei Rasen |
+| Spielkennung | Rich Text | DFBnet-Spielkennung für Duplikaterkennung (optional) |
 
 ## 2. Serien
 
@@ -64,7 +65,22 @@
 | Mannschaft | Select | G1…Mädchen (optional) |
 | Passwort ändern | Checkbox | Erzwingt Passwortänderung |
 
-## 5. Aufgaben
+## 5. Externe Termine (Events)
+
+| Property | Typ | Werte / Hinweis |
+|----------|-----|-----------------|
+| Name | Title | Bezeichnung des Termins |
+| Datum | Date | – |
+| Startzeit | Rich Text | HH:MM |
+| Ort | Rich Text | Optional |
+| Beschreibung | Rich Text | Optional |
+| Mannschaft | Rich Text | Optional |
+| Erstellt von ID | Rich Text | Notion User-ID |
+| Erstellt von Name | Rich Text | Anzeigename |
+
+Konfiguriert über `NOTION_EVENTS_DB_ID` in der `.env`-Datei.
+
+## 6. Aufgaben
 
 | Property | Typ | Werte / Hinweis |
 |----------|-----|-----------------|
