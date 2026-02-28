@@ -12,3 +12,4 @@ Platzbelegung/
 homepage/userdata/vereinsinfo/*.json
 homepage/userdata/vereinsinfo/*.png
 homepage/userdata/vereinsinfo/api-fussball.de.json
+logs/
