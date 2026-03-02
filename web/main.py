@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from auth.auth import decode_jwt
 from notion.client import NotionRepository
 from web.config import get_settings
-from web.routers import auth, bookings, calendar, series, blackouts, admin, tasks, events
+from web.routers import auth, bookings, calendar, series, admin, tasks, events
 
 
 @asynccontextmanager
@@ -15,6 +15,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.repo = NotionRepository(settings)
     app.state.settings = settings
+    app.state.token_invalidations: dict[str, int] = {}  # {user_sub: invalidated_after_ts}
     yield
 
 
@@ -26,7 +27,6 @@ app.include_router(auth.router)
 app.include_router(calendar.router)
 app.include_router(bookings.router)
 app.include_router(series.router)
-app.include_router(blackouts.router)
 app.include_router(admin.router)
 app.include_router(tasks.router)
 app.include_router(events.router)

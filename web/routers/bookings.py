@@ -7,7 +7,8 @@ from fastapi.responses import HTMLResponse
 
 from auth.dependencies import CurrentUser, require_permission
 from booking.booking import build_booking, check_availability, dfbnet_displace
-from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Mannschaft, Permission, SeriesRhythm, has_permission
+from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Permission, has_permission
+import booking.field_config as fc
 from utils.time_slots import (
     compute_end_time,
     get_all_start_slots,
@@ -15,7 +16,7 @@ from utils.time_slots import (
 from utils.sunset import sunset_warning_text
 from web.audit_log import log_booking, log_cancel
 from web.config import get_settings
-from booking.field_config import get_visible_fields
+from booking.field_config import get_visible_fields, get_display_name
 from web.routers.calendar import invalidate_week_cache
 
 router = APIRouter(prefix="/bookings")
@@ -25,8 +26,7 @@ def _visible_fields(current_user) -> list[FieldName]:
     return get_visible_fields(current_user.role.value)
 
 
-def _toast(message: str, kind: str = "success") -> str:
-    return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
+from web.htmx import toast as _toast
 
 
 @router.get("", response_class=HTMLResponse)
@@ -44,11 +44,10 @@ async def bookings_page(
             "request": request,
             "current_user": current_user,
             "fields": _visible_fields(current_user),
+            "field_display_names": fc.get_display_names(),
             "start_slots": start_slots,
             "durations": [60, 90, 180],
             "booking_types": list(BookingType),
-            "rhythms": list(SeriesRhythm),
-            "mannschaften": list(Mannschaft),
             "prefill_date": date,
             "prefill_field": field,
             "prefill_start_time": start_time,
@@ -82,7 +81,6 @@ async def create_booking(
     )
 
     existing = repo.get_bookings_for_date(booking_date)
-    blackouts = repo.get_blackouts_for_date(booking_date) if data.field.is_rasen else []
 
     booking, errors = build_booking(
         repo=repo,
@@ -90,15 +88,26 @@ async def create_booking(
         current_user=current_user,
         settings=settings,
         existing_bookings=existing,
-        blackouts=blackouts,
     )
 
     if errors:
-        error_html = "".join(f"<li>{e}</li>" for e in errors)
-        return HTMLResponse(
-            f'<div id="form-errors" class="errors"><ul>{error_html}</ul></div>'
-            + _toast("Buchung fehlgeschlagen", "error"),
-            status_code=422,
+        start_slots = get_all_start_slots()
+        return templates.TemplateResponse(
+            "partials/_booking_form.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "fields": _visible_fields(current_user),
+                "field_display_names": fc.get_display_names(),
+                "start_slots": start_slots,
+                "durations": [60, 90, 180],
+                "booking_types": list(BookingType),
+                "prefill_date": booking_date,
+                "prefill_field": field,
+                "prefill_start_time": start_time,
+                "errors": errors,
+                "form_toast": _toast("Buchung fehlgeschlagen", "error"),
+            },
         )
 
     invalidate_week_cache(booking_date)
@@ -109,9 +118,10 @@ async def create_booking(
         from notifications.notify import send_booking_confirmation
         await send_booking_confirmation(booking, owner, settings)
 
+    display = get_display_name(booking.field.value)
     iso = booking_date.isocalendar()
     html = (
-        _toast(f"Buchung für {booking.field.value} am {booking.date.strftime('%d.%m.%Y')} gespeichert!")
+        _toast(f"Buchung für {display} am {booking.date.strftime('%d.%m.%Y')} gespeichert!")
         + f'<div id="calendar-week" hx-swap-oob="innerHTML">'
         + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}"'
         + ' hx-trigger="load" hx-swap="innerHTML"></div></div>'
@@ -147,6 +157,7 @@ async def cancel_booking(
         from notifications.notify import send_cancellation_notice
         await send_cancellation_notice(booking, owner, settings)
 
+    display = get_display_name(booking.field.value)
     free_slot = (
         f'<button class="slot slot--free slot--clickable"'
         f' hx-get="/bookings?date={booking.date.isoformat()}'
@@ -156,7 +167,7 @@ async def cancel_booking(
         f' hx-swap="innerHTML"'
         f' onclick="document.getElementById(\'booking-modal\').showModal()"'
         f' title="{booking.date.strftime("%d.%m.%Y")} {booking.start_time.strftime("%H:%M")}'
-        f' – {booking.field.value}">'
+        f' – {display}">'
         f'</button>'
     )
     return HTMLResponse(free_slot + _toast("Buchung storniert."))
@@ -189,13 +200,53 @@ async def check_availability_endpoint(
 
     if conflicts:
         names = ", ".join(
-            f"{b.field.value} {b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
+            f"{get_display_name(b.field.value)} {b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
             for b in conflicts
         )
         return HTMLResponse(
             f'<span class="badge badge--error">Belegt: {names}</span>'
         )
     return HTMLResponse('<span class="badge badge--success">Verfügbar</span>')
+
+
+@router.get("/list", response_class=HTMLResponse, dependencies=[Depends(require_permission(Permission.MANAGE_SERIES))])
+async def bookings_list(
+    request: Request,
+    current_user: CurrentUser,
+    mannschaft: str = "",
+    trainer: str = "",
+    wochentag: str = "",
+):
+    """Buchungsliste mit Filter nach Mannschaft, Trainer, Wochentag."""
+    repo = request.app.state.repo
+    all_bookings = repo.get_all_bookings()
+    wochentag_int = int(wochentag) if wochentag else None
+
+    mannschaften = sorted({b.mannschaft for b in all_bookings if b.mannschaft})
+    trainers = sorted({b.booked_by_name for b in all_bookings if b.booked_by_name})
+
+    filtered = all_bookings
+    if mannschaft:
+        filtered = [b for b in filtered if (b.mannschaft or "") == mannschaft]
+    if trainer:
+        filtered = [b for b in filtered if b.booked_by_name == trainer]
+    if wochentag_int is not None:
+        filtered = [b for b in filtered if b.date.weekday() == wochentag_int]
+
+    ctx = {
+        "request": request,
+        "current_user": current_user,
+        "bookings": filtered,
+        "mannschaften": mannschaften,
+        "trainers": trainers,
+        "sel_mannschaft": mannschaft,
+        "sel_trainer": trainer,
+        "sel_wochentag": wochentag_int,
+        "field_display_names": fc.get_display_names(),
+    }
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse("partials/_booking_list_tbody.html", ctx)
+    return templates.TemplateResponse("bookings/list.html", ctx)
 
 
 @router.get("/sunset-info", response_class=HTMLResponse)
@@ -210,12 +261,12 @@ async def sunset_info(
     if not field or not booking_date or not start_time or not duration_min:
         return HTMLResponse("")
 
-    # Sonnenuntergang nur für Rasen relevant (Kura/Halle haben Flutlicht)
+    # Sonnenuntergang nur für nicht-beleuchtete Felder (Kura/Halle haben Flutlicht)
     try:
         field_enum = FieldName(field)
     except (ValueError, KeyError):
         return HTMLResponse("")
-    if not field_enum.is_rasen:
+    if fc.is_lit(field_enum.value):
         return HTMLResponse("")
 
     from datetime import time as dtime
@@ -232,30 +283,3 @@ async def sunset_info(
     return HTMLResponse("")
 
 
-@router.get("/validate-rasen-season", response_class=HTMLResponse)
-async def validate_rasen_season(
-    request: Request,
-    current_user: CurrentUser,
-    field: str = Query(""),
-    booking_date: Optional[date] = Query(None, alias="date"),
-):
-    if not field or not booking_date:
-        return HTMLResponse("")
-    try:
-        field_enum = FieldName(field)
-    except (ValueError, KeyError):
-        return HTMLResponse("")
-    if not field_enum.is_rasen:
-        return HTMLResponse("")
-
-    reasons = []
-    blackouts = request.app.state.repo.get_blackouts_for_date(booking_date)
-    for bl in blackouts:
-        reasons.append(f"Platzsperre: {bl.reason}" if bl.reason else "Platzsperre")
-
-    if reasons:
-        text = ", ".join(reasons)
-        return HTMLResponse(
-            f'<div class="platzsperre-warning">&#9888; {text} – Buchung trotzdem möglich</div>'
-        )
-    return HTMLResponse("")

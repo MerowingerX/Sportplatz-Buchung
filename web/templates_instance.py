@@ -5,6 +5,7 @@ Alle Router importieren `templates` von hier, damit Jinja2-Globals
 (vereinsname, vereinsfarben) automatisch in jedem Template verfügbar sind.
 """
 from fastapi.templating import Jinja2Templates
+from booking.models import has_permission
 from booking.vereinsconfig import load as _load_vc
 
 templates = Jinja2Templates(directory="web/templates")
@@ -20,3 +21,5 @@ templates.env.globals["vereinsfarben"] = {
     "primary_darker": _vc.get("primary_color_darker", "#071c44"),
     "gold":           _vc.get("gold_color", "#e8c04a"),
 }
+templates.env.globals["logo_url"] = _vc.get("logo_url", "/static/logo.svg")
+templates.env.globals["has_permission"] = has_permission

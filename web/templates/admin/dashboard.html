@@ -108,14 +108,31 @@
     <a href="/admin/field-config" class="btn btn--secondary">Plätze konfigurieren</a>
   </div>
   <div class="card">
-    <h2>Sperrzeiten</h2>
-    <p>Rasen-Sperrzeiten für den Platzwart</p>
-    <a href="/blackouts" class="btn btn--secondary">Sperrzeiten verwalten</a>
-  </div>
-  <div class="card">
     <h2>Aufgaben &amp; Meldungen</h2>
     <p>Defekte, Nutzeranfragen und Turniermeldungen verwalten</p>
     <a href="/tasks" class="btn btn--secondary">Aufgaben ansehen</a>
+  </div>
+  <div class="card">
+    <h2>Saisonübernahme</h2>
+    <p>Aktive Serien auswählen und mit +1 Jahr als neue Saison duplizieren</p>
+    <button class="btn btn--secondary"
+            hx-get="/series/season-transfer"
+            hx-target="#season-transfer-modal-body"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('season-transfer-modal').showModal()">
+      Serien übernehmen
+    </button>
+  </div>
+  <div class="card">
+    <h2>Datenbereinigung</h2>
+    <p>Verwaiste und vergangene Buchungen dauerhaft aus Notion entfernen</p>
+    <button class="btn btn--secondary"
+            hx-get="/admin/housekeeping"
+            hx-target="#housekeeping-modal-body"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('housekeeping-modal').showModal()">
+      Vorschau laden
+    </button>
   </div>
 </div>
 
@@ -127,6 +144,20 @@
   </div>
   <div id="sync-modal-content" class="modal__body sync-modal__body">
     <!-- wird per HTMX OOB befüllt -->
+  </div>
+</dialog>
+
+<!-- Saisonübernahme-Modal -->
+<dialog id="season-transfer-modal" class="modal modal--wide">
+  <div id="season-transfer-modal-body" class="modal__body">
+    <!-- wird per HTMX befüllt -->
+  </div>
+</dialog>
+
+<!-- Datenbereinigung-Modal -->
+<dialog id="housekeeping-modal" class="modal">
+  <div id="housekeeping-modal-body" class="modal__body">
+    <!-- wird per HTMX befüllt -->
   </div>
 </dialog>
 

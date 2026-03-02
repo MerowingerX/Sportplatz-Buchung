@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from booking.models import BlackoutType, FieldName
+from booking.models import FieldName
+import booking.field_config as fc
 from booking.vereinsconfig import load as _load_vc
 from notion.client import NotionRepository
 from utils.time_slots import get_all_start_slots
@@ -54,11 +55,11 @@ def _load_vereins_map() -> dict[str, str]:
 
 CLUBS_MAP: dict[str, str] = _load_vereins_map()
 
-# Mapping: venue-Kürzel → (Label, Feld-Filter-Attr, Prefix)
+# Mapping: venue-Kürzel → (Label, Gruppen-ID in field_config.json)
 VENUES = {
-    "kura":  ("Kunstrasen", "is_kura", "Kura"),
-    "rasen": ("Naturrasen", "is_rasen", "Rasen"),
-    "halle": ("Turnhalle",  "is_halle", "Halle"),
+    "kura":  ("Kunstrasen", "kura"),
+    "rasen": ("Naturrasen", "rasen"),
+    "halle": ("Turnhalle",  "halle"),
 }
 
 
@@ -136,8 +137,22 @@ def _week_context(year: int, week: int) -> dict:
 
 
 def _fields_for_venue(venue: str) -> list[FieldName]:
-    _, attr, _ = VENUES.get(venue, VENUES["kura"])
-    return [f for f in FieldName if getattr(f, attr)]
+    """Gibt alle FieldName-Werte zurück, die zur angegebenen Venue-Gruppe gehören."""
+    _, group_id = VENUES.get(venue, VENUES["kura"])
+    cfg = fc.load()
+    for group in cfg.get("field_groups", []):
+        if group.get("id") == group_id:
+            return [FieldName(fid) for fid in group["fields"]]
+    return []
+
+
+def _availability_context(fields: list[FieldName]) -> dict:
+    """Baut den Kontext für field_display_names und conflict_sources."""
+    visible_ids = [f.value for f in fields]
+    return {
+        "field_display_names": fc.get_display_names(),
+        "conflict_sources": fc.get_conflict_sources(visible_ids),
+    }
 
 
 # ------------------------------------------------------------------ Routes
@@ -194,22 +209,20 @@ async def upcoming_partial(request: Request, page: int = 1):
 async def availability_week(request: Request, year: int, week: int, venue: str = "kura"):
     repo = request.app.state.repo
     bookings = repo.get_bookings_for_week(year, week)
-    blackouts = repo.get_blackouts_for_week(year, week)
     venue_fields = _fields_for_venue(venue)
     ctx = _week_context(year, week)
-    label, _, prefix = VENUES.get(venue, VENUES["kura"])
+    label, _ = VENUES.get(venue, VENUES["kura"])
     return templates.TemplateResponse(
         "partials/_availability_week.html",
         {
             "request": request,
             "bookings": bookings,
-            "blackouts": blackouts,
             "fields": venue_fields,
             "slots": get_all_start_slots(),
             "venue": venue,
             "venue_label": label,
-            "venue_prefix": prefix,
             "today": date.today().isoformat(),
+            **_availability_context(venue_fields),
             **ctx,
         },
     )
@@ -219,15 +232,13 @@ async def availability_week(request: Request, year: int, week: int, venue: str =
 async def availability_day(request: Request, day: date, venue: str = "kura"):
     repo = request.app.state.repo
     bookings = repo.get_bookings_for_date(day)
-    blackouts = repo.get_blackouts_for_date(day)
     venue_fields = _fields_for_venue(venue)
-    label, _, prefix = VENUES.get(venue, VENUES["kura"])
+    label, _ = VENUES.get(venue, VENUES["kura"])
     return templates.TemplateResponse(
         "partials/_availability_day.html",
         {
             "request": request,
             "bookings": bookings,
-            "blackouts": blackouts,
             "fields": venue_fields,
             "slots": get_all_start_slots(),
             "day": day,
@@ -236,6 +247,6 @@ async def availability_day(request: Request, day: date, venue: str = "kura"):
             "next_day": (day + timedelta(days=1)).isoformat(),
             "venue": venue,
             "venue_label": label,
-            "venue_prefix": prefix,
+            **_availability_context(venue_fields),
         },
     )

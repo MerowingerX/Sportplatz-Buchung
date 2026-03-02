@@ -10,9 +10,6 @@ from booking.models import (
     AufgabeCreate,
     AufgabeStatus,
     AufgabeTyp,
-    BlackoutCreate,
-    BlackoutPeriod,
-    BlackoutType,
     Booking,
     BookingCreate,
     BookingStatus,
@@ -20,10 +17,12 @@ from booking.models import (
     ExternalEvent,
     ExternalEventCreate,
     FieldName,
+    MannschaftConfig,
     Prioritaet,
     Series,
     SeriesCreate,
     SeriesRhythm,
+    SeriesSaison,
     SeriesStatus,
     User,
     UserCreate,
@@ -119,7 +118,9 @@ class NotionRepository:
         self._settings = settings
         self._db_props_ensured = False
         self._events_db_ensured = False
-        self._ensure_db_properties()
+        self._series_db_ensured = False
+        if not settings.skip_notion_migrate:
+            self._ensure_db_properties()
 
     # Properties, die ggf. nachträglich zur Buchungen-DB hinzugefügt wurden
     _REQUIRED_BUCHUNGEN_PROPS: dict[str, dict] = {
@@ -148,6 +149,33 @@ class NotionRepository:
         except Exception:
             pass
         self._db_props_ensured = True
+        self._ensure_series_db_properties()
+
+    # Properties, die ggf. nachträglich zur Serien-DB hinzugefügt wurden
+    _REQUIRED_SERIES_PROPS: dict[str, dict] = {
+        "Saison": {"select": {}},
+    }
+
+    def _ensure_series_db_properties(self) -> None:
+        """Legt fehlende Properties in der Serien-DB an."""
+        if self._series_db_ensured:
+            return
+        try:
+            db = self._client.databases.retrieve(self._settings.notion_serien_db_id)
+            existing = db.get("properties", {})
+            missing = {
+                name: schema
+                for name, schema in self._REQUIRED_SERIES_PROPS.items()
+                if name not in existing
+            }
+            if missing:
+                self._client.databases.update(
+                    database_id=self._settings.notion_serien_db_id,
+                    properties=missing,
+                )
+        except Exception:
+            pass
+        self._series_db_ensured = True
 
     # Properties für die Events-DB
     _REQUIRED_EVENTS_PROPS: dict[str, dict] = {
@@ -217,15 +245,13 @@ class NotionRepository:
 
     def _page_to_user(self, page: dict) -> User:
         props = page["properties"]
-        mannschaft_val = _get_select(props, "Mannschaft")
-        from booking.models import Mannschaft
         return User(
             notion_id=page["id"],
             name=_get_title(props, "Name"),
             role=UserRole(_get_select(props, "Rolle")),
             email=_get_email(props, "E-Mail"),
             password_hash=_get_rich_text(props, "Password_Hash"),
-            mannschaft=Mannschaft(mannschaft_val) if mannschaft_val else None,
+            mannschaft=_get_select(props, "Mannschaft") or None,
             must_change_password=_get_checkbox(props, "Passwort ändern"),
         )
 
@@ -243,6 +269,32 @@ class NotionRepository:
         except Exception:
             return None
 
+    # --------------------------------------------------------- mannschaften
+
+    def _page_to_mannschaft(self, page: dict) -> MannschaftConfig:
+        props = page["properties"]
+        return MannschaftConfig(
+            notion_id=page["id"],
+            name=_get_title(props, "Name"),
+            trainer_name=_get_rich_text(props, "Trainer Name") or None,
+            trainer_id=_get_rich_text(props, "Trainer ID") or None,
+            fussball_de_team_id=_get_rich_text(props, "FussballDeTeamId") or None,
+            aktiv=_get_checkbox(props, "Aktiv"),
+        )
+
+    def get_all_mannschaften(self, only_active: bool = False) -> list[MannschaftConfig]:
+        """Alle Mannschaften aus der Teams-DB. Optional nur aktive."""
+        db_id = self._settings.notion_mannschaften_db_id
+        if not db_id:
+            return []
+        filter_: Optional[dict] = None
+        if only_active:
+            filter_ = {"property": "Aktiv", "checkbox": {"equals": True}}
+        pages = self._query_all(db_id, filter=filter_)
+        result = [self._page_to_mannschaft(p) for p in pages]
+        result.sort(key=lambda m: m.name)
+        return result
+
     def create_user(self, user: UserCreate, password_hash: str) -> User:
         page = self._client.pages.create(
             parent={"database_id": self._settings.notion_nutzer_db_id},
@@ -252,7 +304,7 @@ class NotionRepository:
                 "E-Mail": _email(user.email),
                 "Password_Hash": _rich_text(password_hash),
                 "Passwort ändern": _checkbox(True),
-                **( {"Mannschaft": _select(user.mannschaft.value)} if user.mannschaft else {} ),
+                **( {"Mannschaft": _select(user.mannschaft)} if user.mannschaft else {} ),
             },
         )
         return self._page_to_user(page)
@@ -553,10 +605,57 @@ class NotionRepository:
         )
         return self._page_to_booking(page)
 
+    def get_all_bookings_for_series(self, series_id: str) -> list[Booking]:
+        """Alle Buchungen einer Serie unabhängig von Status."""
+        pages = self._query_all(
+            self._settings.notion_buchungen_db_id,
+            filter={"property": "Serie", "rich_text": {"equals": series_id}},
+        )
+        return [self._page_to_booking(p) for p in pages]
+
+    def get_all_bookings(self, from_date: Optional[date] = None) -> list[Booking]:
+        """Alle bestätigten Buchungen ab from_date (Standard: heute), aufsteigend nach Datum."""
+        start = from_date or date.today()
+        pages = self._query_all(
+            self._settings.notion_buchungen_db_id,
+            filter={"and": [
+                {"property": "Status", "select": {"equals": BookingStatus.BESTAETIGT.value}},
+                {"property": "Datum", "date": {"on_or_after": start.isoformat()}},
+            ]},
+            sorts=[{"property": "Datum", "direction": "ascending"}],
+        )
+        return [self._page_to_booking(p) for p in pages]
+
+    def get_housekeeping_candidates(self, cutoff_date: date) -> list[Booking]:
+        """Gibt stornierte Buchungen (beliebiges Datum) + vergangene bestätigte Buchungen zurück."""
+        cancelled = self._query_all(
+            self._settings.notion_buchungen_db_id,
+            filter={"or": [
+                {"property": "Status", "select": {"equals": BookingStatus.STORNIERT.value}},
+                {"property": "Status", "select": {"equals": BookingStatus.STORNIERT_DFBNET.value}},
+            ]},
+        )
+        past_confirmed = self._query_all(
+            self._settings.notion_buchungen_db_id,
+            filter={"and": [
+                {"property": "Status", "select": {"equals": BookingStatus.BESTAETIGT.value}},
+                {"property": "Datum", "date": {"before": cutoff_date.isoformat()}},
+            ]},
+        )
+        return [self._page_to_booking(p) for p in cancelled + past_confirmed]
+
+    def delete_booking(self, booking_id: str) -> None:
+        self._client.pages.update(page_id=booking_id, archived=True)
+
     # ------------------------------------------------------------------ series
 
     def _page_to_series(self, page: dict) -> Series:
         props = page["properties"]
+        saison_raw = _get_select(props, "Saison") or "Ganzjährig"
+        try:
+            saison = SeriesSaison(saison_raw)
+        except ValueError:
+            saison = SeriesSaison.GANZJAEHRIG
         return Series(
             notion_id=page["id"],
             title=_get_title(props, "Titel"),
@@ -572,6 +671,7 @@ class NotionRepository:
             mannschaft=_get_rich_text(props, "Mannschaft") or None,
             trainer_id=_get_rich_text(props, "Trainer ID") or None,
             trainer_name=_get_rich_text(props, "Trainer Name") or None,
+            saison=saison,
         )
 
     def create_series(
@@ -582,7 +682,7 @@ class NotionRepository:
         trainer_name: str,
     ) -> Series:
         title = (
-            f"Serie {data.mannschaft.value} {data.field.value} "
+            f"Serie {data.mannschaft} {data.field.value} "
             f"{data.start_time.strftime('%H:%M')} "
             f"ab {data.start_date.isoformat()}"
         )
@@ -599,9 +699,10 @@ class NotionRepository:
                 "Gebucht von ID": _rich_text(booked_by_id),
                 "Gebucht von Name": _rich_text(booked_by_name),
                 "Status": _select(SeriesStatus.AKTIV.value),
-                "Mannschaft": _rich_text(data.mannschaft.value),
+                "Mannschaft": _rich_text(data.mannschaft),
                 "Trainer ID": _rich_text(data.trainer_id),
                 "Trainer Name": _rich_text(trainer_name),
+                "Saison": _select(data.saison.value),
             },
         )
         return self._page_to_series(page)
@@ -628,90 +729,6 @@ class NotionRepository:
             return self._page_to_series(page)
         except Exception:
             return None
-
-    # ------------------------------------------------------------------ blackout
-
-    def _page_to_blackout(self, page: dict) -> Optional[BlackoutPeriod]:
-        """Gibt None zurück wenn der Eintrag kein gültiges Datum hat."""
-        props = page["properties"]
-        start_date = _get_date(props, "Datum")
-        if start_date is None:
-            return None
-        end_date = _get_date_end(props, "Datum") or start_date
-        art = _get_select(props, "Art") or BlackoutType.GANZTAEGIG.value
-        return BlackoutPeriod(
-            notion_id=page["id"],
-            title=_get_title(props, "Titel"),
-            start_date=start_date,
-            end_date=end_date,
-            blackout_type=BlackoutType(art),
-            start_time=_parse_time(_get_select(props, "Startzeit")),
-            end_time=_parse_time(_get_select(props, "Endzeit")),
-            reason=_get_rich_text(props, "Grund"),
-            entered_by_id=_get_rich_text(props, "Eingetragen von ID"),
-            entered_by_name=_get_rich_text(props, "Eingetragen von Name"),
-        )
-
-    def _blackouts_from_pages(self, pages: list[dict]) -> list[BlackoutPeriod]:
-        return [bl for p in pages if (bl := self._page_to_blackout(p)) is not None]
-
-    def get_blackouts_for_date(self, blackout_date: date) -> list[BlackoutPeriod]:
-        # Fetch blackouts whose start_date <= blackout_date, then filter in Python for end_date >= blackout_date
-        pages = self._query_all(
-            self._settings.notion_sperrzeiten_db_id,
-            filter={"property": "Datum", "date": {"on_or_before": blackout_date.isoformat()}},
-        )
-        return [bl for bl in self._blackouts_from_pages(pages) if bl.end_date >= blackout_date]
-
-    def get_blackouts_for_week(self, year: int, week: int) -> list[BlackoutPeriod]:
-        from datetime import timedelta
-        monday = date.fromisocalendar(year, week, 1)
-        sunday = monday + timedelta(days=6)
-        # Fetch blackouts whose start_date <= sunday, then filter for end_date >= monday
-        pages = self._query_all(
-            self._settings.notion_sperrzeiten_db_id,
-            filter={"property": "Datum", "date": {"on_or_before": sunday.isoformat()}},
-        )
-        return [bl for bl in self._blackouts_from_pages(pages) if bl.end_date >= monday]
-
-    def get_all_blackouts(self) -> list[BlackoutPeriod]:
-        """Alle Sperrzeiten, neueste zuerst."""
-        pages = self._query_all(
-            self._settings.notion_sperrzeiten_db_id,
-            sorts=[{"property": "Datum", "direction": "descending"}],
-        )
-        return self._blackouts_from_pages(pages)
-
-    def create_blackout(
-        self,
-        data: BlackoutCreate,
-        entered_by_id: str,
-        entered_by_name: str,
-    ) -> BlackoutPeriod:
-        if data.end_date > data.start_date:
-            title = f"Sperrzeit Rasen {data.start_date.isoformat()} – {data.end_date.isoformat()}"
-        else:
-            title = f"Sperrzeit Rasen {data.start_date.isoformat()}"
-        props: dict = {
-            "Titel": _title(title),
-            "Datum": _date_range_prop(data.start_date, data.end_date),
-            "Art": _select(data.blackout_type.value),
-            "Grund": _rich_text(data.reason),
-            "Eingetragen von ID": _rich_text(entered_by_id),
-            "Eingetragen von Name": _rich_text(entered_by_name),
-        }
-        if data.start_time:
-            props["Startzeit"] = _select(data.start_time.strftime("%H:%M"))
-        if data.end_time:
-            props["Endzeit"] = _select(data.end_time.strftime("%H:%M"))
-        page = self._client.pages.create(
-            parent={"database_id": self._settings.notion_sperrzeiten_db_id},
-            properties=props,
-        )
-        return self._page_to_blackout(page)
-
-    def delete_blackout(self, blackout_id: str) -> None:
-        self._client.pages.update(page_id=blackout_id, archived=True)
 
     # ------------------------------------------------------------------ aufgaben
 

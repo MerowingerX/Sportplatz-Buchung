@@ -1,0 +1,5 @@
+{% for s in series_list %}
+  {% include "partials/_series_row.html" %}
+{% else %}
+  <tr><td colspan="9" class="text-muted">Keine Serien gefunden.</td></tr>
+{% endfor %}

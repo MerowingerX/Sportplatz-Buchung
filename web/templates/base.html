@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Sportplatz-Buchung{% endblock %}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css?v=6">
   <style>
     :root {
       --color-primary: {{ vereinsfarben.primary }};
@@ -13,13 +13,14 @@
       --color-primary-darker: {{ vereinsfarben.primary_darker }};
       --color-gold: {{ vereinsfarben.gold }};
     }
+    body::before { background-image: url('{{ logo_url }}'); }
   </style>
 </head>
 <body hx-boost="true">
 
   <nav class="navbar">
     <a class="navbar__brand" href="/calendar">
-      <img src="/static/wappen.png" alt="" class="navbar__logo">
+      <img src="{{ logo_url }}" alt="" class="navbar__logo">
       {{ vereinsname }} – Buchung
     </a>
     <button class="navbar__hamburger" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false">
@@ -39,11 +40,9 @@
             Spielplan ↓
           </button>
         {% endif %}
-        {% if current_user.role.value in ["Platzwart", "Administrator"] %}
-          <a href="/blackouts">Sperrzeiten</a>
-        {% endif %}
         {% if current_user.role.value in ["Administrator", "DFBnet"] %}
           <a href="/series">Serien</a>
+          <a href="/bookings/list">Buchungen</a>
         {% endif %}
         {% if current_user.role.value == "Administrator" %}
           <a href="/admin/users">Nutzer</a>
@@ -52,7 +51,7 @@
         <a href="/events">Termine</a>
         <span class="navbar__user">{{ current_user.username }} ({{ current_user.role.value }})</span>
         <a href="/change-password" class="btn btn--ghost">Passwort</a>
-        <form method="post" action="/logout" style="display:inline">
+        <form method="post" action="/logout">
           <button type="submit" class="btn btn--ghost">Abmelden</button>
         </form>
       {% endif %}

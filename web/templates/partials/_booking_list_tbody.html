@@ -1,0 +1,14 @@
+{% set wochentage = ["Mo","Di","Mi","Do","Fr","Sa","So"] %}
+{% for b in bookings %}
+<tr>
+  <td>{{ b.date.strftime('%d.%m.%Y') }} <span class="text-muted">{{ wochentage[b.date.weekday()] }}</span></td>
+  <td>{{ field_display_names.get(b.field.value, b.field.value) }}</td>
+  <td>{{ b.start_time.strftime('%H:%M') }}</td>
+  <td>{{ b.duration_min }} Min</td>
+  <td>{{ b.booking_type.value }}</td>
+  <td>{{ b.mannschaft or '—' }}</td>
+  <td>{{ b.booked_by_name }}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="text-muted">Keine Buchungen gefunden.</td></tr>
+{% endfor %}

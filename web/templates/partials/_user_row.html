@@ -1,7 +1,7 @@
 <tr id="user-{{ user.notion_id }}">
   <td>{{ user.name }}</td>
   <td>{{ user.role.value }}</td>
-  <td>{{ user.mannschaft.value if user.mannschaft else '–' }}</td>
+  <td>{{ user.mannschaft if user.mannschaft else '–' }}</td>
   <td>{{ user.email }}</td>
   <td>
     <form class="inline-form"
@@ -14,7 +14,7 @@
       <button type="submit" class="btn btn--ghost btn--small">Reset</button>
     </form>
   </td>
-  <td style="text-align:right; white-space:nowrap;">
+  <td class="text-right nowrap">
     <button class="btn btn--secondary btn--small"
             hx-get="/admin/users/{{ user.notion_id }}/edit"
             hx-target="#user-{{ user.notion_id }}"
@@ -30,7 +30,7 @@
       Löschen
     </button>
     {% else %}
-    <span class="text-muted" style="font-size:0.8rem;">(du)</span>
+    <span class="text-muted text-sm">(du)</span>
     {% endif %}
   </td>
 </tr>

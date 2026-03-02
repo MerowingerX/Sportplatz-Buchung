@@ -87,11 +87,7 @@ def schema_buchungen() -> dict:
     """Buchungen – Platzbuchungen aller Art."""
     return {
         "Titel":                    title_prop(),
-        "Platz":                    sel(
-            "Kura Ganz", "Kura Halb A", "Kura Halb B",
-            "Rasen Ganz", "Rasen Halb A", "Rasen Halb B",
-            "Halle Ganz", "Halle 2/3", "Halle 1/3",
-        ),
+        "Platz":                    sel("A", "AA", "AB", "B", "BA", "BB", "C", "CA", "CB"),
         "Datum":                    date_prop(),
         "Startzeit":                sel(*ZEITSLOTS),
         "Endzeit":                  sel(*ZEITSLOTS),
@@ -115,11 +111,7 @@ def schema_serien() -> dict:
     """Serien – wiederkehrende Buchungen."""
     return {
         "Titel":            title_prop(),
-        "Platz":            sel(
-            "Kura Ganz", "Kura Halb A", "Kura Halb B",
-            "Rasen Ganz", "Rasen Halb A", "Rasen Halb B",
-            "Halle Ganz", "Halle 2/3", "Halle 1/3",
-        ),
+        "Platz":            sel("A", "AA", "AB", "B", "BA", "BB", "C", "CA", "CB"),
         "Startzeit":        sel(*ZEITSLOTS),
         "Dauer":            sel(*DAUER_OPTIONEN),
         "Rhythmus":         sel("Wöchentlich", "14-tägig"),
@@ -131,20 +123,7 @@ def schema_serien() -> dict:
         "Mannschaft":       rich_text_prop(),
         "Trainer ID":       rich_text_prop(),
         "Trainer Name":     rich_text_prop(),
-    }
-
-
-def schema_sperrzeiten() -> dict:
-    """Sperrzeiten – Platzsperren für Rasen-Plätze."""
-    return {
-        "Titel":                    title_prop(),
-        "Datum":                    date_prop(),        # wird als Datumsbereich gespeichert
-        "Art":                      sel("Ganztägig", "Zeitlich"),
-        "Startzeit":                sel(*ZEITSLOTS),
-        "Endzeit":                  sel(*ZEITSLOTS),
-        "Grund":                    rich_text_prop(),
-        "Eingetragen von ID":       rich_text_prop(),
-        "Eingetragen von Name":     rich_text_prop(),
+        "Saison":           sel("Ganzjährig", "Sommerhalbjahr", "Winterhalbjahr"),
     }
 
 
@@ -260,7 +239,6 @@ def main() -> None:
     databases = [
         ("Buchungen",   schema_buchungen),
         ("Serien",      schema_serien),
-        ("Sperrzeiten", schema_sperrzeiten),
         ("Nutzer",      schema_nutzer),
         ("Aufgaben",    schema_aufgaben),
         ("Events",      schema_events),
@@ -284,7 +262,6 @@ def main() -> None:
     env_keys = {
         "Buchungen":   "NOTION_BUCHUNGEN_DB_ID",
         "Serien":      "NOTION_SERIEN_DB_ID",
-        "Sperrzeiten": "NOTION_SPERRZEITEN_DB_ID",
         "Nutzer":      "NOTION_NUTZER_DB_ID",
         "Aufgaben":    "NOTION_AUFGABEN_DB_ID",
         "Events":      "NOTION_EVENTS_DB_ID",

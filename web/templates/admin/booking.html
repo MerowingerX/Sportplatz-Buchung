@@ -26,21 +26,13 @@
     <div class="form-group">
       <label for="field">Platz / Halle</label>
       <select id="field" name="field" required>
-        <optgroup label="Kunstrasen">
-          {% for f in fields if f.is_kura %}
-            <option value="{{ f.value }}">{{ f.value }}</option>
-          {% endfor %}
-        </optgroup>
-        <optgroup label="Naturrasen">
-          {% for f in fields if f.is_rasen %}
-            <option value="{{ f.value }}">{{ f.value }}</option>
-          {% endfor %}
-        </optgroup>
-        <optgroup label="Turnhalle">
-          {% for f in fields if f.is_halle %}
-            <option value="{{ f.value }}">{{ f.value }}</option>
-          {% endfor %}
-        </optgroup>
+        {% for group_name, group_fields in field_groups %}
+          <optgroup label="{{ group_name }}">
+            {% for fid in group_fields %}
+              <option value="{{ fid }}">{{ field_display_names.get(fid, fid) }}</option>
+            {% endfor %}
+          </optgroup>
+        {% endfor %}
       </select>
     </div>
 

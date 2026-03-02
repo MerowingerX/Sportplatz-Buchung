@@ -11,7 +11,7 @@
     <select name="mannschaft" class="input--small" style="width:110px;">
       <option value="">– keine –</option>
       {% for m in mannschaften %}
-        <option value="{{ m.value }}" {{ 'selected' if user.mannschaft and user.mannschaft.value == m.value }}>{{ m.value }}</option>
+        <option value="{{ m.name }}" {{ 'selected' if user.mannschaft == m.name }}>{{ m.name }}</option>
       {% endfor %}
     </select>
   </td>
@@ -19,7 +19,7 @@
     <input type="email" name="email" value="{{ user.email }}" class="input--small" style="width:160px;" required>
   </td>
   <td></td>
-  <td style="text-align:right; white-space:nowrap;">
+  <td class="text-right nowrap">
     <button class="btn btn--primary btn--small"
             hx-patch="/admin/users/{{ user.notion_id }}"
             hx-include="closest tr"

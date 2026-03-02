@@ -16,6 +16,10 @@ def get_current_user(request: Request) -> TokenPayload:
         payload = decode_jwt(token, get_settings())
     except JWTError:
         raise HTTPException(status_code=302, headers={"Location": "/login"})
+    # Token nach Rollenänderung / Passwort-Reset ungültig?
+    invalidations = getattr(request.app.state, "token_invalidations", {})
+    if payload.iat < invalidations.get(payload.sub, 0):
+        raise HTTPException(status_code=302, headers={"Location": "/login"})
     # Erzwungener Passwortwechsel: nur /change-password und /logout erlaubt
     if payload.must_change_password:
         path = request.url.path

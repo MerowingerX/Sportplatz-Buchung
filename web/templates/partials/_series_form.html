@@ -1,6 +1,28 @@
+<script id="saison-defaults" type="application/json">{{ saison_defaults | tojson }}</script>
+<script>
+function prefillSaisonDates(saison) {
+  const defaults = JSON.parse(document.getElementById('saison-defaults').textContent);
+  const key = saison.toLowerCase()
+    .replace(/ä/g, 'a').replace(/ü/g, 'u').replace(/ö/g, 'o')
+    .replace(/\s+/g, '');
+  const d = defaults[key];
+  if (!d) return;
+  const now = new Date();
+  let startYear = now.getFullYear();
+  const startMonth = parseInt(d.start.split('-')[0]);
+  if (startMonth <= now.getMonth()) startYear += 1;
+  const endeMonth = parseInt(d.ende.split('-')[0]);
+  let endeYear = startYear;
+  if (endeMonth <= startMonth) endeYear += 1;
+  document.getElementById('start_date').value = startYear + '-' + d.start;
+  document.getElementById('end_date').value   = endeYear  + '-' + d.ende;
+}
+</script>
+
+{% if form_toast %}{{ form_toast | safe }}{% endif %}
 <form hx-post="/series"
-      hx-target="#toast"
-      hx-swap="outerHTML">
+      hx-target="closest .modal__body"
+      hx-swap="innerHTML">
 
   <div class="form-group">
     <label for="mannschaft">Mannschaft</label>
@@ -11,7 +33,7 @@
             hx-include="this">
       <option value="">– Mannschaft wählen –</option>
       {% for m in mannschaften %}
-        <option value="{{ m.value }}">{{ m.value }}</option>
+        <option value="{{ m.name }}">{{ m.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -27,7 +49,7 @@
     <label for="field">Platz</label>
     <select id="field" name="field" required>
       {% for f in fields %}
-        <option value="{{ f.value }}">{{ f.value }}</option>
+        <option value="{{ f.value }}" {{ 'selected' if prefill_field == f.value }}>{{ field_display_names.get(f.value, f.value) }}</option>
       {% endfor %}
     </select>
   </div>
@@ -36,7 +58,10 @@
     <label for="start_time">Startzeit</label>
     <select id="start_time" name="start_time" required>
       {% for slot in start_slots %}
-        <option value="{{ slot.strftime('%H:%M') }}">{{ slot.strftime('%H:%M') }}</option>
+        <option value="{{ slot.strftime('%H:%M') }}"
+                {{ 'selected' if prefill_start_time == slot.strftime('%H:%M') }}>
+          {{ slot.strftime('%H:%M') }}
+        </option>
       {% endfor %}
     </select>
   </div>
@@ -60,16 +85,31 @@
   </div>
 
   <div class="form-group">
+    <label for="saison">Saison</label>
+    <select id="saison" name="saison" onchange="prefillSaisonDates(this.value)">
+      {% for s in saisons %}
+        <option value="{{ s.value }}">{{ s.value }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-group">
     <label for="start_date">Startdatum</label>
-    <input type="date" id="start_date" name="start_date" required>
+    <input type="date" id="start_date" name="start_date" required
+           value="{{ prefill_start_date if prefill_start_date else '' }}">
   </div>
 
   <div class="form-group">
     <label for="end_date">Enddatum</label>
-    <input type="date" id="end_date" name="end_date" required>
+    <input type="date" id="end_date" name="end_date" required
+           value="{{ prefill_end_date if prefill_end_date else '' }}">
   </div>
 
-  <div id="form-errors"></div>
+  <div id="form-errors">
+    {% if errors %}
+    <ul class="errors">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
 
   <div class="form-actions">
     <button type="submit" class="btn btn--primary">Serie anlegen</button>

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
+import booking.field_config as _fc
 from booking.models import (
     Booking,
     BookingCreate,
@@ -24,30 +25,17 @@ from web.config import Settings
 
 # ------------------------------------------------------------------ Konfliktfelder
 
-_CONFLICT_MAP: dict[FieldName, list[FieldName]] = {
-    FieldName.KURA_GANZ: [FieldName.KURA_GANZ, FieldName.KURA_HALB_A, FieldName.KURA_HALB_B],
-    FieldName.KURA_HALB_A: [FieldName.KURA_GANZ, FieldName.KURA_HALB_A],
-    FieldName.KURA_HALB_B: [FieldName.KURA_GANZ, FieldName.KURA_HALB_B],
-    FieldName.RASEN_GANZ: [FieldName.RASEN_GANZ, FieldName.RASEN_HALB_A, FieldName.RASEN_HALB_B],
-    FieldName.RASEN_HALB_A: [FieldName.RASEN_GANZ, FieldName.RASEN_HALB_A],
-    FieldName.RASEN_HALB_B: [FieldName.RASEN_GANZ, FieldName.RASEN_HALB_B],
-    # Turnhalle: Ganz sperrt alles; 2/3 und 1/3 können gleichzeitig laufen
-    FieldName.HALLE_GANZ: [FieldName.HALLE_GANZ, FieldName.HALLE_ZWEIDRITTEL, FieldName.HALLE_EINDRITTEL],
-    FieldName.HALLE_ZWEIDRITTEL: [FieldName.HALLE_GANZ, FieldName.HALLE_ZWEIDRITTEL],
-    FieldName.HALLE_EINDRITTEL: [FieldName.HALLE_GANZ, FieldName.HALLE_EINDRITTEL],
-}
-
-
-def get_conflicting_fields(field: FieldName) -> list[FieldName]:
-    """Gibt alle Feldbelegungen zurück, die mit der gewünschten Buchung in Konflikt stehen."""
-    return _CONFLICT_MAP[field]
-
-
-# ------------------------------------------------------------------ Saison
-
-def is_rasen_season(booking_date: date) -> bool:
-    """Rasen ist von März bis November buchbar."""
-    return 3 <= booking_date.month <= 11
+def get_conflicting_fields(field: FieldName, all_fields: Optional[list[FieldName]] = None) -> list[FieldName]:
+    """
+    Gibt alle Felder zurück, die mit dem gegebenen Feld in Konflikt stehen.
+    Konfliktlogik: Präfix-Prüfung — A blockiert AA/AB und umgekehrt.
+    """
+    if all_fields is None:
+        all_fields = list(FieldName)
+    return [
+        f for f in all_fields
+        if f.value.startswith(field.value) or field.value.startswith(f.value)
+    ]
 
 
 # ------------------------------------------------------------------ Verfügbarkeit
@@ -81,28 +69,6 @@ def check_availability(
     return conflicts
 
 
-def check_blackout(
-    blackouts,
-    booking_date: date,
-    start_time,
-    end_time,
-):
-    """
-    Gibt die erste zutreffende Sperrzeit zurück oder None.
-    blackouts: Liste von BlackoutPeriod für das jeweilige Datum
-    """
-    from booking.models import BlackoutType
-
-    for blackout in blackouts:
-        if blackout.blackout_type == BlackoutType.GANZTAEGIG:
-            return blackout
-        if blackout.blackout_type == BlackoutType.ZEITLICH:
-            if blackout.start_time and blackout.end_time:
-                if time_range_overlaps(start_time, end_time, blackout.start_time, blackout.end_time):
-                    return blackout
-    return None
-
-
 # ------------------------------------------------------------------ Buchung erstellen
 
 def validate_booking_input(data: BookingCreate, skip_time_check: bool = False) -> list[str]:
@@ -125,7 +91,6 @@ def build_booking(
     current_user: TokenPayload,
     settings: Settings,
     existing_bookings: list[Booking],
-    blackouts=None,
     series_id: Optional[str] = None,
     skip_time_check: bool = False,
     mannschaft_override: Optional[str] = None,
@@ -144,39 +109,31 @@ def build_booking(
 
     end_time = compute_end_time(data.start_time, data.duration_min)
 
-    # Rasen: Sperrzeit → soft warning, kein Hard-Block
-    platzsperre_note = None
-    if data.field.is_rasen and blackouts:
-        blocked = check_blackout(blackouts, data.date, data.start_time, end_time)
-        if blocked:
-            platzsperre_note = f"Platzsperre: {blocked.reason or 'keine Angabe'}"
-
     # Konfliktcheck
     conflicts = check_availability(existing_bookings, data.field, data.start_time, data.duration_min)
     if conflicts:
         names = ", ".join(
-            f"{b.field.value} {b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
+            f"{_fc.get_display_name(b.field.value)} {b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
             for b in conflicts
         )
         errors.append(f"Zeitslot nicht verfügbar. Konflikt mit: {names}")
         return None, errors
 
-    # Sonnenuntergangshinweis für Rasen
+    # Sonnenuntergangshinweis für nicht-beleuchtete Felder
     sunset_note = None
-    if data.field.is_rasen:
+    if not _fc.is_lit(data.field.value):
         sunset_note = sunset_warning_text(
             data.date, end_time,
             settings.location_lat, settings.location_lon, settings.location_name,
         )
 
-    notes = [n for n in [platzsperre_note, sunset_note] if n]
     booking = repo.create_booking(
         data=data,
         booked_by_id=current_user.sub,
         booked_by_name=current_user.username,
         role=current_user.role,
         end_time=end_time,
-        sunset_note=" | ".join(notes) if notes else None,
+        sunset_note=sunset_note,
         series_id=series_id,
         mannschaft=mannschaft_override or current_user.mannschaft,
         zweck=data.zweck,
@@ -213,9 +170,9 @@ def dfbnet_displace(
         updated = repo.update_booking_status(conflict.notion_id, BookingStatus.STORNIERT_DFBNET)
         displaced.append(updated)
 
-    # Sunset-Note entfällt bei DFBnet (Kura-Platz), aber der Code bleibt generisch
+    # Sonnenuntergangshinweis für nicht-beleuchtete Felder
     sunset_note = None
-    if data.field.is_rasen:
+    if not _fc.is_lit(data.field.value):
         sunset_note = sunset_warning_text(
             data.date, end_time,
             settings.location_lat, settings.location_lon, settings.location_name,

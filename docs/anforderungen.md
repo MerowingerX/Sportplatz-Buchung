@@ -9,9 +9,7 @@
 
 ### Naturrasen (Rasen)
 - Nicht beleuchtet (Sonnenuntergangs-Hinweis bei Buchung)
-- Saison: März–November
 - Nutzungszeit: 16:00–22:00 Uhr
-- Kann durch Platzwart gesperrt werden (ganztägig oder zeitlich)
 - Unterteilung: Ganz, Halb A, Halb B
 
 ### Turnhalle (Halle)
@@ -47,8 +45,6 @@ Halle 2/3 und 1/3 können gleichzeitig laufen.
 2. Gültige Dauer (60/90/180)
 3. Ende vor 22:00
 4. Keine Zeitüberschneidung mit bestehenden Buchungen auf Konfliktfeldern
-5. Rasen: Saisoncheck (März–November)
-6. Rasen: Sperrzeitcheck
 
 ---
 
@@ -60,7 +56,6 @@ Halle 2/3 und 1/3 können gleichzeitig laufen.
 - Rhythmus: **wöchentlich** oder **14-tägig**
 - Gleichbleibender Platz und Uhrzeit
 - **Saisonende:** 30. Juni (maximales Enddatum, wird automatisch begrenzt)
-- Rasen-Termine außerhalb März–November werden übersprungen
 
 ### Mannschaft & Trainer
 - Admin wählt beim Anlegen eine **Mannschaft** und einen **Trainer**
@@ -94,7 +89,6 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 | Serie anlegen | – | Ja | – | Ja |
 | Serie stornieren | – | Ja | – | Ja |
 | Einzeltermin aus Serie entfernen | Zugewiesener Trainer | Ja | – | Ja |
-| Sperrzeiten verwalten | – | Ja | Ja | Ja |
 | Nutzerverwaltung | – | Ja | – | Ja |
 | DFBnet-Buchung (Verdrängung) | – | Ja | – | Ja |
 | Admin-Buchung (ohne Zeitprüfung) | – | Ja | – | Ja |
@@ -134,17 +128,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 7. Sperrzeiten (nur Rasen)
-
-- **Ganztägig:** gesamter Tag gesperrt
-- **Zeitlich:** bestimmter Zeitraum gesperrt (Start- und Endzeit)
-- Sperrzeiten werden bei der Buchungsvalidierung geprüft
-- Fehlermeldung: „Rasen ist gesperrt: [Grund]"
-- Anlegen/Löschen durch: Administrator, Platzwart, DFBnet
-
----
-
-## 8. Homepage (öffentlich)
+## 7. Homepage (öffentlich)
 
 - Keine Authentifizierung nötig
 - Zeigt **Platzverfügbarkeit** als read-only Ansicht
@@ -164,7 +148,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 9. Aufgaben / Schwarzes Brett
+## 8. Aufgaben / Schwarzes Brett
 
 - Sichtbar für alle authentifizierten Nutzer
 - **Typen:** Defekt, Nutzeranfrage, Turniertermin, Sonstiges
@@ -176,7 +160,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 10. Benachrichtigungen (E-Mail)
+## 9. Benachrichtigungen (E-Mail)
 
 | Anlass | Empfänger | Inhalt |
 |--------|-----------|--------|
@@ -189,7 +173,7 @@ G1, G2, G3, F1, F2, E1, E2, E3, D1, D2, C, B, A, TuS 1, TuS 2, Ü32, Ü40, Fraue
 
 ---
 
-## 11. Authentifizierung
+## 10. Authentifizierung
 
 ### Login
 - Benutzername + Passwort

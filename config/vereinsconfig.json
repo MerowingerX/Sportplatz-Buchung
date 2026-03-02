@@ -1,21 +1,27 @@
 {
   "vereinsname": "TuS Cremlingen",
   "vereinsname_lang": "Turn- und Sportverein Cremlingen 1946 e. V.",
+  "logo_url": "/static/logo.svg",
   "heim_keyword": "cremlingen",
   "primary_color": "#1e4fa3",
   "primary_color_dark": "#0d2f6b",
   "primary_color_darker": "#071c44",
   "gold_color": "#e8c04a",
+  "saison_defaults": {
+    "ganzjaehrig":    {"start": "08-01", "ende": "06-30"},
+    "sommerhalbjahr": {"start": "08-01", "ende": "10-30"},
+    "winterhalbjahr": {"start": "10-30", "ende": "03-01"}
+  },
   "spielorte": [
     {
       "fussball_de_string": "cremlingen b-platz",
-      "feld": "Kura Ganz",
-      "platz_praefix": ["Kura"]
+      "feld": "A",
+      "platz_praefix": ["A"]
     },
     {
       "fussball_de_string": "cremlingen a-platz rasen",
-      "feld": "Rasen Ganz",
-      "platz_praefix": ["Rasen"]
+      "feld": "B",
+      "platz_praefix": ["B"]
     }
   ]
 }

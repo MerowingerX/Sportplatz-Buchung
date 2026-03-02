@@ -4,7 +4,62 @@
 {% block content %}
 <div class="page-header">
   <h1>Serienbuchungen</h1>
+  <button class="btn btn--primary"
+          hx-get="/series/new"
+          hx-target="#series-modal-content"
+          hx-swap="innerHTML"
+          onclick="document.getElementById('series-modal').showModal()">
+    + Neue Serie
+  </button>
 </div>
+
+<!-- Neues-Serie-Modal -->
+<dialog id="series-modal" class="modal">
+  <div class="modal__header">
+    <h2>Neue Serienbuchung</h2>
+    <button class="modal__close" onclick="document.getElementById('series-modal').close()">✕</button>
+  </div>
+  <div id="series-modal-content" class="modal__body">
+    <!-- wird per HTMX gefüllt -->
+  </div>
+</dialog>
+
+<script>
+  document.body.addEventListener('closeModal', function() {
+    document.getElementById('series-modal').close();
+  });
+</script>
+
+<form id="series-filter"
+      hx-get="/series"
+      hx-target="#series-tbody"
+      hx-swap="innerHTML"
+      hx-trigger="change from:select"
+      class="filter-bar">
+  <select name="mannschaft">
+    <option value="">Alle Mannschaften</option>
+    {% for m in mannschaften %}
+      <option value="{{ m }}" {{ 'selected' if sel_mannschaft == m }}>{{ m }}</option>
+    {% endfor %}
+  </select>
+  <select name="trainer">
+    <option value="">Alle Trainer</option>
+    {% for t in trainers %}
+      <option value="{{ t }}" {{ 'selected' if sel_trainer == t }}>{{ t }}</option>
+    {% endfor %}
+  </select>
+  <select name="wochentag">
+    <option value="">Alle Wochentage</option>
+    {% for wd in [["0","Montag"],["1","Dienstag"],["2","Mittwoch"],["3","Donnerstag"],["4","Freitag"],["5","Samstag"],["6","Sonntag"]] %}
+      <option value="{{ wd[0] }}" {{ 'selected' if sel_wochentag is not none and sel_wochentag|string == wd[0] }}>{{ wd[1] }}</option>
+    {% endfor %}
+  </select>
+  <select name="status">
+    <option value="">Alle Status</option>
+    <option value="Aktiv" {{ 'selected' if sel_status == 'Aktiv' }}>Aktiv</option>
+    <option value="Beendet" {{ 'selected' if sel_status == 'Beendet' }}>Beendet</option>
+  </select>
+</form>
 
 <div class="table-responsive">
   <table class="table">
@@ -16,16 +71,13 @@
         <th>Rhythmus</th>
         <th>Zeitraum</th>
         <th>Trainer</th>
+        <th>Saison</th>
         <th>Status</th>
         <th></th>
       </tr>
     </thead>
     <tbody id="series-tbody">
-      {% for s in series_list %}
-        {% include "partials/_series_row.html" %}
-      {% else %}
-        <tr><td colspan="8" class="text-muted">Keine Serien vorhanden.</td></tr>
-      {% endfor %}
+      {% include "partials/_series_table_body.html" %}
     </tbody>
   </table>
 </div>

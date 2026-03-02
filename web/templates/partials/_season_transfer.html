@@ -1,0 +1,80 @@
+<div class="modal-header">
+  <h2>Serien in neue Saison übernehmen</h2>
+  <button class="modal-close" onclick="document.getElementById('season-transfer-modal').close()">&times;</button>
+</div>
+
+<form hx-post="/series/season-transfer"
+      hx-target="#season-transfer-result"
+      hx-swap="innerHTML">
+
+  {% if entries %}
+  <div class="transfer-hint">
+    Ausgewählte Serien werden mit <strong>+1 Jahr</strong> dupliziert.
+    Aktive Serien sind vorausgewählt.
+  </div>
+
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="transfer-all"
+                     onchange="document.querySelectorAll('.transfer-cb').forEach(cb => cb.checked = this.checked)"></th>
+          <th>Mannschaft</th>
+          <th>Platz</th>
+          <th>Rhythmus</th>
+          <th>Saison</th>
+          <th>Bisher</th>
+          <th>Neu</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr class="{% if e.series.status.value == 'Beendet' %}text-muted{% endif %}">
+          <td>
+            <input type="checkbox" name="series_ids" value="{{ e.series.notion_id }}"
+                   class="transfer-cb"
+                   {% if e.series.status.value == 'Aktiv' %}checked{% endif %}>
+          </td>
+          <td><strong>{{ e.series.mannschaft or '—' }}</strong></td>
+          <td>{{ e.series.field.value }}</td>
+          <td>{{ e.series.rhythm.value }}</td>
+          <td>{{ e.series.saison.value }}</td>
+          <td class="text-muted">
+            {{ e.series.start_date.strftime('%d.%m.%Y') }} –
+            {{ e.series.end_date.strftime('%d.%m.%Y') }}
+          </td>
+          <td>
+            <strong>{{ e.new_start.strftime('%d.%m.%Y') }} –
+            {{ e.new_end.strftime('%d.%m.%Y') }}</strong>
+          </td>
+          <td>
+            <span class="badge badge--status-{{ e.series.status.value | lower | replace(' ', '-') }}">
+              {{ e.series.status.value }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="modal-actions">
+    <button type="button" class="btn btn--ghost"
+            onclick="document.getElementById('season-transfer-modal').close()">
+      Abbrechen
+    </button>
+    <button type="submit" class="btn btn--primary"
+            hx-indicator="#transfer-spinner">
+      <span id="transfer-spinner" class="htmx-indicator">⏳</span>
+      Ausgewählte übernehmen
+    </button>
+  </div>
+
+  {% else %}
+  <p>Keine Serien vorhanden.</p>
+  {% endif %}
+
+</form>
+
+<div id="season-transfer-result" class="transfer-result"></div>

@@ -21,7 +21,6 @@ def generate_series_dates(
     start_date: date,
     end_date: date,
     rhythm: SeriesRhythm,
-    field_is_rasen: bool = False,
 ) -> list[date]:
     """Erzeugt alle Termindaten einer Serie."""
     interval_days = 7 if rhythm == SeriesRhythm.WOECHENTLICH else 14
@@ -46,7 +45,7 @@ def create_series_with_bookings(
     Gibt zurück:
     - series: die angelegte Serie
     - created: erfolgreich angelegte Buchungen
-    - skipped_dates: Termine die übersprungen wurden (Konflikt oder Sperrzeit)
+    - skipped_dates: Termine die übersprungen wurden (Konflikt)
     """
     series = repo.create_series(
         data=data,
@@ -59,7 +58,6 @@ def create_series_with_bookings(
         data.start_date,
         data.end_date,
         data.rhythm,
-        field_is_rasen=data.field.is_rasen,
     )
 
     created: list[Booking] = []
@@ -74,7 +72,6 @@ def create_series_with_bookings(
             booking_type=BookingType.TRAINING,
         )
         existing = repo.get_bookings_for_date(d)
-        blackouts = repo.get_blackouts_for_date(d) if data.field.is_rasen else []
 
         booking, errors = build_booking(
             repo=repo,
@@ -82,9 +79,8 @@ def create_series_with_bookings(
             current_user=current_user,
             settings=settings,
             existing_bookings=existing,
-            blackouts=blackouts,
             series_id=series.notion_id,
-            mannschaft_override=data.mannschaft.value,
+            mannschaft_override=data.mannschaft,
         )
         if errors:
             skipped.append(d)

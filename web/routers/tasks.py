@@ -13,8 +13,10 @@ router = APIRouter(prefix="/tasks")
 _task_required = Depends(require_permission(Permission.CREATE_TASK))
 
 
-def _toast(message: str, kind: str = "success") -> str:
-    return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
+from web.htmx import toast as _toast
+
+
+_PAGE_SIZE = 25
 
 
 @router.get("", response_class=HTMLResponse, dependencies=[_task_required])
@@ -23,6 +25,7 @@ async def tasks_page(
     current_user: CurrentUser,
     filter_typ: Optional[str] = None,
     filter_status: Optional[str] = None,
+    page: int = 1,
 ):
     repo = request.app.state.repo
     aufgaben = repo.get_all_aufgaben()
@@ -31,6 +34,11 @@ async def tasks_page(
         aufgaben = [a for a in aufgaben if a.typ.value == filter_typ]
     if filter_status:
         aufgaben = [a for a in aufgaben if a.status.value == filter_status]
+
+    total = len(aufgaben)
+    page = max(1, page)
+    offset = (page - 1) * _PAGE_SIZE
+    aufgaben = aufgaben[offset: offset + _PAGE_SIZE]
 
     return templates.TemplateResponse(
         "tasks/index.html",
@@ -43,6 +51,10 @@ async def tasks_page(
             "prioritaeten": list(Prioritaet),
             "filter_typ": filter_typ,
             "filter_status": filter_status,
+            "page": page,
+            "total": total,
+            "has_prev": page > 1,
+            "has_next": offset + _PAGE_SIZE < total,
         },
     )
 

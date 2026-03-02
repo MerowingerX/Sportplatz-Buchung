@@ -1,16 +1,18 @@
 from web.templates_instance import templates
-from datetime import date, datetime, time
-from typing import Optional
+from datetime import datetime, date, time, timezone
+from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import os
-from fastapi import APIRouter, Request, Form, Depends, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Request, Form, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from auth.auth import hash_password
 from auth.dependencies import CurrentUser, require_permission
 from booking.booking import dfbnet_displace
-from booking.models import BookingCreate, BookingType, FieldName, Mannschaft, Permission, UserCreate, UserRole
+import booking.field_config as fc
+from booking.field_config import get_display_name
+from booking.models import BookingCreate, BookingType, FieldName, Permission, UserCreate, UserRole
 from utils.time_slots import get_all_start_slots
 from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
@@ -23,8 +25,7 @@ _manage_users   = Depends(require_permission(Permission.MANAGE_USERS))
 _dfbnet_required = Depends(require_permission(Permission.DFBNET_BOOKING))
 
 
-def _toast(message: str, kind: str = "success") -> str:
-    return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
+from web.htmx import toast as _toast
 
 
 @router.get("", response_class=HTMLResponse, dependencies=[_admin_required])
@@ -69,7 +70,7 @@ async def users_page(request: Request, current_user: CurrentUser):
             "current_user": current_user,
             "users": users,
             "roles": list(UserRole),
-            "mannschaften": list(Mannschaft),
+            "mannschaften": repo.get_all_mannschaften(),
         },
     )
 
@@ -92,7 +93,7 @@ async def create_user(
         role=UserRole(role),
         email=email,
         password=password,
-        mannschaft=Mannschaft(mannschaft) if mannschaft else None,
+        mannschaft=mannschaft or None,
     )
     pw_hash = hash_password(password)
     repo.create_user(user_data, pw_hash)
@@ -109,13 +110,21 @@ async def reset_user_password(
     repo = request.app.state.repo
     pw_hash = hash_password(new_password)
     user = repo.reset_user_password(user_id, pw_hash)
+    _invalidate_user_tokens(request.app.state, user_id)
     return HTMLResponse(
         _toast(f"Passwort für '{user.name}' zurückgesetzt. Nutzer muss Passwort beim nächsten Login ändern.")
     )
 
 
-def _user_row_ctx(user, current_user):
-    return {"user": user, "current_user": current_user, "roles": list(UserRole), "mannschaften": list(Mannschaft)}
+def _user_row_ctx(user, current_user, repo):
+    return {"user": user, "current_user": current_user, "roles": list(UserRole), "mannschaften": repo.get_all_mannschaften()}
+
+
+def _invalidate_user_tokens(app_state, user_id: str) -> None:
+    """Markiert alle vor jetzt ausgestellten Tokens des Nutzers als ungültig."""
+    invalidations = getattr(app_state, "token_invalidations", {})
+    invalidations[user_id] = int(datetime.now(timezone.utc).timestamp())
+    app_state.token_invalidations = invalidations
 
 
 @router.get("/users/{user_id}/row", response_class=HTMLResponse, dependencies=[_manage_users])
@@ -125,7 +134,7 @@ async def user_row(request: Request, user_id: str, current_user: CurrentUser):
     if not user:
         return HTMLResponse(_toast("Nutzer nicht gefunden.", "error"), status_code=404)
     return HTMLResponse(
-        templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user))
+        templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user, repo))
     )
 
 
@@ -136,7 +145,7 @@ async def user_edit_row(request: Request, user_id: str, current_user: CurrentUse
     if not user:
         return HTMLResponse(_toast("Nutzer nicht gefunden.", "error"), status_code=404)
     return HTMLResponse(
-        templates.get_template("partials/_user_row_edit.html").render(_user_row_ctx(user, current_user))
+        templates.get_template("partials/_user_row_edit.html").render(_user_row_ctx(user, current_user, repo))
     )
 
 
@@ -151,8 +160,9 @@ async def update_user(
 ):
     repo = request.app.state.repo
     user = repo.update_user(user_id, role=role, email=email, mannschaft=mannschaft or None)
+    _invalidate_user_tokens(request.app.state, user_id)
     return HTMLResponse(
-        templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user))
+        templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user, repo))
         + _toast(f"Nutzer '{user.name}' aktualisiert.")
     )
 
@@ -252,6 +262,8 @@ async def admin_booking_page(request: Request, current_user: CurrentUser):
             "request": request,
             "current_user": current_user,
             "fields": list(FieldName),
+            "field_groups": fc.get_visible_groups("Administrator"),
+            "field_display_names": fc.get_display_names(),
             "start_slots": get_all_start_slots(),
             "durations": [30, 60, 90, 120, 180],
             "booking_types": list(BookingType),
@@ -290,7 +302,6 @@ async def admin_create_booking(
     repo = request.app.state.repo
     settings = get_settings()
     existing = repo.get_bookings_for_date(booking_date)
-    blackouts = repo.get_blackouts_for_date(booking_date) if data.field.is_rasen else []
 
     booking, errors = build_booking(
         repo=repo,
@@ -298,7 +309,6 @@ async def admin_create_booking(
         current_user=current_user,
         settings=settings,
         existing_bookings=existing,
-        blackouts=blackouts,
         skip_time_check=True,    # Admins dürfen außerhalb 16-22 Uhr buchen
     )
 
@@ -640,6 +650,7 @@ async def csv_import_preview(
 async def csv_import_confirm(
     request: Request,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
 ):
     form = await request.form()
     count = int(form.get("count", 0))
@@ -719,14 +730,14 @@ async def csv_import_confirm(
     from notifications.notify import send_csv_import_summary
     admin_user = repo.get_user_by_id(current_user.sub)
     if admin_user and admin_user.email:
-        import asyncio
-        asyncio.ensure_future(send_csv_import_summary(
+        background_tasks.add_task(
+            send_csv_import_summary,
             created=[c[0] for c in created_bookings],
             skipped_known=skipped_known,
             displaced_count=displaced_total,
             admin=admin_user,
             settings=settings,
-        ))
+        )
 
     msg = f"{len(created_bookings)} DFBnet-Buchung(en) aus CSV-Import erstellt."
     if skipped_known:
@@ -906,3 +917,100 @@ async def field_config_save(request: Request, current_user: CurrentUser):
         _toast("Platzkonfiguration gespeichert.")
         + '<script>setTimeout(()=>history.back(),1200)</script>'
     )
+
+
+# ------------------------------------------------------------------ Housekeeping
+
+def _housekeeping_cutoff(mode: str) -> date:
+    today = date.today()
+    if mode == "saison":
+        saison_start = date(today.year, 8, 1)
+        return saison_start if today >= saison_start else date(today.year - 1, 8, 1)
+    return today
+
+
+def _housekeeping_general_candidates(repo, cutoff: date):
+    """Stornierte + vergangene Buchungen, Buchungen aktiver Serien ausgenommen."""
+    active_series_ids = {s.notion_id for s in repo.get_all_series(only_active=True)}
+    all_candidates = repo.get_housekeeping_candidates(cutoff)
+    return [b for b in all_candidates if b.series_id not in active_series_ids]
+
+
+@router.get("/housekeeping", response_class=HTMLResponse, dependencies=[_admin_required])
+async def housekeeping_preview(
+    request: Request,
+    current_user: CurrentUser,
+    cutoff: str = "saison",
+):
+    """Vorschau: Wie viele Buchungen werden bereinigt?"""
+    from booking.models import SeriesStatus
+    repo = request.app.state.repo
+    cutoff_date = _housekeeping_cutoff(cutoff)
+    candidates = _housekeeping_general_candidates(repo, cutoff_date)
+
+    storniert_statuses = {"Storniert", "Storniert (DFBnet)"}
+    storniert_count = sum(1 for b in candidates if b.status.value in storniert_statuses)
+    vergangen_count = len(candidates) - storniert_count
+
+    # Inaktive Serien mit Buchungsanzahl
+    all_series = repo.get_all_series(only_active=False)
+    inactive_series = [s for s in all_series if s.status != SeriesStatus.AKTIV]
+    inactive_entries = []
+    for s in sorted(inactive_series, key=lambda x: x.mannschaft or ""):
+        bookings = repo.get_all_bookings_for_series(s.notion_id)
+        inactive_entries.append({"series": s, "booking_count": len(bookings)})
+
+    return templates.TemplateResponse(
+        "partials/_housekeeping_preview.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "cutoff": cutoff,
+            "cutoff_date": cutoff_date,
+            "total": len(candidates),
+            "storniert": storniert_count,
+            "vergangen": vergangen_count,
+            "inactive_entries": inactive_entries,
+        },
+    )
+
+
+@router.post("/housekeeping", response_class=HTMLResponse, dependencies=[_admin_required])
+async def housekeeping_execute(
+    request: Request,
+    current_user: CurrentUser,
+    cutoff: str = Form("saison"),
+    series_ids: List[str] = Form(default=[]),
+):
+    """Bereinigung ausführen: allgemeine Kandidaten + gewählte inaktive Serien archivieren."""
+    repo = request.app.state.repo
+    cutoff_date = _housekeeping_cutoff(cutoff)
+
+    to_delete: set[str] = set()
+
+    # Allgemeine Kandidaten
+    for b in _housekeeping_general_candidates(repo, cutoff_date):
+        to_delete.add(b.notion_id)
+
+    # Buchungen ausgewählter inaktiver Serien
+    for sid in series_ids:
+        for b in repo.get_all_bookings_for_series(sid):
+            to_delete.add(b.notion_id)
+
+    deleted = 0
+    errors = 0
+    for booking_id in to_delete:
+        try:
+            repo.delete_booking(booking_id)
+            deleted += 1
+        except Exception:
+            errors += 1
+
+    msg = f"Bereinigung abgeschlossen: {deleted} Buchungen entfernt."
+    if errors:
+        msg += f" {errors} Fehler."
+    kind = "success" if not errors else "warning"
+
+    resp = HTMLResponse(_toast(msg, kind))
+    resp.headers["HX-Trigger"] = "closeModal"
+    return resp

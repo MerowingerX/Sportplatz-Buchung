@@ -3,6 +3,9 @@ booking/field_config.py  –  Konfiguration der sichtbaren Platzgruppen pro Roll
 
 Die Konfiguration liegt in config/field_config.json und kann vom Admin
 über /admin/field-config geändert werden, ohne Neustart.
+
+Platznamen werden als stabile interne IDs (A, AA, AB, B, …) gespeichert.
+Anzeigenamen kommen aus dem "display_names"-Abschnitt der JSON-Datei.
 """
 
 from __future__ import annotations
@@ -16,23 +19,40 @@ _CONFIG_FILE = Path(__file__).parent.parent / "config" / "field_config.json"
 
 # Alle definierten Gruppen (Reihenfolge + Felder) als Fallback
 _DEFAULT: dict = {
+    "display_names": {
+        "A":  "Kura AB",
+        "AA": "Kura A",
+        "AB": "Kura B",
+        "B":  "Rasen AB",
+        "BA": "Rasen A",
+        "BB": "Rasen B",
+        "C":  "Halle Ganz",
+        "CA": "Halle 2/3",
+        "CB": "Halle 1/3",
+    },
     "field_groups": [
         {
+            "id": "kura",
             "name": "Kura (Kunstrasen)",
-            "fields": ["Kura Ganz", "Kura Halb A", "Kura Halb B"],
+            "fields": ["A", "AA", "AB"],
+            "lit": True,
             "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"],
         },
         {
+            "id": "rasen",
             "name": "Rasen (Naturrasen)",
-            "fields": ["Rasen Ganz", "Rasen Halb A", "Rasen Halb B"],
+            "fields": ["B", "BA", "BB"],
+            "lit": False,
             "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"],
         },
         {
+            "id": "halle",
             "name": "Turnhalle",
-            "fields": ["Halle Ganz", "Halle 2/3", "Halle 1/3"],
+            "fields": ["C", "CA", "CB"],
+            "lit": True,
             "visible_to": ["Administrator"],
         },
-    ]
+    ],
 }
 
 # Alle bekannten Rollen (für das Admin-Formular)
@@ -55,10 +75,51 @@ def save(config: dict) -> None:
     )
 
 
+def get_display_name(field_id: str) -> str:
+    """Gibt den Anzeigenamen für eine Feld-ID zurück (Fallback: die ID selbst)."""
+    return load().get("display_names", {}).get(field_id, field_id)
+
+
+def get_display_names() -> dict[str, str]:
+    """Gibt alle ID→Anzeigename-Zuordnungen zurück."""
+    return load().get("display_names", {})
+
+
+def get_group_id(field_id: str) -> str:
+    """Gibt die Gruppen-ID zurück, zu der das Feld gehört ('kura', 'rasen', 'halle')."""
+    for group in load().get("field_groups", []):
+        if field_id in group.get("fields", []):
+            return group.get("id", "")
+    return ""
+
+
+def is_lit(field_id: str) -> bool:
+    """True wenn das Feld beleuchtet ist (kein Sonnenuntergangs-Hinweis nötig)."""
+    for group in load().get("field_groups", []):
+        if field_id in group.get("fields", []):
+            return group.get("lit", True)
+    return True
+
+
+def get_conflict_sources(visible_field_ids: list[str]) -> dict[str, list[str]]:
+    """
+    Liefert für jedes Feld die Liste der Felder, die es blockieren.
+    Konfliktlogik: f1 und f2 blockieren sich, wenn einer ein Präfix des anderen ist.
+    Beispiel: "A" blockiert "AA" und "AB" (und umgekehrt).
+    """
+    result: dict[str, list[str]] = {}
+    for f in visible_field_ids:
+        result[f] = [
+            g for g in visible_field_ids
+            if g != f and (f.startswith(g) or g.startswith(f))
+        ]
+    return result
+
+
 def get_visible_groups(role_value: str) -> list[tuple[str, list[str]]]:
     """
     Gibt die für diese Rolle sichtbaren Gruppen zurück:
-    [(Gruppenname, [Feldname, ...]), ...]
+    [(Gruppenname, [Feld-ID, ...]), ...]
     """
     cfg = load()
     return [
@@ -70,8 +131,8 @@ def get_visible_groups(role_value: str) -> list[tuple[str, list[str]]]:
 
 def get_visible_fields(role_value: str) -> list[FieldName]:
     """Gibt alle für diese Rolle sichtbaren FieldName-Werte zurück."""
-    visible_names: set[str] = set()
+    visible_ids: set[str] = set()
     for _, fields in get_visible_groups(role_value):
-        visible_names.update(fields)
+        visible_ids.update(fields)
     # Reihenfolge aus FieldName-Enum beibehalten
-    return [f for f in FieldName if f.value in visible_names]
+    return [f for f in FieldName if f.value in visible_ids]

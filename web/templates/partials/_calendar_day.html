@@ -1,26 +1,6 @@
 {% set time_slots = ["16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"] %}
 {% set wochentage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
-{% set field_short = {
-  "Kura Ganz": "Ganz", "Kura Halb A": "Halb A", "Kura Halb B": "Halb B",
-  "Rasen Ganz": "Ganz", "Rasen Halb A": "Halb A", "Rasen Halb B": "Halb B",
-  "Halle Ganz": "Ganz", "Halle 2/3": "2/3", "Halle 1/3": "1/3",
-} %}
-{% set field_groups = [
-  ("Kura (Kunstrasen)", ["Kura Ganz", "Kura Halb A", "Kura Halb B"]),
-  ("Rasen (Naturrasen)", ["Rasen Ganz", "Rasen Halb A", "Rasen Halb B"]),
-  ("Turnhalle", ["Halle Ganz", "Halle 2/3", "Halle 1/3"]),
-] %}
-{% set conflict_sources = {
-  "Kura Ganz": ["Kura Halb A", "Kura Halb B"],
-  "Kura Halb A": ["Kura Ganz"],
-  "Kura Halb B": ["Kura Ganz"],
-  "Rasen Ganz": ["Rasen Halb A", "Rasen Halb B"],
-  "Rasen Halb A": ["Rasen Ganz"],
-  "Rasen Halb B": ["Rasen Ganz"],
-  "Halle Ganz": ["Halle 2/3", "Halle 1/3"],
-  "Halle 2/3": ["Halle Ganz"],
-  "Halle 1/3": ["Halle Ganz"],
-} %}
+{# field_groups, field_display_names, conflict_sources werden vom Router übergeben #}
 {% set day_iso = day.isoformat() %}
 
 <!-- Tag-Navigation -->
@@ -52,7 +32,7 @@
         <tr>
           <th class="cal-table__corner"></th>
           {% for fname in group_fields %}
-            <th class="cal-table__field">{{ field_short[fname] }}</th>
+            <th class="cal-table__field">{{ field_display_names.get(fname, fname) }}</th>
           {% endfor %}
         </tr>
       </thead>
@@ -74,16 +54,9 @@
               {% endif %}
             {% endfor %}
             {% set found = found_start + found_cont %}
-            {# Sperrzeiten nur für Rasen #}
-            {% set blocked = [] %}
-            {% if "Rasen" in field_name %}
-              {% for bl in blackouts if bl.start_date <= day and bl.end_date >= day %}
-                {% set _ = blocked.append(bl) %}
-              {% endfor %}
-            {% endif %}
             {# Konfliktprüfung #}
             {% set conflicted = [] %}
-            {% if not found and not blocked %}
+            {% if not found %}
               {% for cf in conflict_sources.get(field_name, []) %}
                 {% for b in bookings if b.field.value == cf
                       and b.start_time <= slot_time and b.end_time > slot_time %}
@@ -100,16 +73,6 @@
                      title="{{ b.zweck or b.mannschaft or b.booked_by_name }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
                   <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
                 </div>
-              {% elif blocked %}
-                {% set ps_reason = blocked[0].reason or "keine Angabe" %}
-                <button class="slot slot--platzsperre slot--clickable"
-                        hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
-                        hx-target="#booking-modal-content"
-                        hx-swap="innerHTML"
-                        onclick="document.getElementById('booking-modal').showModal()"
-                        title="Platzsperre: {{ ps_reason }}">
-                  <span class="slot__platzsperre-label">Pl.sperre</span>
-                </button>
               {% elif conflicted %}
                 <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
               {% else %}
@@ -118,7 +81,7 @@
                         hx-target="#booking-modal-content"
                         hx-swap="innerHTML"
                         onclick="document.getElementById('booking-modal').showModal()"
-                        title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_short[field_name] }}">
+                        title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_display_names.get(field_name, field_name) }}">
                 </button>
               {% endif %}
             </td>

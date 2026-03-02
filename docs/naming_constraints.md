@@ -4,37 +4,45 @@ Dieses Dokument listet alle Stellen im System, an denen ein Name oder
 String-Wert exakt mit einem anderen übereinstimmen **muss**.
 Bei jeder Änderung eines dieser Werte **alle markierten Dateien prüfen**.
 
-Stand: 2026-02-28
+Stand: 2026-03-01
 
 ---
 
-## 1. Platz-Namen (FieldName-Enum)
+## 1. Platz-IDs (FieldName-Enum)
 
 **Quelle der Wahrheit:** `booking/models.py` — `FieldName`-Enum
 
-| Wert | Enum-Konstante |
-|------|----------------|
-| `"Kura Ganz"` | `KURA_GANZ` |
-| `"Kura Halb A"` | `KURA_HALB_A` |
-| `"Kura Halb B"` | `KURA_HALB_B` |
-| `"Rasen Ganz"` | `RASEN_GANZ` |
-| `"Rasen Halb A"` | `RASEN_HALB_A` |
-| `"Rasen Halb B"` | `RASEN_HALB_B` |
-| `"Halle Ganz"` | `HALLE_GANZ` |
-| `"Halle 2/3"` | `HALLE_ZWEIDRITTEL` |
-| `"Halle 1/3"` | `HALLE_EINDRITTEL` |
+Interne IDs sind stabil und werden **nie** umbenannt. Anzeigenamen kommen
+ausschließlich aus `config/field_config.json` → `"display_names"`.
+
+| Interne ID | Enum-Konstante | Default-Anzeigename |
+|------------|----------------|---------------------|
+| `"A"`  | `A`  | `"Kura AB"` |
+| `"AA"` | `AA` | `"Kura A"` |
+| `"AB"` | `AB` | `"Kura B"` |
+| `"B"`  | `B`  | `"Rasen AB"` |
+| `"BA"` | `BA` | `"Rasen A"` |
+| `"BB"` | `BB` | `"Rasen B"` |
+| `"C"`  | `C`  | `"Halle Ganz"` |
+| `"CA"` | `CA` | `"Halle 2/3"` |
+| `"CB"` | `CB` | `"Halle 1/3"` |
+
+**Konfliktlogik:** Zwei Felder kollidieren, wenn eine ID die andere als Präfix enthält:
+`f1.startswith(f2) or f2.startswith(f1)`.
+→ `"A"` + `"AA"` kollidieren, `"AA"` + `"AB"` nicht.
 
 **Muss übereinstimmen in:**
 
 | Datei | Kontext |
 |-------|---------|
-| `scripts/setup_notion.py:91–93` | Notion Select-Optionen anlegen |
+| `scripts/setup_notion.py` | Notion Select-Optionen anlegen |
+| `config/field_config.json` → `"display_names"` | Anzeigenamen (umbenennen = nur hier!) |
 | `config/field_config.json` → `"fields"` | Gruppen-Zuordnung |
-| `booking/field_config.py` → defaults | Fallback-Konfiguration |
+| `booking/field_config.py` → `_DEFAULT` | Fallback-Konfiguration |
 | `config/vereinsconfig.json` → `"feld"` | Spielort-Mapping |
-| `web/templates/partials/_calendar_week.html:2–6` | `field_short`-Map (Kurzbezeichnung) |
-| `web/templates/partials/_calendar_week.html:9–19` | `conflict_sources`-Map |
-| `web/templates/partials/_calendar_day.html` (analog) | `field_short` und `conflict_sources` |
+
+**Umbenennung eines Platzes:** Nur `config/field_config.json` → `"display_names"` ändern.
+Kein Code, kein Neustart nötig (bei hot-reload).
 
 **Fehlerfolge:** Buchungen erscheinen nicht im Kalender, Konfliktprüfung versagt.
 
@@ -238,16 +246,18 @@ CSS generiert via `{{ b.booking_type.value | lower }}` → muss in `web/static/s
 
 ---
 
-## 5. Spielort-Strings (fussball.de ↔ Platznamen)
+## 5. Spielort-Strings (fussball.de ↔ Platz-IDs)
 
 **Quelle der Wahrheit:** `config/vereinsconfig.json` → `"spielorte"`
 
 Diese Strings werden in Kleinschreibung mit `spielort.lower()` verglichen:
 
-| `fussball_de_string` | → Notion FieldName | → Platz-Präfix |
-|----------------------|--------------------|----------------|
-| `"cremlingen b-platz"` | `"Kura Ganz"` | `["Kura"]` |
-| `"cremlingen a-platz rasen"` | `"Rasen Ganz"` | `["Rasen"]` |
+| `fussball_de_string` | → FieldName-ID | → Platz-Präfix |
+|----------------------|----------------|----------------|
+| `"cremlingen b-platz"` | `"A"` | `["A"]` |
+| `"cremlingen a-platz rasen"` | `"B"` | `["B"]` |
+
+`platz_praefix: ["A"]` matcht per `startswith` auf A, AA, AB (ganzer Platz blockiert auch Hälften).
 
 **Wird verwendet in:**
 - `booking/spielplan_sync.py` → `_SPIELORT_ZU_FELD` (via `get_spielort_zu_feld()`)
@@ -273,15 +283,24 @@ Diese Strings werden in Kleinschreibung mit `spielort.lower()` verglichen:
 
 ## 7. Checkliste bei Enum-Änderungen
 
-Wenn ein Enum-Wert in `booking/models.py` geändert wird:
+**Wenn ein Platz-Anzeigename geändert werden soll:**
+- [ ] Nur `config/field_config.json` → `"display_names"` ändern — fertig.
 
+**Wenn eine neue FieldName-ID hinzugefügt oder entfernt wird:**
+- [ ] `booking/models.py` — FieldName-Enum anpassen
+- [ ] `scripts/setup_notion.py` — Notion Select-Optionen anpassen
+- [ ] `config/field_config.json` → `"display_names"` und `"field_groups"` anpassen
+- [ ] `booking/field_config.py` → `_DEFAULT` anpassen
+- [ ] `config/vereinsconfig.json` → `"spielorte[].feld"` und `"platz_praefix"` prüfen
+- [ ] Notion-Datenbank: neues Select-Option via `scripts/setup_notion.py` anlegen
+
+**Wenn ein anderer Enum-Wert in `booking/models.py` geändert wird:**
 - [ ] `scripts/setup_notion.py` — Select-Optionen anpassen
 - [ ] `notion/client.py` — Lese-/Schreib-Aufrufe prüfen (nutzen `.value`)
 - [ ] Templates in `web/templates/partials/` auf hardcodierte Strings prüfen
 - [ ] CSS-Klassen in `web/static/style.css` prüfen (`.slot--*`, `.badge--*`)
 - [ ] `booking/field_config.py` → `ALL_ROLES` und defaults prüfen
 - [ ] `config/field_config.json` → `"visible_to"` prüfen
-- [ ] `config/vereinsconfig.json` → `"spielorte[].feld"` prüfen
 
 Wenn ein Notion Property-Name geändert wird:
 

@@ -51,6 +51,32 @@ TUS_HOME_KEYWORDS = {_HEIM_KEYWORD} if _HEIM_KEYWORD else {"cremlingen"}
 _DE_DAYS = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."]
 
 
+# ── Mannschafts-Config (Team-IDs) ────────────────────────────────────────────
+
+def _load_mannschaft_team_ids() -> dict[str, str]:
+    """
+    Lädt die FussballDeTeamId pro Mannschaft aus der Notion-Teams-DB.
+    Gibt {mannschaft_name: fussball_de_team_id} zurück (nur Einträge mit Team-ID).
+    Gibt leeres Dict zurück wenn DB nicht konfiguriert oder Fehler.
+    """
+    try:
+        from web.config import get_settings
+        from notion.client import NotionRepository
+        settings = get_settings()
+        if not settings.notion_mannschaften_db_id:
+            return {}
+        repo = NotionRepository(settings)
+        mannschaften = repo.get_all_mannschaften()
+        result = {m.name: m.fussball_de_team_id for m in mannschaften if m.fussball_de_team_id}
+        skipped = [m.name for m in mannschaften if not m.fussball_de_team_id]
+        if skipped:
+            print(f"  Teams ohne FussballDeTeamId (übersprungen): {', '.join(skipped)}", file=sys.stderr)
+        return result
+    except Exception as e:
+        print(f"  Hinweis: Mannschafts-Config nicht ladbar ({e}), nutze Club-Endpoint.", file=sys.stderr)
+        return {}
+
+
 # ── API-Hilfsfunktionen ──────────────────────────────────────────────────────
 
 def _api_get(path: str) -> dict:
@@ -137,10 +163,30 @@ def generate_csv(verbose: bool = False, progress_cb=None) -> tuple[int, str]:
     Wirft bei Fehler eine Exception.
 
     progress_cb: optionaler Callback(current: int, total: int, team_name: str)
+
+    Wenn in der Notion-Mannschaften-DB FussballDeTeamIds konfiguriert sind, werden
+    diese direkt für die API-Abfrage genutzt. Andernfalls Fallback auf den
+    Club-Endpoint (alle Mannschaften des Vereins).
     """
-    teams = get_teams()
+    # Team-IDs aus Notion-Config laden (leer → Fallback auf Club-Endpoint)
+    configured = _load_mannschaft_team_ids()  # {mannschaft_name: fussball_de_team_id}
+
+    if configured:
+        # Per-Team-Endpoint: FussballDeTeamId kann mit "#!" enden (fussball.de-Artefakt)
+        teams = [
+            {
+                "name": name,
+                "id":   tid.rstrip("#!").strip(),
+                "url":  {"nextGames": f"/api/team/{tid.rstrip('#!').strip()}/nextGames"},
+            }
+            for name, tid in configured.items()
+        ]
+        print(f"Nutze konfigurierte Mannschaften: {len(teams)}", file=sys.stderr)
+    else:
+        teams = get_teams()
+        print(f"Teams geladen (Club-Endpoint): {len(teams)}", file=sys.stderr)
+
     total = len(teams)
-    print(f"Teams geladen: {total}", file=sys.stderr)
     if progress_cb:
         progress_cb(0, total, "")
 

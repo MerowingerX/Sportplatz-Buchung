@@ -74,6 +74,7 @@ uvicorn homepage.main:app --port 8046 --reload
 |---|---|
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Notion-Setup, `.env`-Konfiguration, Systemdienste, Nginx, erster Admin-Nutzer |
 | [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md) | Systemübersicht, Datenmodelle, Ablaufdiagramme (PlantUML), API-Routen, UI-Features |
+| [docs/manual.md](docs/manual.md) | Betriebshandbuch: Saisonplanung, Sommer/Winterbetrieb, Nutzerverwaltung |
 | [docs/Review.md](docs/Review.md) | Code-Review: Verbesserungspotenzial, Bugs, technische Schulden |
 | [CONTEXT.md](CONTEXT.md) | Fachliche Anforderungen, Platzregeln, Buchungszeiten |
 | [Todo.md](Todo.md) | Offene Aufgaben und geplante Features |

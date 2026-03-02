@@ -18,15 +18,15 @@
 {% else %}
 
 <!-- Formular: Neuen Termin eintragen -->
-<details class="card card--collapsible" style="margin-bottom:1.5rem;">
-  <summary style="cursor:pointer; font-weight:700; padding:0.25rem 0;">
+<details class="card card--collapsible">
+  <summary>
     ＋ Neuen Termin eintragen
   </summary>
   <form hx-post="/events"
         hx-target="#event-tbody"
         hx-swap="afterbegin"
         hx-indicator="#event-submit-spinner"
-        style="margin-top:1rem;">
+        class="mt-1">
     <div class="form-grid">
       <div class="form-group form-group--wide">
         <label for="title">Bezeichnung <span class="label-required">*</span></label>
@@ -46,8 +46,8 @@
         <select id="mannschaft" name="mannschaft">
           <option value="">— keine —</option>
           {% for m in mannschaften %}
-            <option value="{{ m.value }}"
-              {{ 'selected' if current_user.mannschaft == m.value }}>{{ m.value }}</option>
+            <option value="{{ m.name }}"
+              {{ 'selected' if current_user.mannschaft == m.name }}>{{ m.name }}</option>
           {% endfor %}
         </select>
       </div>

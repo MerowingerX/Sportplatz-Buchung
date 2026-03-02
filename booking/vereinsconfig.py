@@ -72,6 +72,15 @@ def get_feld_praefixe() -> set[str]:
     return {p for s in get_spielorte() for p in s.get("platz_praefix", [])}
 
 
+def get_saison_defaults() -> dict:
+    """Gibt Default-Daten je Saison zurück (MM-DD-Strings)."""
+    return load().get("saison_defaults", {
+        "ganzjaehrig":    {"start": "08-01", "ende": "06-30"},
+        "sommerhalbjahr": {"start": "08-01", "ende": "10-30"},
+        "winterhalbjahr": {"start": "10-30", "ende": "03-01"},
+    })
+
+
 def get_colors() -> dict[str, str]:
     """CSS-Farben des Vereins als Dict."""
     cfg = load()

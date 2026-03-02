@@ -10,10 +10,10 @@ class Settings(BaseSettings):
     notion_api_key: str
     notion_buchungen_db_id: str
     notion_serien_db_id: str
-    notion_sperrzeiten_db_id: str
     notion_nutzer_db_id: str
     notion_aufgaben_db_id: str
-    notion_events_db_id: Optional[str] = None  # Termine (extern, keine Platzbuchung)
+    notion_events_db_id: Optional[str] = None        # Termine (extern, keine Platzbuchung)
+    notion_mannschaften_db_id: Optional[str] = None  # Teams (Name, Trainer, FussballDeTeamId)
 
     # JWT
     jwt_secret: str
@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     location_lat: float = 52.264
     location_lon: float = 10.639
     location_name: str = "Cremlingen/Germany"
+
+    # Notion-Property-Check beim Start überspringen (z. B. in Offline-Tests)
+    skip_notion_migrate: bool = False
 
 
 _settings: Settings | None = None

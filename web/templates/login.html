@@ -4,19 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anmelden – Sportplatz-Buchung</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=6">
   <style>
     :root {
       --color-primary: {{ vereinsfarben.primary }};
       --color-primary-hover: {{ vereinsfarben.primary_dark }};
       --color-primary-darker: {{ vereinsfarben.primary_darker }};
     }
+    body::before { background-image: url('{{ logo_url }}'); }
   </style>
 </head>
 <body class="login-page">
   <div class="login-card">
     <div class="login-card__logo">
-      <img src="/static/logo.svg" alt="{{ vereinsname }} Wappen" class="login-card__logo-img">
+      <img src="{{ logo_url }}" alt="{{ vereinsname }} Wappen" class="login-card__logo-img">
     </div>
     <h1>{{ vereinsname }}</h1>
     <p class="login-card__subtitle">Melde dich an, um Plätze zu buchen und den Belegungsplan zu sehen.</p>

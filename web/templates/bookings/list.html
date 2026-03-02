@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Buchungen{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Buchungen</h1>
+</div>
+
+<form id="booking-filter"
+      hx-get="/bookings/list"
+      hx-target="#booking-tbody"
+      hx-swap="innerHTML"
+      hx-trigger="change from:select"
+      class="filter-bar">
+  <select name="mannschaft">
+    <option value="">Alle Mannschaften</option>
+    {% for m in mannschaften %}
+      <option value="{{ m }}" {{ 'selected' if sel_mannschaft == m }}>{{ m }}</option>
+    {% endfor %}
+  </select>
+  <select name="trainer">
+    <option value="">Alle Trainer</option>
+    {% for t in trainers %}
+      <option value="{{ t }}" {{ 'selected' if sel_trainer == t }}>{{ t }}</option>
+    {% endfor %}
+  </select>
+  <select name="wochentag">
+    <option value="">Alle Wochentage</option>
+    {% for wd in [["0","Montag"],["1","Dienstag"],["2","Mittwoch"],["3","Donnerstag"],["4","Freitag"],["5","Samstag"],["6","Sonntag"]] %}
+      <option value="{{ wd[0] }}" {{ 'selected' if sel_wochentag is not none and sel_wochentag|string == wd[0] }}>{{ wd[1] }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Platz</th>
+        <th>Zeit</th>
+        <th>Dauer</th>
+        <th>Art</th>
+        <th>Mannschaft</th>
+        <th>Gebucht von</th>
+      </tr>
+    </thead>
+    <tbody id="booking-tbody">
+      {% include "partials/_booking_list_tbody.html" %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

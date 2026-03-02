@@ -7,15 +7,15 @@
 </div>
 
 <!-- Formular: Neue Aufgabe -->
-<details class="card card--collapsible" style="margin-bottom:1.5rem;">
-  <summary style="cursor:pointer; font-weight:700; padding:0.25rem 0;">
+<details class="card card--collapsible">
+  <summary>
     ＋ Neue Aufgabe / Meldung erstellen
   </summary>
   <div id="task-form-errors"></div>
   <form hx-post="/tasks"
         hx-target="#task-tbody"
         hx-swap="afterbegin"
-        style="margin-top:1rem;">
+        class="mt-1">
     <div class="form-grid">
       <div class="form-group form-group--wide">
         <label for="titel">Titel <span class="label-required">*</span></label>
@@ -61,7 +61,7 @@
 
 <!-- Filter -->
 <div class="filter-bar">
-  <form method="get" action="/tasks" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+  <form method="get" action="/tasks">
     <select name="filter_typ" onchange="this.form.submit()">
       <option value="">Alle Typen</option>
       {% for t in typen %}
@@ -81,7 +81,7 @@
 </div>
 
 <!-- Aufgabenliste -->
-<div class="table-responsive" style="margin-top:1rem;">
+<div class="table-responsive">
   <table class="table">
     <thead>
       <tr>
@@ -104,4 +104,21 @@
     </tbody>
   </table>
 </div>
+
+{% if total > 25 %}
+<div class="pagination">
+  {% set base = '/tasks?' ~ ('filter_typ=' ~ filter_typ ~ '&' if filter_typ) ~ ('filter_status=' ~ filter_status ~ '&' if filter_status) %}
+  {% if has_prev %}
+    <a href="{{ base }}page={{ page - 1 }}" class="btn btn--ghost">&larr; Neuere</a>
+  {% else %}
+    <span class="btn btn--ghost pagination__disabled">&larr; Neuere</span>
+  {% endif %}
+  <span class="pagination__info">Seite {{ page }} &middot; {{ total }} Aufgaben</span>
+  {% if has_next %}
+    <a href="{{ base }}page={{ page + 1 }}" class="btn btn--ghost">Ältere &rarr;</a>
+  {% else %}
+    <span class="btn btn--ghost pagination__disabled">Ältere &rarr;</span>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

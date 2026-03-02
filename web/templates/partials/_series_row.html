@@ -9,6 +9,7 @@
     {{ s.end_date.strftime('%d.%m.%Y') }}
   </td>
   <td>{{ s.trainer_name or s.booked_by_name }}</td>
+  <td>{{ s.saison.value }}</td>
   <td>
     <span class="badge badge--status-{{ s.status.value | lower | replace(' ', '-') }}">
       {{ s.status.value }}

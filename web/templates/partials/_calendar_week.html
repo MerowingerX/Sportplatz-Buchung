@@ -1,22 +1,5 @@
 {% set day_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}
-{% set field_short = {
-  "Kura Ganz": "Ganz", "Kura Halb A": "Halb A", "Kura Halb B": "Halb B",
-  "Rasen Ganz": "Ganz", "Rasen Halb A": "Halb A", "Rasen Halb B": "Halb B",
-  "Halle Ganz": "Ganz", "Halle 2/3": "2/3", "Halle 1/3": "1/3",
-} %}
-{# field_groups wird vom Router übergeben (gefiltert nach Rolle) #}
-{# Konflikt-Map: Welche anderen Felder blockieren dieses Feld? #}
-{% set conflict_sources = {
-  "Kura Ganz": ["Kura Halb A", "Kura Halb B"],
-  "Kura Halb A": ["Kura Ganz"],
-  "Kura Halb B": ["Kura Ganz"],
-  "Rasen Ganz": ["Rasen Halb A", "Rasen Halb B"],
-  "Rasen Halb A": ["Rasen Ganz"],
-  "Rasen Halb B": ["Rasen Ganz"],
-  "Halle Ganz": ["Halle 2/3", "Halle 1/3"],
-  "Halle 2/3": ["Halle Ganz"],
-  "Halle 1/3": ["Halle Ganz"],
-} %}
+{# field_groups, field_display_names, conflict_sources werden vom Router übergeben #}
 
 <!-- Wochennavigation -->
 <div class="week-nav">
@@ -72,12 +55,12 @@
             </th>
           {% endfor %}
         </tr>
-        {# Zeile 2: Felder (Ganz / Halb A / Halb B) #}
+        {# Zeile 2: Felder (Anzeigenamen aus Config) #}
         <tr>
           {% for i in range(7) %}
             {% for fname in group_fields %}
               <th class="cal-table__field {% if days[i].isoformat() == today %}cal-table__field--today{% endif %}">
-                {{ field_short[fname] }}
+                {{ field_display_names.get(fname, fname) }}
               </th>
             {% endfor %}
           {% endfor %}
@@ -106,16 +89,9 @@
                 {% endif %}
               {% endfor %}
               {% set found = found_start + found_cont %}
-              {# Sperrzeiten nur fuer Rasen #}
-              {% set blocked = [] %}
-              {% if "Rasen" in field_name %}
-                {% for bl in blackouts if bl.start_date <= day and bl.end_date >= day %}
-                  {% set _ = blocked.append(bl) %}
-                {% endfor %}
-              {% endif %}
               {# Konfliktprüfung: ist ein kollidierendes Feld bereits belegt? #}
               {% set conflicted = [] %}
-              {% if not found and not blocked %}
+              {% if not found %}
                 {% for cf in conflict_sources.get(field_name, []) %}
                   {% for b in bookings if b.field.value == cf
                         and b.date.isoformat() == day_iso
@@ -134,16 +110,6 @@
                        title="{{ b.zweck or b.mannschaft or b.booked_by_name }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
                     <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
                   </div>
-                {% elif blocked %}
-                  {% set ps_reason = blocked[0].reason or "keine Angabe" %}
-                  <button class="slot slot--platzsperre slot--clickable"
-                          hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
-                          hx-target="#booking-modal-content"
-                          hx-swap="innerHTML"
-                          onclick="document.getElementById('booking-modal').showModal()"
-                          title="Platzsperre: {{ ps_reason }}">
-                    <span class="slot__platzsperre-label">Pl.sperre</span>
-                  </button>
                 {% elif conflicted %}
                   <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
                 {% else %}
@@ -152,7 +118,7 @@
                           hx-target="#booking-modal-content"
                           hx-swap="innerHTML"
                           onclick="document.getElementById('booking-modal').showModal()"
-                          title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_short[field_name] }}">
+                          title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_display_names.get(field_name, field_name) }}">
                   </button>
                 {% endif %}
               </td>

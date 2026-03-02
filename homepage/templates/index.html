@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ vereinsname_lang }}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
+  <script src="/static/htmx.min.js"></script>
   <link rel="stylesheet" href="/static/style.css?v=5">
   <style>
     :root {
@@ -187,15 +187,22 @@
       <div class="card-grid">
         <div class="card">
           <div class="card__icon">📍</div>
-          <div class="card__title">Adresse</div>
-          <div class="card__text">TuS Cremlingen e.V.<br>Sportplatz, 38162 Cremlingen</div>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=Sportplatz+TuS+Cremlingen+38162+Cremlingen"
+          <div class="card__title">Anfahrt</div>
+          <div class="card__text">TuS Cremlingen e.V.<br>Ostdeutsche Straße 8b<br>38162 Cremlingen</div>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=Ostdeutsche+Stra%C3%9Fe+8b,+38162+Cremlingen"
              target="_blank" rel="noopener" class="card__link">Route planen →</a>
         </div>
         <div class="card">
           <div class="card__icon">✉️</div>
           <div class="card__title">E-Mail</div>
-          <div class="card__text">info@tus-cremlingen.de</div>
+          <div class="card__text">Allgemeine Anfragen und Kontakt zur Geschäftsstelle:</div>
+          <a href="mailto:info@tus-cremlingen.de" class="card__link">info@tus-cremlingen.de →</a>
+        </div>
+        <div class="card">
+          <div class="card__icon">💬</div>
+          <div class="card__title">Nachricht schreiben</div>
+          <div class="card__text">Fragen zur Platzbuchung, Mitgliedschaft oder anderen Themen:</div>
+          <a href="mailto:info@tus-cremlingen.de?subject=Anfrage%20%C3%BCber%20die%20Homepage" class="card__link">Nachricht senden →</a>
         </div>
       </div>
     </section>

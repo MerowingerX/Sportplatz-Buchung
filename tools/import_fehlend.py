@@ -54,8 +54,8 @@ except ImportError as e:
 # Spielort → Platzbelegung
 # ---------------------------------------------------------------------------
 _SPIELORT_ZU_FELD: list[tuple[str, FieldName]] = [
-    ("cremlingen b-platz", FieldName.KURA_GANZ),
-    ("cremlingen a-platz rasen", FieldName.RASEN_GANZ),
+    ("cremlingen b-platz", FieldName.A),
+    ("cremlingen a-platz rasen", FieldName.B),
 ]
 
 

@@ -8,31 +8,16 @@ from pydantic import BaseModel
 
 
 class FieldName(str, Enum):
-    KURA_GANZ = "Kura Ganz"
-    KURA_HALB_A = "Kura Halb A"
-    KURA_HALB_B = "Kura Halb B"
-    RASEN_GANZ = "Rasen Ganz"
-    RASEN_HALB_A = "Rasen Halb A"
-    RASEN_HALB_B = "Rasen Halb B"
-    HALLE_GANZ = "Halle Ganz"
-    HALLE_ZWEIDRITTEL = "Halle 2/3"
-    HALLE_EINDRITTEL = "Halle 1/3"
-
-    @property
-    def is_rasen(self) -> bool:
-        return self.value.startswith("Rasen")
-
-    @property
-    def is_kura(self) -> bool:
-        return self.value.startswith("Kura")
-
-    @property
-    def is_halle(self) -> bool:
-        return self.value.startswith("Halle")
-
-    @property
-    def is_ganz(self) -> bool:
-        return self.value.endswith("Ganz")
+    # Stabile interne IDs — Anzeigenamen kommen aus config/field_config.json
+    A  = "A"   # Kura Ganz (Kunstrasen, ganzer Platz)
+    AA = "AA"  # Kura Halb A
+    AB = "AB"  # Kura Halb B
+    B  = "B"   # Rasen Ganz (Naturrasen, ganzer Platz)
+    BA = "BA"  # Rasen Halb A
+    BB = "BB"  # Rasen Halb B
+    C  = "C"   # Halle Ganz
+    CA = "CA"  # Halle 2/3
+    CB = "CB"  # Halle 1/3
 
 
 class BookingStatus(str, Enum):
@@ -71,8 +56,7 @@ class Permission(str, Enum):
     CREATE_TASK         = "create_task"
     DELETE_OWN_TASK     = "delete_own_task"
     DELETE_ALL_TASKS    = "delete_all_tasks"
-    # Sperrzeiten & Serien
-    MANAGE_BLACKOUTS    = "manage_blackouts"
+    # Serien
     MANAGE_SERIES       = "manage_series"
     # DFBnet
     DFBNET_SPIELPLAN    = "dfbnet_spielplan"    # Spielplan abrufen / CSV-Import
@@ -102,7 +86,6 @@ ROLE_PERMISSIONS: dict["UserRole", frozenset["Permission"]] = {
         Permission.CREATE_TASK,
         Permission.DELETE_OWN_TASK,
         Permission.DELETE_ALL_TASKS,
-        Permission.MANAGE_BLACKOUTS,
     }),
     UserRole.TRAINER: frozenset({
         Permission.CREATE_BOOKING,
@@ -131,31 +114,20 @@ class SeriesStatus(str, Enum):
     BEENDET = "Beendet"
 
 
-class BlackoutType(str, Enum):
-    GANZTAEGIG = "Ganztägig"
-    ZEITLICH = "Zeitlich"
+class SeriesSaison(str, Enum):
+    GANZJAEHRIG    = "Ganzjährig"
+    SOMMERHALBJAHR = "Sommerhalbjahr"
+    WINTERHALBJAHR = "Winterhalbjahr"
 
 
-class Mannschaft(str, Enum):
-    G1 = "G1"
-    G2 = "G2"
-    G3 = "G3"
-    F1 = "F1"
-    F2 = "F2"
-    E1 = "E1"
-    E2 = "E2"
-    E3 = "E3"
-    D1 = "D1"
-    D2 = "D2"
-    C = "C"
-    B = "B"
-    A = "A"
-    TUS1 = "TuS 1"
-    TUS2 = "TuS 2"
-    UE32 = "Ü32"
-    UE40 = "Ü40"
-    FRAUEN = "Frauen"
-    MAEDCHEN = "Mädchen"
+class MannschaftConfig(BaseModel):
+    """Mannschafts-Konfiguration aus der Notion-Teams-DB."""
+    notion_id: str
+    name: str
+    trainer_name: Optional[str] = None
+    trainer_id: Optional[str] = None
+    fussball_de_team_id: Optional[str] = None
+    aktiv: bool = True
 
 
 # --- Booking ---
@@ -210,6 +182,7 @@ class Series(BaseModel):
     mannschaft: Optional[str] = None
     trainer_id: Optional[str] = None
     trainer_name: Optional[str] = None
+    saison: SeriesSaison = SeriesSaison.GANZJAEHRIG
 
 
 class SeriesCreate(BaseModel):
@@ -219,32 +192,9 @@ class SeriesCreate(BaseModel):
     rhythm: SeriesRhythm
     start_date: date
     end_date: date
-    mannschaft: Mannschaft
+    mannschaft: str
     trainer_id: str
-
-
-# --- Blackout ---
-
-class BlackoutPeriod(BaseModel):
-    notion_id: str
-    title: str
-    start_date: date
-    end_date: date
-    blackout_type: BlackoutType
-    start_time: Optional[time] = None
-    end_time: Optional[time] = None
-    reason: str
-    entered_by_id: str
-    entered_by_name: str
-
-
-class BlackoutCreate(BaseModel):
-    start_date: date
-    end_date: date
-    blackout_type: BlackoutType
-    start_time: Optional[time] = None
-    end_time: Optional[time] = None
-    reason: str
+    saison: SeriesSaison = SeriesSaison.GANZJAEHRIG
 
 
 # --- User ---
@@ -255,7 +205,7 @@ class User(BaseModel):
     role: UserRole
     email: str
     password_hash: str
-    mannschaft: Optional[Mannschaft] = None
+    mannschaft: Optional[str] = None
     must_change_password: bool = False
 
 
@@ -264,7 +214,7 @@ class UserCreate(BaseModel):
     role: UserRole
     email: str
     password: str
-    mannschaft: Optional[Mannschaft] = None
+    mannschaft: Optional[str] = None
 
 
 # --- Aufgaben / Schwarzes Brett ---
@@ -342,3 +292,4 @@ class TokenPayload(BaseModel):
     mannschaft: Optional[str] = None
     must_change_password: bool = False
     exp: int
+    iat: int = 0    # issued-at (Unix-Timestamp) für Invalidierung

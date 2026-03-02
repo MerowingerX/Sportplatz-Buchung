@@ -4,12 +4,12 @@
   or (event.mannschaft and current_user.mannschaft == event.mannschaft)
 ) %}
 <tr id="event-{{ event.notion_id }}">
-  <td style="white-space: nowrap;">{{ event.date.strftime('%d.%m.%Y') }}</td>
-  <td style="white-space: nowrap;">{{ event.start_time.strftime('%H:%M') }} Uhr</td>
+  <td class="nowrap">{{ event.date.strftime('%d.%m.%Y') }}</td>
+  <td class="nowrap">{{ event.start_time.strftime('%H:%M') }} Uhr</td>
   <td>
     <strong>{{ event.title }}</strong>
     {% if event.description %}
-    <div class="text-muted" style="font-size:0.8125rem;">{{ event.description }}</div>
+    <div class="text-muted text-sm">{{ event.description }}</div>
     {% endif %}
   </td>
   <td class="text-muted">
@@ -20,7 +20,7 @@
   </td>
   <td class="text-muted">{{ event.mannschaft or '–' }}</td>
   <td class="text-muted">{{ event.created_by_name }}</td>
-  <td style="text-align:right;">
+  <td class="text-right">
     {% if can_delete %}
     <button class="btn btn--small btn--danger"
             hx-delete="/events/{{ event.notion_id }}"

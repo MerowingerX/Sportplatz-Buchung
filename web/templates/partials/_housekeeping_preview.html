@@ -1,0 +1,111 @@
+<div class="modal-header">
+  <h2>Datenbereinigung</h2>
+  <button class="modal-close" onclick="document.getElementById('housekeeping-modal').close()">&times;</button>
+</div>
+
+<form id="housekeeping-form"
+      hx-post="/admin/housekeeping"
+      hx-target="#toast"
+      hx-swap="outerHTML"
+      hx-confirm="Bereinigung wirklich ausführen? Diese Aktion kann nicht rückgängig gemacht werden.">
+
+  {# ── Allgemeine Bereinigung ─────────────────────────────────────────────── #}
+  <div class="transfer-hint">
+    <strong>Allgemeine Bereinigung:</strong>
+    Stornierte Buchungen und vergangene Buchungen ohne aktive Serie werden entfernt.
+    Buchungen aktiver Serien bleiben <strong>immer</strong> erhalten.
+  </div>
+
+  <fieldset class="housekeeping-cutoff">
+    <legend>Zeitraum für vergangene Buchungen:</legend>
+    <label>
+      <input type="radio" name="cutoff" value="saison"
+             {% if cutoff == 'saison' %}checked{% endif %}
+             hx-get="/admin/housekeeping"
+             hx-include="[name='cutoff']"
+             hx-target="#housekeeping-modal-body"
+             hx-swap="innerHTML">
+      Bis Saisonstart (1. Aug. {{ cutoff_date.year }})
+    </label>
+    <label>
+      <input type="radio" name="cutoff" value="heute"
+             {% if cutoff == 'heute' %}checked{% endif %}
+             hx-get="/admin/housekeeping"
+             hx-include="[name='cutoff']"
+             hx-target="#housekeeping-modal-body"
+             hx-swap="innerHTML">
+      Bis heute
+    </label>
+  </fieldset>
+
+  <div class="housekeeping-summary">
+    {% if total == 0 %}
+      <p class="text-muted">Keine allgemeinen Kandidaten gefunden.</p>
+    {% else %}
+      <p>
+        <strong>{{ total }} Buchungen</strong> aus allgemeiner Bereinigung:
+        {{ storniert }} storniert{% if vergangen %}, {{ vergangen }} vergangen{% endif %}.
+      </p>
+    {% endif %}
+  </div>
+
+  {# ── Inaktive Serien ────────────────────────────────────────────────────── #}
+  {% if inactive_entries %}
+  <div class="transfer-hint" style="margin-top:1rem">
+    <strong>Inaktive Serien:</strong>
+    Auswählen, welche beendeten/pausierten Serien mitsamt aller Buchungen entfernt werden sollen.
+  </div>
+
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="hk-all"
+                     onchange="document.querySelectorAll('.hk-cb').forEach(cb => cb.checked = this.checked)"></th>
+          <th>Mannschaft</th>
+          <th>Platz</th>
+          <th>Zeitraum</th>
+          <th>Status</th>
+          <th>Buchungen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in inactive_entries %}
+        <tr>
+          <td>
+            <input type="checkbox" name="series_ids" value="{{ e.series.notion_id }}"
+                   class="hk-cb">
+          </td>
+          <td><strong>{{ e.series.mannschaft or '—' }}</strong></td>
+          <td>{{ e.series.field.value }}</td>
+          <td class="text-muted">
+            {{ e.series.start_date.strftime('%d.%m.%Y') }} –
+            {{ e.series.end_date.strftime('%d.%m.%Y') }}
+          </td>
+          <td>
+            <span class="badge badge--status-{{ e.series.status.value | lower | replace(' ', '-') }}">
+              {{ e.series.status.value }}
+            </span>
+          </td>
+          <td>{{ e.booking_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted" style="margin-top:0.5rem">Keine inaktiven Serien vorhanden.</p>
+  {% endif %}
+
+  {# ── Aktionen ───────────────────────────────────────────────────────────── #}
+  <div class="modal-actions">
+    <button type="button" class="btn btn--ghost"
+            onclick="document.getElementById('housekeeping-modal').close()">
+      Abbrechen
+    </button>
+    <button type="submit" class="btn btn--danger">
+      Bereinigung ausführen
+    </button>
+  </div>
+
+</form>

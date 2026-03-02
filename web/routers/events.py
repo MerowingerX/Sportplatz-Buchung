@@ -6,15 +6,14 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 
 from auth.dependencies import CurrentUser, require_permission
-from booking.models import ExternalEventCreate, Mannschaft, Permission, has_permission
+from booking.models import ExternalEventCreate, Permission, has_permission
 
 router = APIRouter(prefix="/events")
 
 _event_required = Depends(require_permission(Permission.CREATE_EVENT))
 
 
-def _toast(message: str, kind: str = "success") -> str:
-    return f'<div id="toast" hx-swap-oob="true" class="toast toast--{kind}">{message}</div>'
+from web.htmx import toast as _toast
 
 
 PAGE_SIZE = 25
@@ -39,7 +38,7 @@ async def events_page(request: Request, current_user: CurrentUser, page: int = 1
             "page": page,
             "total_pages": max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE),
             "total": total,
-            "mannschaften": list(Mannschaft),
+            "mannschaften": repo.get_all_mannschaften(only_active=True),
         },
     )
 

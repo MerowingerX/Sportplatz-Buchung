@@ -24,11 +24,13 @@ def create_jwt(
     mannschaft: Optional[str] = None,
     must_change_password: bool = False,
 ) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours)
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(hours=settings.jwt_expire_hours)
     payload = {
         "sub": user_id,
         "username": username,
         "role": role.value,
+        "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
     }
     if mannschaft:
@@ -47,4 +49,5 @@ def decode_jwt(token: str, settings: Settings) -> TokenPayload:
         mannschaft=data.get("mannschaft"),
         must_change_password=data.get("must_change_password", False),
         exp=data["exp"],
+        iat=data.get("iat", 0),
     )
