@@ -1,0 +1,15 @@
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.env
+logs/
+backup/
+Platzbelegung/
+homepage/userdata/vereinsinfo/
+*.tar.gz.gpg
+.claude/

@@ -1,0 +1,21 @@
+services:
+  buchung:
+    build: .
+    container_name: buchung
+    restart: unless-stopped
+    ports:
+      - "1946:1946"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./logs:/app/logs       # Audit- und Fehler-Logs persistent auf Host
+      - ./backup:/app/backup   # Notion-Backups persistent auf Host
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:1946/login')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
