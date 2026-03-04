@@ -1,9 +1,11 @@
 from web.templates_instance import templates
-from datetime import date as Date, time, timedelta
+from datetime import date as Date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
+from icalendar import Calendar, Event as IcalEvent
 
 from auth.dependencies import CurrentUser
 import booking.field_config as fc
@@ -145,3 +147,48 @@ def invalidate_week_cache(booking_date: Date) -> None:
     iso = booking_date.isocalendar()
     key = f"week:{iso[0]}:{iso[1]}"
     _cache.pop(key, None)
+
+
+_TZ = ZoneInfo("Europe/Berlin")
+
+
+@router.get("/calendar/export.ics")
+async def calendar_export_ics(request: Request, current_user: CurrentUser):
+    """iCal-Export aller eigenen kommenden Buchungen."""
+    from booking.models import UserRole
+    repo = request.app.state.repo
+    all_bookings = repo.get_all_bookings()
+
+    # Trainer sehen nur ihre eigenen Buchungen; Admins/Platzwart sehen alle
+    if current_user.role == UserRole.TRAINER:
+        bookings = [b for b in all_bookings if b.booked_by_id == current_user.notion_id]
+    else:
+        bookings = all_bookings
+
+    cal = Calendar()
+    cal.add("prodid", "-//Sportplatz Buchungssystem//DE")
+    cal.add("version", "2.0")
+    cal.add("x-wr-calname", "Platzbelegung")
+    cal.add("x-wr-timezone", "Europe/Berlin")
+    cal.add("calscale", "GREGORIAN")
+
+    for b in bookings:
+        ev = IcalEvent()
+        label = b.mannschaft or b.zweck or b.booking_type.value
+        ev.add("summary", f"{label} – {b.field.value}")
+        ev.add("dtstart", datetime.combine(b.date, b.start_time).replace(tzinfo=_TZ))
+        ev.add("dtend",   datetime.combine(b.date, b.end_time).replace(tzinfo=_TZ))
+        ev.add("uid",     f"booking-{b.notion_id}@sportplatz")
+        desc_parts = [b.booking_type.value]
+        if b.zweck:
+            desc_parts.append(b.zweck)
+        if b.kontakt:
+            desc_parts.append(f"Kontakt: {b.kontakt}")
+        ev.add("description", " | ".join(desc_parts))
+        cal.add_component(ev)
+
+    return Response(
+        content=cal.to_ical(),
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="platzbelegung.ics"'},
+    )
