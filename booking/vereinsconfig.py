@@ -8,15 +8,19 @@ gelesen wird.
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
-_CONFIG_FILE = Path(__file__).parent.parent / "config" / "vereinsconfig.json"
+
+def _config_file() -> Path:
+    config_dir = os.environ.get("CONFIG_DIR", "config")
+    return Path(__file__).parent.parent / config_dir / "vereinsconfig.json"
 
 
 @lru_cache(maxsize=1)
 def load() -> dict:
-    with open(_CONFIG_FILE, encoding="utf-8") as f:
+    with open(_config_file(), encoding="utf-8") as f:
         return json.load(f)
 
 

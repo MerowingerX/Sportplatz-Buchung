@@ -1,10 +1,16 @@
+import os
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# ENV_FILE und CONFIG_DIR werden direkt aus der Systemumgebung gelesen –
+# sie können nicht selbst in der .env-Datei stehen, da sie steuern, welche
+# Datei geladen wird. Für den Demo-Server: ENV_FILE=.env.demo CONFIG_DIR=config/demo
+_ENV_FILE = os.environ.get("ENV_FILE", ".env")
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8")
 
     # Notion
     notion_api_key: str
@@ -31,6 +37,7 @@ class Settings(BaseSettings):
     # fussball.de
     fussball_de_vereinsseite: Optional[str] = None  # z. B. https://www.fussball.de/verein/.../-/verein-id/00ES8GN…
     apifussball_token: Optional[str] = None          # api-fussball.de API-Token
+    apifussball_club_id: Optional[str] = None        # Vereins-ID auf fussball.de (z. B. 00ES8GN76C000016VV0AG08LVUPGND5I)
 
     # Buchungssystem-URL (öffentlich erreichbar, wird in E-Mails verlinkt)
     booking_url: str = "http://localhost:1946"  # Fallback; wird durch BOOKING_URL in .env überschrieben

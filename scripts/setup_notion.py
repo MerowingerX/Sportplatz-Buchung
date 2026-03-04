@@ -87,7 +87,7 @@ def schema_buchungen() -> dict:
     """Buchungen – Platzbuchungen aller Art."""
     return {
         "Titel":                    title_prop(),
-        "Platz":                    sel("A", "AA", "AB", "B", "BA", "BB", "C", "CA", "CB"),
+        "Platz":                    sel("A", "AA", "AB", "B", "BA", "BB", "C", "CA", "CB", "D", "E", "EA", "EB"),
         "Datum":                    date_prop(),
         "Startzeit":                sel(*ZEITSLOTS),
         "Endzeit":                  sel(*ZEITSLOTS),
@@ -111,7 +111,7 @@ def schema_serien() -> dict:
     """Serien – wiederkehrende Buchungen."""
     return {
         "Titel":            title_prop(),
-        "Platz":            sel("A", "AA", "AB", "B", "BA", "BB", "C", "CA", "CB"),
+        "Platz":            sel("A", "AA", "AB", "B", "BA", "BB", "C", "CA", "CB", "D", "E", "EA", "EB"),
         "Startzeit":        sel(*ZEITSLOTS),
         "Dauer":            sel(*DAUER_OPTIONEN),
         "Rhythmus":         sel("Wöchentlich", "14-tägig"),

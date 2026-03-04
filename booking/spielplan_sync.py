@@ -75,16 +75,20 @@ class SyncResult:
     verdraengt: int = 0                                    # verdrängte Buchungen gesamt
     storniert: list[str] = field(default_factory=list)     # stornierte Buchungen
     fehler: list[str] = field(default_factory=list)        # Fehlermeldungen
+    gefunden: int = 0                                      # Heimspiele auf fussball.de gesamt
 
     @property
     def ok(self) -> bool:
         return not self.fehler
 
     def zusammenfassung(self) -> str:
-        teile = [f"{len(self.gebucht)} Spiel(e) eingetragen"]
+        teile = []
+        if self.gefunden:
+            teile.append(f"{self.gefunden} Spiel(e) gefunden")
+        teile.append(f"{len(self.gebucht)} eingetragen")
         if self.verdraengt:
-            teile.append(f"{self.verdraengt} Buchung(en) verdrängt")
-        teile.append(f"{len(self.storniert)} verwaiste(s) Spiel(e) storniert")
+            teile.append(f"{self.verdraengt} verdrängt")
+        teile.append(f"{len(self.storniert)} storniert")
         if self.fehler:
             teile.append(f"{len(self.fehler)} Fehler")
         return " · ".join(teile)
@@ -97,6 +101,7 @@ def write_sync_status(result: SyncResult, triggered_by: str = "admin") -> None:
         "triggered_by": triggered_by,
         "ok": result.ok,
         "summary": result.zusammenfassung(),
+        "gefunden": result.gefunden,
         "gebucht": len(result.gebucht),
         "uebersprungen": len(result.uebersprungen),
         "storniert": len(result.storniert),
@@ -235,6 +240,8 @@ async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResu
         and _spielort_zu_feld(s.spielort)
         and date.fromisoformat(s.datum) >= heute  # nur zukünftige Spiele
     ]
+
+    result.gefunden = len(heim_spiele)
 
     if not heim_spiele:
         return result

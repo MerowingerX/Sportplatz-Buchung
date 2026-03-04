@@ -9,15 +9,19 @@ from pydantic import BaseModel
 
 class FieldName(str, Enum):
     # Stabile interne IDs — Anzeigenamen kommen aus config/field_config.json
-    A  = "A"   # Kura Ganz (Kunstrasen, ganzer Platz)
-    AA = "AA"  # Kura Halb A
-    AB = "AB"  # Kura Halb B
-    B  = "B"   # Rasen Ganz (Naturrasen, ganzer Platz)
-    BA = "BA"  # Rasen Halb A
-    BB = "BB"  # Rasen Halb B
-    C  = "C"   # Halle Ganz
-    CA = "CA"  # Halle 2/3
-    CB = "CB"  # Halle 1/3
+    A  = "A"   # Platzgruppe A (ganz)
+    AA = "AA"  # Platzgruppe A – Hälfte A
+    AB = "AB"  # Platzgruppe A – Hälfte B
+    B  = "B"   # Platzgruppe B (ganz)
+    BA = "BA"  # Platzgruppe B – Hälfte A
+    BB = "BB"  # Platzgruppe B – Hälfte B
+    C  = "C"   # Platzgruppe C (ganz)
+    CA = "CA"  # Platzgruppe C – Hälfte A
+    CB = "CB"  # Platzgruppe C – Hälfte B
+    D  = "D"   # Einzelfeld D (ohne Unterteilung)
+    E  = "E"   # Platzgruppe E (ganz)
+    EA = "EA"  # Platzgruppe E – Hälfte A
+    EB = "EB"  # Platzgruppe E – Hälfte B
 
 
 class BookingStatus(str, Enum):

@@ -21,10 +21,21 @@ Das System verwendet Notion als Datenbank. Alle Tabellen werden als **Notion-Dat
 
 ### 1.1 Integration erstellen
 
+Eine **Notion-Integration** ist ein interner Bot-Account, der der Anwendung API-Zugriff auf ausgewählte Seiten und Datenbanken gewährt. Notion-Inhalte sind standardmäßig privat — die Integration darf **nur auf Seiten zugreifen, die ihr explizit freigegeben wurden**, selbst wenn du derselbe Account-Inhaber bist.
+
 1. → [notion.so/my-integrations](https://www.notion.so/my-integrations)
 2. **New integration** → Name z. B. `Sportplatz-Buchung`
 3. Capabilities: **Read content**, **Update content**, **Insert content**
 4. Den angezeigten **Internal Integration Token** notieren → `NOTION_API_KEY`
+
+> **Integrations-Namen nachschlagen:** Falls unklar ist, welcher Name zu einem Token gehört:
+> ```bash
+> NOTION_API_KEY=<token> .venv/bin/python -c "
+> from notion_client import Client
+> me = Client(auth='<token>').users.me()
+> print(me.get('name'))
+> "
+> ```
 
 ### 1.2 Datenbanken anlegen
 
@@ -47,10 +58,14 @@ Der 32-stellige Hex-Block vor dem `?` ist die ID (ohne Bindestriche).
 
 ### 1.3 Integration mit den Datenbanken verknüpfen
 
-Jede Datenbank muss der Integration freigegeben werden:
+Jede Datenbank (bzw. die übergeordnete Seite) muss der Integration freigegeben werden:
 
-1. Datenbank öffnen → `···` (Drei-Punkte-Menü, oben rechts) → **Connections** → Integration suchen und hinzufügen.
+1. Seite oder Datenbank in Notion öffnen → `···` (Drei-Punkte-Menü, oben rechts) → **Connections** → Integrations-Name suchen und hinzufügen → **Confirm**.
 2. Diesen Schritt für alle 5 (bzw. 6) Datenbanken wiederholen.
+
+> **Tipp:** Wenn alle Datenbanken unter einer gemeinsamen Eltern-Seite liegen, reicht es, die **Eltern-Seite** freizugeben — alle Unterseiten und -datenbanken erben den Zugriff automatisch.
+>
+> Die Integration verweigert den Zugriff auch dann, wenn der API-Key korrekt ist. Die Fehlermeldung lautet: *"Could not find page with ID … Make sure the relevant pages and databases are shared with your integration."*
 
 ---
 
@@ -68,10 +83,69 @@ cd /root/git.com/Sportplatz-Buchung
 
 ## 3. Python-Umgebung einrichten
 
+Das Projekt benötigt **Python 3.11**. Ein Virtual Environment (`.venv`) ist
+notwendig, um die Paketversionen aus `requirements.txt` isoliert vom
+System-Python zu installieren.
+
+### 3.1 Warum `.venv`?
+
+- Exakte Versionen (z. B. `pydantic-settings==2.3.4`) ohne Konflikte mit
+  anderen Projekten
+- Unabhängig vom System-Python (Debian/Ubuntu liefert oft Python 3.10)
+- `start_demo.sh` und `start_server.sh` verwenden direkt `.venv/bin/uvicorn`
+
+### 3.2 Python-Version sicherstellen
+
+Das System-Python reicht, wenn es bereits 3.11 ist:
+
 ```bash
-python3 -m venv .venv
+python3 --version   # sollte 3.11.x sein
+```
+
+Ist das System-Python älter (z. B. 3.10 unter Ubuntu 22.04), muss Python 3.11
+über **pyenv** oder `deadsnakes`-PPA bereitgestellt werden:
+
+```bash
+# Option A – pyenv (empfohlen, kein sudo nötig)
+pyenv install 3.11.14
+# danach den venv-Befehl mit vollem Pfad aufrufen (siehe 3.3)
+
+# Option B – deadsnakes-PPA (Ubuntu)
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install python3.11 python3.11-venv
+```
+
+### 3.3 Venv anlegen
+
+**Wichtig bei pyenv:** Mit `--copies` erstellen, nicht mit Symlinks. Andernfalls
+zeigt `.venv/bin/python` auf das System-Python statt auf das pyenv-Python, und
+installierte Pakete werden nicht gefunden.
+
+```bash
+# System-Python 3.11 (deadsnakes oder direkt verfügbar)
+python3.11 -m venv .venv --copies
+
+# pyenv: Python 3.11 über vollständigen Pfad
+~/.pyenv/versions/3.11.14/bin/python3.11 -m venv .venv --copies
+```
+
+Prüfen ob das korrekte Python im venv liegt:
+
+```bash
+.venv/bin/python --version   # muss Python 3.11.x ausgeben
+```
+
+### 3.4 Abhängigkeiten installieren
+
+```bash
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
+```
+
+Verifizieren:
+
+```bash
+.venv/bin/python -c "from notion_client import Client; print('OK')"
 ```
 
 ---
@@ -216,7 +290,74 @@ journalctl -u sportplatz-homepage.service -f
 
 ---
 
-## 7. Nginx als Reverse Proxy *(empfohlen)*
+## 7. Lokaler Testserver (Demo-Betrieb)
+
+Für lokale Entwicklung und Tests ohne Einfluss auf die Produktionsdaten gibt
+es eine isolierte Demo-Umgebung mit einem fiktiven Verein.
+
+### 7.1 Wie die Isolation funktioniert
+
+Zwei Umgebungsvariablen steuern, welche Konfiguration geladen wird. Sie müssen
+**vor** dem Start gesetzt sein und können nicht aus der `.env`-Datei gelesen
+werden:
+
+| Variable | Standard | Demo |
+|----------|----------|------|
+| `ENV_FILE` | `.env` | `.env.demo` |
+| `CONFIG_DIR` | `config` | `config/demo` |
+
+`ENV_FILE` bestimmt, welche `.env`-Datei geladen wird (separate Notion-DBs).
+`CONFIG_DIR` bestimmt, welche `vereinsconfig.json` und `field_config.json`
+verwendet werden (andere Vereinsdaten, andere Platznamen).
+
+### 7.2 Demo-Umgebung einrichten
+
+**Schritt 1:** `.env.demo` befüllen
+
+```bash
+cp .env.demo .env.demo   # bereits vorhanden als Vorlage
+nano .env.demo
+```
+
+Pflicht: `NOTION_API_KEY` (gleicher Key wie Produktion) und alle `*_DB_ID`-
+Felder mit den Demo-Datenbank-IDs befüllen.
+
+**Schritt 2:** Demo-Notion-DBs anlegen (falls noch nicht geschehen)
+
+```bash
+export $(grep NOTION_API_KEY .env.demo | xargs)
+python scripts/setup_notion.py --parent <NOTION_PARENT_PAGE_ID>
+```
+
+Die ausgegebenen DB-IDs in `.env.demo` eintragen.
+
+**Schritt 3:** Demo-Server starten
+
+```bash
+bash start_demo.sh
+# entspricht: ENV_FILE=.env.demo CONFIG_DIR=config/demo uvicorn web.main:app --reload --port 1946
+```
+
+### 7.3 Demo-Konfiguration
+
+| Datei | Inhalt |
+|-------|--------|
+| `config/demo/vereinsconfig.json` | TSV Hotzenplotz (grüne Farben, fiktive Spielorte) |
+| `config/demo/field_config.json` | Rasen, Kura 1+2, Trainingsfeld, Halle |
+| `.env.demo` | Demo-Notion-DB-IDs, `BOOKING_URL=http://localhost:1946` |
+
+### 7.4 Produktion vs. Demo
+
+```bash
+bash start_demo.sh      # Demo: TSV Hotzenplotz, Demo-Notion-DBs
+bash start_server.sh    # Produktion: TuS Cremlingen, Produktions-Notion-DBs
+```
+
+Beide laufen auf Port 1946 — nie gleichzeitig starten.
+
+---
+
+## 9. Nginx als Reverse Proxy *(empfohlen)*
 
 Um die Dienste unter Standard-Ports (80/443) erreichbar zu machen und HTTPS einzurichten, wird ein Nginx-Reverse-Proxy empfohlen.
 
@@ -259,7 +400,7 @@ response.set_cookie(..., secure=True, ...)
 
 ---
 
-## 8. Verifizierung
+## 10. Verifizierung
 
 Nach der Installation folgende Punkte prüfen:
 
@@ -272,7 +413,7 @@ Nach der Installation folgende Punkte prüfen:
 
 ---
 
-## 9. Nutzerrollen
+## 11. Nutzerrollen
 
 | Rolle | Beschreibung |
 |---|---|
@@ -283,7 +424,7 @@ Nach der Installation folgende Punkte prüfen:
 
 ---
 
-## 10. Datensicherung
+## 12. Datensicherung
 
 Da alle Daten in Notion gespeichert sind, übernimmt Notion das Hosting und die Verfügbarkeit. Empfehlungen:
 

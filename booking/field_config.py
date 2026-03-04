@@ -11,11 +11,15 @@ Anzeigenamen kommen aus dem "display_names"-Abschnitt der JSON-Datei.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from booking.models import FieldName
 
-_CONFIG_FILE = Path(__file__).parent.parent / "config" / "field_config.json"
+
+def _config_file() -> Path:
+    config_dir = os.environ.get("CONFIG_DIR", "config")
+    return Path(__file__).parent.parent / config_dir / "field_config.json"
 
 # Alle definierten Gruppen (Reihenfolge + Felder) als Fallback
 _DEFAULT: dict = {
@@ -29,6 +33,10 @@ _DEFAULT: dict = {
         "C":  "Halle Ganz",
         "CA": "Halle 2/3",
         "CB": "Halle 1/3",
+        "D":  "Trainingsfeld",
+        "E":  "Halle (ganz)",
+        "EA": "Halle A",
+        "EB": "Halle B",
     },
     "field_groups": [
         {
@@ -52,6 +60,20 @@ _DEFAULT: dict = {
             "lit": True,
             "visible_to": ["Administrator"],
         },
+        {
+            "id": "training",
+            "name": "Trainingsfeld",
+            "fields": ["D"],
+            "lit": False,
+            "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"],
+        },
+        {
+            "id": "halle2",
+            "name": "Halle",
+            "fields": ["E", "EA", "EB"],
+            "lit": True,
+            "visible_to": ["Administrator"],
+        },
     ],
 }
 
@@ -62,17 +84,16 @@ ALL_ROLES: list[str] = ["Trainer", "Platzwart", "DFBnet", "Administrator"]
 def load() -> dict:
     """Liest die aktuelle Konfiguration aus der JSON-Datei."""
     try:
-        return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+        return json.loads(_config_file().read_text(encoding="utf-8"))
     except Exception:
         return _DEFAULT.copy()
 
 
 def save(config: dict) -> None:
     """Schreibt die Konfiguration in die JSON-Datei."""
-    _CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _CONFIG_FILE.write_text(
-        json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    f = _config_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def get_display_name(field_id: str) -> str:

@@ -269,11 +269,11 @@ Alle Platzeigenschaften werden in `config/field_config.json` gepflegt:
 |-----------|-------------|-----------|
 | `vereinsname` | `"TuS Cremlingen"` | Kurzname, erscheint im UI-Header |
 | `vereinsname_lang` | `"Turn- und Sportverein …"` | Vollständiger Name (Footer, Mails) |
-| `logo_url` | `"/static/logo.svg"` | Pfad zum Vereinslogo (Navbar + Hintergrundbild) |
+| `logo_url` | `"/static/logo.svg"` | Pfad zum Vereinslogo (Navbar + Hintergrundbild Login) |
 | `heim_keyword` | `"cremlingen"` | Substring zum Erkennen von Heimspielen im Spielplan |
-| `primary_color` | `"#1e4fa3"` | Hauptfarbe (Buttons, Links) |
-| `primary_color_dark` | `"#0d2f6b"` | Dunklere Variante (Hover, Navbar) |
-| `primary_color_darker` | `"#071c44"` | Noch dunkler (aktive Zustände) |
+| `primary_color` | `"#1e4fa3"` | Hauptfarbe (Buttons, Links, Hintergrund-Gradient) |
+| `primary_color_dark` | `"#0d2f6b"` | Hover-Zustände |
+| `primary_color_darker` | `"#071c44"` | Navbar-Hintergrund, aktive Zustände |
 | `gold_color` | `"#e8c04a"` | Akzentfarbe |
 | `saison_defaults` | siehe unten | Standard-Datumsgrenzen je Saisontyp |
 | `spielorte` | siehe unten | Zuordnung fussball.de-Spielortstring → Feld-ID |
@@ -300,12 +300,38 @@ damit importierte Spielplandaten dem richtigen Platz zugeordnet werden:
 ]
 ```
 
-**Logo austauschen:** Neue Datei nach `web/static/` (und `homepage/static/` für die
-Homepage) kopieren und `logo_url` in `vereinsconfig.json` anpassen.
+**Logo austauschen:**
 
-**Farben ändern:** Hexwerte in `vereinsconfig.json` anpassen. Die Farben werden
-als CSS-Variablen in `web/templates_instance.py` als Jinja2-Globals gesetzt und
-in `web/templates/base.html` als `<style>`-Block eingebettet.
+1. Logo-Datei nach `web/static/` kopieren (SVG empfohlen, PNG möglich)
+2. `logo_url` in `vereinsconfig.json` anpassen: `"/static/meinverein.svg"`
+3. Server neu starten
+
+Das Logo erscheint als Icon in der Navigationsleiste und als halbdurchsichtiges
+Wasserzeichen im Seitenhintergrund. Empfohlenes Format: Hochformat-SVG mit
+`viewBox="0 0 1200 1600"` (Schildform skaliert gut). PNG funktioniert, SVG ist bevorzugt.
+
+**Farben ändern:**
+
+Die drei Primärfarben steuern das gesamte Farbschema. Alle abgeleiteten Farben
+(Hintergrund-Tints, Rahmen, freie Slots) passen sich automatisch via `color-mix()` an —
+es müssen nur die drei Hauptfarben gesetzt werden:
+
+```json
+"primary_color":        "#1e4fa3",   // Hauptfarbe
+"primary_color_dark":   "#0d2f6b",   // ~20 % dunkler
+"primary_color_darker": "#071c44"    // ~50 % dunkler (Navbar)
+```
+
+Die Farben werden als CSS-Variablen in `web/templates/base.html` eingebettet und
+überschreiben die Fallback-Werte in `web/static/style.css`.
+
+> **Server-Neustart erforderlich** nach Änderungen an `vereinsconfig.json`:
+> Die Datei wird mit `lru_cache` einmalig beim Start geladen.
+> ```bash
+> pkill -f "uvicorn web.main:app" && bash start_server.sh
+> # oder im Demo-Betrieb:
+> pkill -f "uvicorn web.main:app" && bash start_demo.sh
+> ```
 
 ### `.env` – Betriebsvariablen
 

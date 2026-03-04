@@ -9,8 +9,8 @@
 
   {% if entries %}
   <div class="transfer-hint">
-    Ausgewählte Serien werden mit <strong>+1 Jahr</strong> dupliziert.
-    Aktive Serien sind vorausgewählt.
+    Ausgewählte Serien werden mit <strong>+1 Jahr</strong> dupliziert und auf <strong>Aktiv</strong> gesetzt.
+    Alle Serien sind vorausgewählt — bitte nicht benötigte abwählen.
   </div>
 
   <div class="table-wrapper">
@@ -34,7 +34,7 @@
           <td>
             <input type="checkbox" name="series_ids" value="{{ e.series.notion_id }}"
                    class="transfer-cb"
-                   {% if e.series.status.value == 'Aktiv' %}checked{% endif %}>
+                   checked>
           </td>
           <td><strong>{{ e.series.mannschaft or '—' }}</strong></td>
           <td>{{ e.series.field.value }}</td>

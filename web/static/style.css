@@ -2,18 +2,19 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* TuS Cremlingen – Vereinsfarben Blau & Weiß */
+  /* Fallback-Vereinsfarben – werden durch base.html überschrieben */
   --color-primary: #1e4fa3;
   --color-primary-hover: #0d2f6b;
+  --color-primary-darker: #071c44;
   --color-danger: #dc2626;
   --color-success: #16a34a;
   --color-warning: #d97706;
-  --color-bg: rgba(180, 212, 255, 0.55);
+  --color-bg: color-mix(in srgb, var(--color-primary) 14%, white);
   --color-surface: rgba(255, 255, 255, 0.78);
-  --color-border: rgba(100, 148, 218, 0.50);
+  --color-border: color-mix(in srgb, var(--color-primary) 35%, transparent);
   --color-text: #0a1628;
-  --color-text-muted: #4a6080;
-  --color-slot-free: rgba(220, 236, 255, 0.50);
+  --color-text-muted: #4a5568;
+  --color-slot-free: color-mix(in srgb, var(--color-primary) 7%, white);
   --color-slot-training: #dbeafe;
   --color-slot-spiel: #fef3c7;
   --color-slot-turnier: #f3e8ff;
@@ -24,7 +25,7 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: linear-gradient(150deg, #1e4fa3 0%, #0d2f6b 50%, #071c44 100%) fixed;
+  background: linear-gradient(150deg, var(--color-primary) 0%, var(--color-primary-hover) 50%, var(--color-primary-darker) 100%) fixed;
   color: var(--color-text);
   line-height: 1.5;
   min-height: 100vh;
@@ -48,7 +49,7 @@ body::before {
 
 /* ===== Navbar ===== */
 .navbar {
-  background: rgba(7, 28, 68, 0.93);
+  background: color-mix(in srgb, var(--color-primary-darker) 93%, transparent);
   border-bottom: 1px solid rgba(255,255,255,0.1);
   display: flex;
   align-items: center;
@@ -225,7 +226,7 @@ body::before {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--color-primary);
-  background: rgba(30,79,163,0.07);
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
   border-bottom: 2px solid var(--color-border);
 }
 .field-cfg-table__group { text-align: left !important; width: 40%; }
