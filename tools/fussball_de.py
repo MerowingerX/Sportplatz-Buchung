@@ -223,7 +223,7 @@ def fetch_matchplan_html(
 # ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
-def parse_matchplan(html: str) -> list[Spiel]:
+def parse_matchplan(html: str, heim_keywords: "list[str] | str" = "cremlingen") -> list[Spiel]:
     """
     Parst den HTML-Matchplan von fussball.de.
 
@@ -310,7 +310,8 @@ def parse_matchplan(html: str) -> list[Spiel]:
         if ergebnis and not re.search(r"\d", ergebnis):
             ergebnis = None
 
-        ist_heimspiel = "cremlingen" in heim.lower()
+        _keywords = [heim_keywords] if isinstance(heim_keywords, str) else heim_keywords
+        ist_heimspiel = any(kw and kw.lower() in heim.lower() for kw in _keywords)
 
         spiele.append(
             Spiel(

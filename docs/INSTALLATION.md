@@ -81,7 +81,43 @@ cd /root/git.com/Sportplatz-Buchung
 
 ---
 
-## 3. Python-Umgebung einrichten
+## 3. Konfigurationsdateien anlegen
+
+Die vereinsspezifischen Config-Dateien sind **nicht im Repository** enthalten
+(`.gitignore`). Beim erstmaligen Einrichten müssen sie aus den Beispieldateien
+erzeugt werden:
+
+```bash
+cp config/vereinsconfig.example.json  config/vereinsconfig.json
+cp config/field_config.example.json   config/field_config.json
+```
+
+Anschließend beide Dateien an den eigenen Verein anpassen. Die `.example.json`-Dateien
+enthalten ausführliche Kommentare zu jedem Feld.
+
+### Wichtige Felder in `config/vereinsconfig.json`
+
+| Schlüssel | Bedeutung |
+|-----------|-----------|
+| `vereinsname` | Kurzname (Navbar, Browser-Tab) |
+| `heim_keywords` | Liste von Substrings zum Erkennen von Heimspielen auf fussball.de. Mehrere Einträge für Spielgemeinschaften/JSG, z. B. `["musterstadt", "sg musterstadt"]` |
+| `spielorte` | Zuordnung fussball.de-Spielortstring → interne Feld-ID |
+| `primary_color` / `_dark` / `_darker` | Vereinsfarben → steuern das gesamte Farbschema |
+| `logo_url` | Pfad zum Logo (z. B. `"/static/logo.svg"`) |
+
+### `config/scheduler.json`
+
+Steuert den automatischen Spielplan-Sync. Wird beim ersten Speichern im
+Admin-Dashboard automatisch erzeugt. Kann auch manuell angelegt werden:
+
+```bash
+echo '{"spielplan_sync_enabled": true, "spielplan_sync_uhrzeit": "06:00"}' \
+  > config/scheduler.json
+```
+
+---
+
+## 4. Python-Umgebung einrichten
 
 Das Projekt benötigt **Python 3.11**. Ein Virtual Environment (`.venv`) ist
 notwendig, um die Paketversionen aus `requirements.txt` isoliert vom
@@ -150,7 +186,7 @@ Verifizieren:
 
 ---
 
-## 4. `.env`-Datei anlegen
+## 5. `.env`-Datei anlegen
 
 Im Projektverzeichnis eine Datei `.env` anlegen:
 
@@ -224,7 +260,7 @@ SMTP_PORT=587
 
 ---
 
-## 5. Ersten Admin-Nutzer anlegen
+## 6. Ersten Admin-Nutzer anlegen
 
 Das System hat keine Web-Oberfläche zur Erstkonfiguration. Der erste Administrator-Account wird direkt in der Notion-Datenbank angelegt.
 
@@ -254,7 +290,7 @@ print(hash_password('ErstesPasswort123'))
 
 ---
 
-## 6. systemd-Services installieren
+## 7. systemd-Services installieren
 
 ```bash
 sudo bash deploy/install.sh
@@ -290,7 +326,7 @@ journalctl -u sportplatz-homepage.service -f
 
 ---
 
-## 7. Lokaler Testserver (Demo-Betrieb)
+## 8. Lokaler Testserver (Demo-Betrieb)
 
 Für lokale Entwicklung und Tests ohne Einfluss auf die Produktionsdaten gibt
 es eine isolierte Demo-Umgebung mit einem fiktiven Verein.

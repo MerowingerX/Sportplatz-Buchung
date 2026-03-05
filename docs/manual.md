@@ -270,7 +270,7 @@ Alle Platzeigenschaften werden in `config/field_config.json` gepflegt:
 | `vereinsname` | `"TuS Cremlingen"` | Kurzname, erscheint im UI-Header |
 | `vereinsname_lang` | `"Turn- und Sportverein …"` | Vollständiger Name (Footer, Mails) |
 | `logo_url` | `"/static/logo.svg"` | Pfad zum Vereinslogo (Navbar + Hintergrundbild Login) |
-| `heim_keyword` | `"cremlingen"` | Substring zum Erkennen von Heimspielen im Spielplan |
+| `heim_keywords` | `["cremlingen"]` | Liste von Substrings zum Erkennen von Heimspielen (Spielgemeinschaften → mehrere Einträge) |
 | `primary_color` | `"#1e4fa3"` | Hauptfarbe (Buttons, Links, Hintergrund-Gradient) |
 | `primary_color_dark` | `"#0d2f6b"` | Hover-Zustände |
 | `primary_color_darker` | `"#071c44"` | Navbar-Hintergrund, aktive Zustände |
@@ -299,6 +299,45 @@ damit importierte Spielplandaten dem richtigen Platz zugeordnet werden:
   {"fussball_de_string": "cremlingen a-platz rasen", "feld": "B", "platz_praefix": ["B"]}
 ]
 ```
+
+**`heim_keywords`** – Liste von Schlüsselwörtern (Kleinschreibung), die im Heimteam-Namen auf fussball.de gesucht werden.
+Stimmt eines überein, gilt das Spiel als Heimspiel und wird automatisch ins Buchungssystem eingetragen.
+
+Einfacher Verein:
+```json
+"heim_keywords": ["cremlingen"]
+```
+
+Spielgemeinschaft / JSG (Teams laufen unter verschiedenen Namen):
+```json
+"heim_keywords": ["cremlingen", "sg cremlingen-sickte"]
+```
+
+> Rückwärtskompatibel: Der alte String-Key `"heim_keyword"` wird noch akzeptiert, aber `heim_keywords` (Liste) ist der neue Standard.
+
+---
+
+### `config/scheduler.json`
+
+Steuert den automatischen Spielplan-Sync (in-process APScheduler).
+Die Konfiguration kann auch direkt im Admin-Dashboard (unter **fussball.de Spielplan-Sync**) geändert werden — Änderungen dort wirken sofort ohne Server-Neustart.
+
+| Schlüssel | Standardwert | Bedeutung |
+|-----------|-------------|-----------|
+| `spielplan_sync_enabled` | `true` | Automatischen Cron-Job ein-/ausschalten |
+| `spielplan_sync_uhrzeit` | `"06:00"` | Uhrzeit der täglichen Ausführung (Format `HH:MM`) |
+
+Beispiel `config/scheduler.json`:
+```json
+{
+  "spielplan_sync_enabled": true,
+  "spielplan_sync_uhrzeit": "06:00"
+}
+```
+
+> Die Datei wird **nicht** gecacht — Änderungen werden beim nächsten Scheduler-Ereignis oder nach einem Speichern im Admin-Dashboard sofort wirksam.
+
+---
 
 **Logo austauschen:**
 

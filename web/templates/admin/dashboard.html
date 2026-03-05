@@ -28,12 +28,17 @@
   </div>
 
   {# Nächste Ausführung #}
-  <div class="status-card status-card--neutral">
+  <div class="status-card {% if scheduler_cfg.spielplan_sync_enabled %}status-card--ok{% else %}status-card--neutral{% endif %}">
     <div class="status-card__icon">⏰</div>
     <div class="status-card__body">
-      <div class="status-card__label">Nächster automatischer Sync</div>
-      <div class="status-card__value">Täglich 06:00 Uhr</div>
-      <div class="status-card__detail">systemd Timer aktiv</div>
+      <div class="status-card__label">Automatischer Sync</div>
+      {% if scheduler_cfg.spielplan_sync_enabled %}
+        <div class="status-card__value">Täglich {{ scheduler_cfg.spielplan_sync_uhrzeit }} Uhr</div>
+        <div class="status-card__detail">aktiv</div>
+      {% else %}
+        <div class="status-card__value">–</div>
+        <div class="status-card__detail">deaktiviert</div>
+      {% endif %}
     </div>
   </div>
 
@@ -93,14 +98,32 @@
       Spielplan von fussball.de abrufen, fehlende Heimspiele automatisch buchen
       und verwaiste Spielbuchungen stornieren. Verdrängte Nutzer erhalten eine E-Mail.
     </p>
-    <button class="btn btn--primary"
-            hx-post="/admin/spielplan-sync"
+    <div class="sync-card__actions">
+      <button class="btn btn--primary"
+              hx-post="/admin/spielplan-sync"
+              hx-target="#toast"
+              hx-swap="outerHTML"
+              hx-confirm="Spielplan von fussball.de laden und Buchungen automatisch aktualisieren?"
+              data-loading-text="Spielplan wird abgeglichen … (ca. 20 Sek.)">
+        Spielplan abgleichen
+      </button>
+      <form class="scheduler-form"
+            hx-post="/admin/scheduler-config"
             hx-target="#toast"
-            hx-swap="outerHTML"
-            hx-confirm="Spielplan von fussball.de laden und Buchungen automatisch aktualisieren?"
-            data-loading-text="Spielplan wird abgeglichen … (ca. 20 Sek.)">
-      Spielplan abgleichen
-    </button>
+            hx-swap="outerHTML">
+        <label class="scheduler-form__toggle">
+          <input type="checkbox" name="enabled" value="1"
+                 {% if scheduler_cfg.spielplan_sync_enabled %}checked{% endif %}>
+          Automatisch täglich ausführen
+        </label>
+        <label class="scheduler-form__time">
+          <span>Uhrzeit</span>
+          <input type="time" name="uhrzeit"
+                 value="{{ scheduler_cfg.spielplan_sync_uhrzeit }}">
+        </label>
+        <button type="submit" class="btn btn--ghost btn--small">Speichern</button>
+      </form>
+    </div>
   </div>
   <div class="card">
     <h2>Platzkonfiguration</h2>

@@ -12,11 +12,22 @@ from web.routers import auth, bookings, calendar, series, admin, tasks, events
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from booking.scheduler import apply_schedule
+
     settings = get_settings()
     app.state.repo = NotionRepository(settings)
     app.state.settings = settings
     app.state.token_invalidations: dict[str, int] = {}  # {user_sub: invalidated_after_ts}
+
+    scheduler = AsyncIOScheduler()
+    app.state.scheduler = scheduler
+    apply_schedule(scheduler, app)
+    scheduler.start()
+
     yield
+
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="Sportplatz-Buchungssystem", lifespan=lifespan)

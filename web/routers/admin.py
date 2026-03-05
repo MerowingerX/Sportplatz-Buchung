@@ -31,11 +31,13 @@ from web.htmx import toast as _toast
 @router.get("", response_class=HTMLResponse, dependencies=[_admin_required])
 async def admin_dashboard(request: Request, current_user: CurrentUser):
     from booking.spielplan_sync import read_sync_status
+    from booking.scheduler_config import load as load_scheduler_cfg
     from datetime import datetime as _dt
 
     repo = request.app.state.repo
     users = repo.get_all_users()
     sync_status = read_sync_status()
+    scheduler_cfg = load_scheduler_cfg()
 
     # Zeitstempel leserlich formatieren
     if sync_status and sync_status.get("timestamp"):
@@ -52,9 +54,33 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
             "current_user": current_user,
             "users": users,
             "sync_status": sync_status,
+            "scheduler_cfg": scheduler_cfg,
             "server_time": _dt.now().strftime("%d.%m.%Y %H:%M:%S"),
         },
     )
+
+
+@router.post("/scheduler-config", response_class=HTMLResponse, dependencies=[_admin_required])
+async def save_scheduler_config(
+    request: Request,
+    enabled: Optional[str] = Form(None),
+    uhrzeit: str = Form("06:00"),
+):
+    from booking.scheduler_config import SchedulerConfig, save as save_scheduler_cfg
+    from booking.scheduler import apply_schedule
+
+    cfg = SchedulerConfig(
+        spielplan_sync_enabled=enabled is not None,
+        spielplan_sync_uhrzeit=uhrzeit,
+    )
+    save_scheduler_cfg(cfg)
+    apply_schedule(request.app.state.scheduler, request.app)
+
+    if cfg.spielplan_sync_enabled:
+        msg = f"Automatischer Sync aktiviert – täglich {uhrzeit} Uhr"
+    else:
+        msg = "Automatischer Sync deaktiviert"
+    return HTMLResponse(_toast(msg, "success"))
 
 
 # ------------------------------------------------------------------ Nutzerverwaltung

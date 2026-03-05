@@ -56,7 +56,7 @@ except ImportError as e:  # pragma: no cover
 # ---------------------------------------------------------------------------
 _FALLBACK_CLUB_ID = "00ES8GN75400000VVV0AG08LVUPGND5I"  # Fallback wenn .env leer
 
-from booking.vereinsconfig import get_spielort_zu_feld, get_feld_praefixe
+from booking.vereinsconfig import get_spielort_zu_feld, get_feld_praefixe, get_heim_keywords
 
 # fussball.de Spielort-Substring → Notion FieldName  (aus config/vereinsconfig.json)
 _SPIELORT_ZU_FELD: list[tuple[str, FieldName]] = get_spielort_zu_feld()
@@ -230,7 +230,7 @@ async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResu
     else:
         club_id = _FALLBACK_CLUB_ID
     html = fetch_matchplan_html(club_id)
-    alle_spiele = parse_matchplan(html)
+    alle_spiele = parse_matchplan(html, heim_keywords=get_heim_keywords())
 
     heute = date.today()
     heim_spiele = [

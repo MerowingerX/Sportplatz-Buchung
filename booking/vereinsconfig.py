@@ -32,9 +32,20 @@ def get_vereinsname_lang() -> str:
     return load().get("vereinsname_lang", get_vereinsname())
 
 
-def get_heim_keyword() -> str:
-    """Schlüsselwort im Heimteam-Namen, das ein Heimspiel kennzeichnet (Kleinschreibung)."""
-    return load().get("heim_keyword", "")
+def get_heim_keywords() -> list[str]:
+    """
+    Liste von Schlüsselwörtern im Heimteam-Namen, die ein Heimspiel kennzeichnen.
+    Unterstützt Spielgemeinschaften (SG/JSG), bei denen Teams unter verschiedenen
+    Namen auf fussball.de geführt werden.
+
+    Liest 'heim_keywords' (Liste) oder 'heim_keyword' (String, Rückwärtskompatibilität).
+    """
+    cfg = load()
+    if "heim_keywords" in cfg:
+        return [k.lower() for k in cfg["heim_keywords"] if k]
+    # Rückwärtskompatibilität: alter String-Key
+    kw = cfg.get("heim_keyword", "")
+    return [kw.lower()] if kw else []
 
 
 def get_spielorte() -> list[dict]:

@@ -15,6 +15,10 @@ homepage/userdata/vereinsinfo/api-fussball.de.json
 logs/
 backup/
 .gitignore
-config/demo/field_config.json
+config/vereinsconfig.json
+config/field_config.json
+config/scheduler.json
 config/demo/vereinsconfig.json
+config/demo/field_config.json
+config/demo/scheduler.json
 .env.demo

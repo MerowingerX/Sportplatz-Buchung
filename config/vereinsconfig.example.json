@@ -12,10 +12,12 @@
   // "/userdata/logo.svg" = homepage/userdata/logo.svg (Homepage)
   "logo_url": "/static/logo.svg",
 
-  // Schlüsselwort im Heimteam-Namen auf fussball.de (Kleinschreibung).
+  // Schlüsselwörter im Heimteam-Namen auf fussball.de (Kleinschreibung, Liste).
   // Wird genutzt, um Heim- von Auswärtsspielen zu unterscheiden.
-  // Beispiel: "musterstadt" erkennt "SV Musterstadt A-Junioren" als Heimspiel.
-  "heim_keyword": "musterstadt",
+  // Mehrere Einträge für Spielgemeinschaften (SG/JSG), bei denen Teams unter
+  // verschiedenen Namen auf fussball.de geführt werden.
+  // Beispiel: ["musterstadt", "sg musterstadt"] erkennt beide Varianten als Heimspiel.
+  "heim_keywords": ["musterstadt"],
 
   // Vereinsfarben für CSS-Variablen in Navbar, Buttons und Akzenten.
   // primary       = Hauptfarbe (Navbar-Hintergrund, primäre Buttons)
