@@ -30,22 +30,22 @@ except ImportError:
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_DIR)
 try:
-    from booking.vereinsconfig import get_heim_keyword
-    _HEIM_KEYWORD = get_heim_keyword()
+    from booking.vereinsconfig import get_heim_keywords
+    _HEIM_KEYWORDS = get_heim_keywords()
 except Exception:
-    _HEIM_KEYWORD = "cremlingen"  # Fallback
+    _HEIM_KEYWORDS = []
 
 # ── Konfiguration ────────────────────────────────────────────────────────────
 TOKEN    = os.environ.get("APIFUSSBALL_TOKEN", "")
-CLUB_ID  = os.environ.get("APIFUSSBALL_CLUB_ID", "00ES8GN75400000VVV0AG08LVUPGND5I")
+CLUB_ID  = os.environ.get("APIFUSSBALL_CLUB_ID", "")
 API_BASE = "https://api-fussball.de"
 _HEADERS = {"x-auth-token": TOKEN}
 
 CSV_PATH = os.path.join(PROJECT_DIR, "Platzbelegung", "platzbelegung.csv")
 LOG_DIR  = os.path.join(PROJECT_DIR, "Platzbelegung", "logs")
 
-# Schlüsselwörter im Heimteam-Namen, die ein TuS-Heimspiel kennzeichnen
-TUS_HOME_KEYWORDS = {_HEIM_KEYWORD} if _HEIM_KEYWORD else {"cremlingen"}
+# Schlüsselwörter im Heimteam-Namen, die ein Heimspiel kennzeichnen
+TUS_HOME_KEYWORDS = set(_HEIM_KEYWORDS)
 
 # Deutsche Wochentagsabkürzungen (DFBnet-Format)
 _DE_DAYS = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."]

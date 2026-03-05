@@ -58,7 +58,7 @@ except ImportError:
 
 # Club-ID aus .env extrahieren (FUSSBALL_DE_VEREINSSEITE enthält die ID)
 _vereinsseite = os.environ.get("FUSSBALL_DE_VEREINSSEITE", "")
-CLUB_ID = "00ES8GN75400000VVV0AG08LVUPGND5I"  # Fallback
+CLUB_ID = os.environ.get("APIFUSSBALL_CLUB_ID", "")  # aus .env
 if _vereinsseite:
     try:
         from fussball_de import _club_id_from_url
@@ -76,10 +76,7 @@ try:
     from booking.vereinsconfig import get_spielort_zu_praefix
     SPIELORT_ZU_PLATZ: list[tuple[str, list[str]]] = get_spielort_zu_praefix()
 except Exception:
-    SPIELORT_ZU_PLATZ = [
-        ("cremlingen b-platz",     ["Kura"]),
-        ("cremlingen a-platz rasen", ["Rasen"]),
-    ]
+    SPIELORT_ZU_PLATZ = []  # Fallback leer – vereinsconfig.json konfigurieren
 
 BESTAETIGT = "Bestätigt"
 

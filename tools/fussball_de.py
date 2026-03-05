@@ -223,7 +223,7 @@ def fetch_matchplan_html(
 # ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
-def parse_matchplan(html: str, heim_keywords: "list[str] | str" = "cremlingen") -> list[Spiel]:
+def parse_matchplan(html: str, heim_keywords: "list[str] | str" = "") -> list[Spiel]:
     """
     Parst den HTML-Matchplan von fussball.de.
 
