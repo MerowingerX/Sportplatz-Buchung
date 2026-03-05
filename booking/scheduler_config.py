@@ -1,12 +1,12 @@
 """
 booking/scheduler_config.py  –  Konfiguration für den automatischen Spielplan-Sync
 
-Liest/schreibt config/<CONFIG_DIR>/scheduler.json.
-Kein lru_cache, da die Konfiguration zur Laufzeit geändert werden kann.
+Liest/schreibt die Scheduler-Felder direkt aus vereinsconfig.json.
+Kein lru_cache, damit Admin-UI-Änderungen sofort greifen ohne Server-Neustart.
+Der Rest von vereinsconfig.py bleibt gecacht.
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 import os
 from dataclasses import dataclass
@@ -15,7 +15,7 @@ from pathlib import Path
 
 def _config_file() -> Path:
     config_dir = os.environ.get("CONFIG_DIR", "config")
-    return Path(__file__).parent.parent / config_dir / "scheduler.json"
+    return Path(__file__).parent.parent / config_dir / "vereinsconfig.json"
 
 
 @dataclass
@@ -25,7 +25,7 @@ class SchedulerConfig:
 
 
 def load() -> SchedulerConfig:
-    """Liest die Scheduler-Konfiguration aus scheduler.json."""
+    """Liest die Scheduler-Felder aus vereinsconfig.json (ungecacht)."""
     try:
         data = json.loads(_config_file().read_text(encoding="utf-8"))
         return SchedulerConfig(
@@ -37,9 +37,12 @@ def load() -> SchedulerConfig:
 
 
 def save(cfg: SchedulerConfig) -> None:
-    """Speichert die Scheduler-Konfiguration nach scheduler.json."""
-    _config_file().parent.mkdir(parents=True, exist_ok=True)
-    _config_file().write_text(
-        json.dumps(dataclasses.asdict(cfg), indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    """Schreibt nur die Scheduler-Felder in vereinsconfig.json zurück."""
+    path = _config_file()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+    data["spielplan_sync_enabled"] = cfg.spielplan_sync_enabled
+    data["spielplan_sync_uhrzeit"] = cfg.spielplan_sync_uhrzeit
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

@@ -126,6 +126,22 @@
     </div>
   </div>
   <div class="card">
+    <h2>Instagram</h2>
+    <p>Spiele bis nächsten Sonntag als Karussell auf Instagram posten</p>
+    <button class="btn btn--secondary"
+            hx-post="/admin/instagram/post-wochenende"
+            hx-target="#toast"
+            hx-swap="outerHTML"
+            hx-confirm="Wochenend-Spielvorschau jetzt auf Instagram posten?">
+      Wochenende posten
+    </button>
+  </div>
+  <div class="card">
+    <h2>Vereinskonfiguration</h2>
+    <p>Vereinsname, Logo, Farben, Heimspiel-Keywords und Spielorte anpassen</p>
+    <a href="/admin/vereinsconfig" class="btn btn--secondary">Konfigurieren</a>
+  </div>
+  <div class="card">
     <h2>Platzkonfiguration</h2>
     <p>Steuern, welche Platzgruppen für welche Nutzerrollen sichtbar sind</p>
     <a href="/admin/field-config" class="btn btn--secondary">Plätze konfigurieren</a>

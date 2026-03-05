@@ -774,6 +774,82 @@ async def csv_import_confirm(
     return HTMLResponse(_toast(msg, "warning" if skipped_known else "success"))
 
 
+# ------------------------------------------------------------------ Instagram
+
+_instagram_job: dict = {"running": False, "result": "", "error": ""}
+
+
+def _run_instagram_post(notion_key: str, db_id: str, booking_url: str,
+                        account_id: str, access_token: str) -> None:
+    global _instagram_job
+    from booking.instagram import post_wochenende
+    try:
+        result = post_wochenende(notion_key, db_id, booking_url, account_id, access_token)
+        skipped = result["skipped"]
+        msg = f"{result['posted']} Bild(er) gepostet"
+        if skipped:
+            msg += f", {skipped} Spiel(e) wegen Karussell-Limit übersprungen"
+        _instagram_job["result"] = msg
+        _instagram_job["error"]  = ""
+    except Exception as exc:
+        _instagram_job["error"]  = str(exc)
+        _instagram_job["result"] = ""
+    finally:
+        _instagram_job["running"] = False
+
+
+@router.post("/instagram/post-wochenende", response_class=HTMLResponse, dependencies=[_admin_required])
+async def instagram_post_wochenende(request: Request):
+    global _instagram_job
+    if _instagram_job.get("running"):
+        return HTMLResponse(_toast("Instagram-Post läuft bereits…", "warning"))
+
+    settings = get_settings()
+    if not settings.instagram_account_id or not settings.instagram_access_token:
+        return HTMLResponse(_toast(
+            "Instagram nicht konfiguriert – Account-ID und Token in der Vereinskonfiguration eintragen.",
+            "error",
+        ))
+
+    notion_key  = settings.notion_api_key
+    db_id       = settings.notion_buchungen_db_id
+    booking_url = settings.booking_url
+    account_id  = settings.instagram_account_id
+    access_token = settings.instagram_access_token
+
+    _instagram_job = {"running": True, "result": "", "error": ""}
+
+    loop = _asyncio.get_event_loop()
+    loop.run_in_executor(
+        None, _run_instagram_post,
+        notion_key, db_id, booking_url, account_id, access_token,
+    )
+
+    return HTMLResponse(
+        '<div id="toast" class="toast toast--progress"'
+        ' hx-get="/admin/instagram/post-wochenende/progress"'
+        ' hx-trigger="every 2s" hx-swap="outerHTML">'
+        '&#8987; Bilder werden generiert und gepostet…</div>'
+    )
+
+
+@router.get("/instagram/post-wochenende/progress", response_class=HTMLResponse, dependencies=[_admin_required])
+async def instagram_post_progress():
+    global _instagram_job
+    if _instagram_job.get("running"):
+        return HTMLResponse(
+            '<div id="toast" class="toast toast--progress"'
+            ' hx-get="/admin/instagram/post-wochenende/progress"'
+            ' hx-trigger="every 2s" hx-swap="outerHTML">'
+            '&#8987; Bilder werden generiert und gepostet…</div>'
+        )
+    if _instagram_job.get("error"):
+        return HTMLResponse(_toast(f'Fehler: {_instagram_job["error"]}', "error"))
+    if _instagram_job.get("result"):
+        return HTMLResponse(_toast(f'\u2705 Instagram: {_instagram_job["result"]}', "success"))
+    return HTMLResponse("")
+
+
 # ── Spielplan-CSV von api-fussball.de abrufen ─────────────────────────────────
 
 import asyncio as _asyncio
@@ -1040,3 +1116,110 @@ async def housekeeping_execute(
     resp = HTMLResponse(_toast(msg, kind))
     resp.headers["HX-Trigger"] = "closeModal"
     return resp
+
+
+# ------------------------------------------------------------------ Vereinskonfiguration
+
+@router.get("/vereinsconfig", response_class=HTMLResponse, dependencies=[_admin_required])
+async def vereinsconfig_page(request: Request, current_user: CurrentUser):
+    from booking.vereinsconfig import load as load_vc
+    from web.config import get_env_path
+    from dotenv import dotenv_values
+
+    cfg = load_vc()
+    raw_env = dotenv_values(get_env_path())
+
+    # Secrets: Wert nie an den Client senden – nur ob gesetzt
+    env = {
+        "FUSSBALL_DE_VEREINSSEITE":  raw_env.get("FUSSBALL_DE_VEREINSSEITE", ""),
+        "APIFUSSBALL_CLUB_ID":       raw_env.get("APIFUSSBALL_CLUB_ID", ""),
+        "APIFUSSBALL_TOKEN":         "",   # nie senden
+        "BOOKING_URL":               raw_env.get("BOOKING_URL", ""),
+        "LOCATION_LAT":              raw_env.get("LOCATION_LAT", ""),
+        "LOCATION_LON":              raw_env.get("LOCATION_LON", ""),
+        "LOCATION_NAME":             raw_env.get("LOCATION_NAME", ""),
+        "INSTAGRAM_ACCOUNT_ID":      raw_env.get("INSTAGRAM_ACCOUNT_ID", ""),
+        "INSTAGRAM_ACCESS_TOKEN":    "",   # nie senden
+    }
+    env_set = {
+        "APIFUSSBALL_TOKEN":      bool(raw_env.get("APIFUSSBALL_TOKEN")),
+        "INSTAGRAM_ACCESS_TOKEN": bool(raw_env.get("INSTAGRAM_ACCESS_TOKEN")),
+    }
+    return templates.TemplateResponse(
+        "admin/vereinsconfig.html",
+        {"request": request, "current_user": current_user,
+         "cfg": cfg, "env": env, "env_set": env_set},
+    )
+
+
+@router.post("/vereinsconfig", response_class=HTMLResponse, dependencies=[_admin_required])
+async def save_vereinsconfig(request: Request, current_user: CurrentUser):
+    import json as _json
+    from booking.vereinsconfig import load as _load_vc, get_config_path
+    from web.templates_instance import refresh_globals
+    from web.config import get_env_path, reset_settings
+    from dotenv import set_key
+
+    form = await request.form()
+
+    # ── vereinsconfig.json ──────────────────────────────────────────────
+    path = get_config_path()
+    try:
+        data = _json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+
+    data["vereinsname"]           = form.get("vereinsname", "").strip()
+    data["vereinsname_lang"]      = form.get("vereinsname_lang", "").strip()
+    data["logo_url"]              = form.get("logo_url", "").strip()
+    data["primary_color"]         = form.get("primary_color", "#1e4fa3").strip()
+    data["primary_color_dark"]    = form.get("primary_color_dark", "#0d2f6b").strip()
+    data["primary_color_darker"]  = form.get("primary_color_darker", "#071c44").strip()
+    data["gold_color"]            = form.get("gold_color", "#e8c04a").strip()
+
+    kw_raw = form.get("heim_keywords", "")
+    data["heim_keywords"] = [k.strip().lower() for k in kw_raw.split(",") if k.strip()]
+
+    try:
+        data["spielorte"] = _json.loads(form.get("spielorte", "[]"))
+    except _json.JSONDecodeError as exc:
+        return HTMLResponse(_toast(f"Ungültiges JSON in Spielorte: {exc}", "error"))
+
+    data["saison_defaults"] = {
+        "ganzjaehrig":    {"start": form.get("saison_ganzjaehrig_start",    "08-01"),
+                           "ende":  form.get("saison_ganzjaehrig_ende",     "06-30")},
+        "sommerhalbjahr": {"start": form.get("saison_sommerhalbjahr_start", "08-01"),
+                           "ende":  form.get("saison_sommerhalbjahr_ende",  "10-30")},
+        "winterhalbjahr": {"start": form.get("saison_winterhalbjahr_start", "10-30"),
+                           "ende":  form.get("saison_winterhalbjahr_ende",  "03-01")},
+    }
+
+    path.write_text(_json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    _load_vc.cache_clear()
+    refresh_globals()
+
+    # ── .env-Felder ─────────────────────────────────────────────────────
+    env_path = str(get_env_path())
+    _plain_env_fields = [
+        "FUSSBALL_DE_VEREINSSEITE", "APIFUSSBALL_CLUB_ID",
+        "BOOKING_URL", "LOCATION_LAT", "LOCATION_LON", "LOCATION_NAME",
+        "INSTAGRAM_ACCOUNT_ID",
+    ]
+    for key in _plain_env_fields:
+        val = form.get(key, "").strip()
+        if val:
+            set_key(env_path, key, val)
+
+    # Secrets: nur schreiben wenn explizit neuer Wert eingegeben
+    for secret_key in ("APIFUSSBALL_TOKEN", "INSTAGRAM_ACCESS_TOKEN"):
+        val = form.get(secret_key, "").strip()
+        if val:
+            set_key(env_path, secret_key, val)
+
+    # Settings-Cache leeren damit neue .env-Werte greifen
+    new_settings = reset_settings()
+    request.app.state.settings = new_settings
+
+    response = HTMLResponse(_toast("Konfiguration gespeichert – Seite wird neu geladen.", "success"))
+    response.headers["HX-Refresh"] = "true"
+    return response

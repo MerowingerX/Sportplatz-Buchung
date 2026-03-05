@@ -37,6 +37,11 @@
     "winterhalbjahr": { "start": "10-30", "ende": "03-01" }
   },
 
+  // Automatischer Spielplan-Sync (Cron-Job).
+  // Kann auch im Admin-Dashboard geändert werden – Änderungen greifen sofort.
+  "spielplan_sync_enabled": true,
+  "spielplan_sync_uhrzeit": "06:00",
+
   // Spielorte: Zuordnung von fussball.de-Ortsbezeichnungen zu internen Platz-IDs.
   // Wird von scripts/fetch_spielplan.py genutzt, um automatisch den richtigen
   // Platz für ein Heimspiel einzutragen.

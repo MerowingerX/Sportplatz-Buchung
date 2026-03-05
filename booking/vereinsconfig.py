@@ -18,6 +18,11 @@ def _config_file() -> Path:
     return Path(__file__).parent.parent / config_dir / "vereinsconfig.json"
 
 
+def get_config_path() -> Path:
+    """Gibt den Pfad zur aktiven vereinsconfig.json zurück (für Schreibzugriff)."""
+    return _config_file()
+
+
 @lru_cache(maxsize=1)
 def load() -> dict:
     with open(_config_file(), encoding="utf-8") as f:

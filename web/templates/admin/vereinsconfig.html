@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Vereinskonfiguration – Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Vereinskonfiguration</h1>
+  <a href="/admin" class="btn btn--ghost btn--small">← Dashboard</a>
+</div>
+
+<form hx-post="/admin/vereinsconfig"
+      hx-target="#toast"
+      hx-swap="outerHTML"
+      hx-indicator=".page-loading">
+
+  {# ── Vereinsidentität ─────────────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>Vereinsidentität</h2>
+    <div class="vc-grid">
+      <label class="vc-field">
+        <span>Kurzname <small>(Navbar, Browser-Tab)</small></span>
+        <input type="text" name="vereinsname" value="{{ cfg.get('vereinsname', '') }}" required>
+      </label>
+      <label class="vc-field">
+        <span>Vollständiger Name <small>(Footer, E-Mails)</small></span>
+        <input type="text" name="vereinsname_lang" value="{{ cfg.get('vereinsname_lang', '') }}">
+      </label>
+      <label class="vc-field vc-field--wide">
+        <span>Logo-URL <small>(relativ zur App, z. B. /static/logo.svg)</small></span>
+        <input type="text" name="logo_url" value="{{ cfg.get('logo_url', '/static/logo.svg') }}">
+      </label>
+    </div>
+  </section>
+
+  {# ── Vereinsfarben ────────────────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>Vereinsfarben</h2>
+    <p class="vc-hint">Drei Primärfarben definieren – alle abgeleiteten Farben (Hintergrund-Tints, Rahmen) passen sich automatisch an.</p>
+    <div class="vc-colors">
+      {% set color_fields = [
+        ('primary_color',         'Hauptfarbe',         'Navbar-Hintergrund, primäre Buttons'),
+        ('primary_color_dark',    'Hover-Variante',     'ca. 20 % dunkler als Hauptfarbe'),
+        ('primary_color_darker',  'Dunkelste Variante', 'Navbar-Tiefe, ca. 50 % dunkler'),
+        ('gold_color',            'Akzentfarbe',        'Highlights, Abzeichen'),
+      ] %}
+      {% for field, label, hint in color_fields %}
+      <label class="vc-color-field">
+        <span>{{ label }} <small>{{ hint }}</small></span>
+        <div class="color-input-row">
+          <input type="color" class="color-picker" data-target="{{ field }}"
+                 value="{{ cfg.get(field, '#1e4fa3') }}">
+          <input type="text" name="{{ field }}" id="{{ field }}"
+                 value="{{ cfg.get(field, '#1e4fa3') }}"
+                 pattern="#[0-9a-fA-F]{6}" maxlength="7" class="color-text">
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ── fussball.de Spielplan ────────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>fussball.de Spielplan</h2>
+    <div class="vc-grid">
+      <label class="vc-field vc-field--wide">
+        <span>Heimspiel-Schlüsselwörter <small>(kommagetrennt, Kleinschreibung)</small></span>
+        <input type="text" name="heim_keywords"
+               value="{{ cfg.get('heim_keywords', []) | join(', ') }}"
+               placeholder="musterstadt, sg musterstadt">
+        <span class="vc-field-hint">Erkennt Heimspiele anhand des Teamnamens auf fussball.de. Mehrere Einträge für Spielgemeinschaften/JSG.</span>
+      </label>
+      <label class="vc-field vc-field--wide">
+        <span>Spielorte <small>(JSON-Array)</small></span>
+        <textarea name="spielorte" rows="10" class="code-textarea">{{ cfg.get('spielorte', []) | tojson(indent=2) }}</textarea>
+        <span class="vc-field-hint">Zuordnung fussball.de-Spielortstring → interne Feld-ID und Platz-Präfixe.</span>
+      </label>
+    </div>
+  </section>
+
+  {# ── Saisonvorgaben ───────────────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>Saisonvorgaben</h2>
+    <p class="vc-hint">Standard-Datumsgrenzen als Vorauswahl beim Anlegen einer neuen Serie (Format MM-TT).</p>
+    {% set saison = cfg.get('saison_defaults', {}) %}
+    <table class="saison-table">
+      <thead>
+        <tr><th>Saison</th><th>Beginn</th><th>Ende</th></tr>
+      </thead>
+      <tbody>
+        {% for key, label in [('ganzjaehrig', 'Ganzjährig'), ('sommerhalbjahr', 'Sommerhalbjahr'), ('winterhalbjahr', 'Winterhalbjahr')] %}
+        <tr>
+          <td>{{ label }}</td>
+          <td><input type="text" name="saison_{{ key }}_start"
+                     value="{{ saison.get(key, {}).get('start', '') }}"
+                     pattern="\d{2}-\d{2}" placeholder="08-01" size="6"></td>
+          <td><input type="text" name="saison_{{ key }}_ende"
+                     value="{{ saison.get(key, {}).get('ende', '') }}"
+                     pattern="\d{2}-\d{2}" placeholder="06-30" size="6"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {# ── fussball.de Integration ──────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>fussball.de Integration</h2>
+    <p class="vc-hint">Zugangsdaten für den automatischen Spielplan-Abruf. Felder werden nur gespeichert wenn ausgefüllt.</p>
+    <div class="vc-grid">
+      <label class="vc-field vc-field--wide">
+        <span>Vereinsseite auf fussball.de <small>(URL)</small></span>
+        <input type="text" name="FUSSBALL_DE_VEREINSSEITE"
+               value="{{ env.FUSSBALL_DE_VEREINSSEITE }}"
+               placeholder="https://www.fussball.de/verein/…/-/verein-id/…">
+      </label>
+      <label class="vc-field">
+        <span>Vereins-ID (api-fussball.de)</span>
+        <input type="text" name="APIFUSSBALL_CLUB_ID"
+               value="{{ env.APIFUSSBALL_CLUB_ID }}"
+               placeholder="00ES8GN76C000016VV0AG08LVUPGND5I">
+      </label>
+      <label class="vc-field">
+        <span>API-Token (api-fussball.de) <small class="vc-secret-badge">geheim</small></span>
+        <div class="secret-input-row">
+          <input type="password" name="APIFUSSBALL_TOKEN" id="apifussball-token"
+                 autocomplete="new-password"
+                 placeholder="{% if env_set.APIFUSSBALL_TOKEN %}••••••••  (gesetzt, leer lassen zum Behalten){% else %}(nicht gesetzt){% endif %}">
+          <button type="button" class="btn btn--ghost btn--small secret-toggle"
+                  data-target="apifussball-token" title="Token anzeigen/verbergen">👁</button>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  {# ── Instagram ────────────────────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>Instagram</h2>
+    <p class="vc-hint">Zugangsdaten für das automatische Posten von Wochenend-Spielen. Felder werden nur gespeichert wenn ausgefüllt.</p>
+    <div class="vc-grid">
+      <label class="vc-field">
+        <span>Business Account ID</span>
+        <input type="text" name="INSTAGRAM_ACCOUNT_ID"
+               value="{{ env.INSTAGRAM_ACCOUNT_ID }}"
+               placeholder="123456789012345">
+      </label>
+      <label class="vc-field">
+        <span>Page Access Token <small class="vc-secret-badge">geheim</small></span>
+        <div class="secret-input-row">
+          <input type="password" name="INSTAGRAM_ACCESS_TOKEN" id="instagram-token"
+                 autocomplete="new-password"
+                 placeholder="{% if env_set.INSTAGRAM_ACCESS_TOKEN %}••••••••  (gesetzt, leer lassen zum Behalten){% else %}(nicht gesetzt){% endif %}">
+          <button type="button" class="btn btn--ghost btn--small secret-toggle"
+                  data-target="instagram-token" title="Token anzeigen/verbergen">👁</button>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  {# ── Betrieb & Standort ────────────────────────────────────────────────── #}
+  <section class="vc-section">
+    <h2>Betrieb &amp; Standort</h2>
+    <div class="vc-grid">
+      <label class="vc-field vc-field--wide">
+        <span>Öffentliche URL des Buchungssystems <small>(wird in E-Mails verlinkt)</small></span>
+        <input type="text" name="BOOKING_URL"
+               value="{{ env.BOOKING_URL }}"
+               placeholder="https://buchung.meinverein.de">
+      </label>
+      <label class="vc-field">
+        <span>Breitengrad <small>(Sonnenuntergang)</small></span>
+        <input type="text" name="LOCATION_LAT" value="{{ env.LOCATION_LAT }}" placeholder="52.27">
+      </label>
+      <label class="vc-field">
+        <span>Längengrad</span>
+        <input type="text" name="LOCATION_LON" value="{{ env.LOCATION_LON }}" placeholder="10.52">
+      </label>
+      <label class="vc-field">
+        <span>Ortsname <small>(für Anzeige)</small></span>
+        <input type="text" name="LOCATION_NAME" value="{{ env.LOCATION_NAME }}" placeholder="Musterstadt/Germany">
+      </label>
+    </div>
+  </section>
+
+  <div class="vc-actions">
+    <button type="submit" class="btn btn--primary">Konfiguration speichern</button>
+    <a href="/admin" class="btn btn--ghost" hx-boost="false">Abbrechen</a>
+    <span class="vc-actions-hint">Seite wird nach dem Speichern automatisch neu geladen.</span>
+  </div>
+
+</form>
+
+<script>
+  // Geheimnis-Felder anzeigen/verbergen
+  document.querySelectorAll('.secret-toggle').forEach(btn => {
+    const inp = document.getElementById(btn.dataset.target);
+    btn.addEventListener('click', () => {
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+      btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+    });
+  });
+
+  // Farbwähler ↔ Textfeld synchronisieren
+  document.querySelectorAll('.color-picker').forEach(picker => {
+    const target = document.getElementById(picker.dataset.target);
+    picker.addEventListener('input', () => { target.value = picker.value; });
+    target.addEventListener('input', () => {
+      if (/^#[0-9a-fA-F]{6}$/.test(target.value)) picker.value = target.value;
+    });
+  });
+</script>
+{% endblock %}

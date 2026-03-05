@@ -26,7 +26,7 @@ async def _run_spielplan_sync(app: "FastAPI") -> None:
 
 def apply_schedule(scheduler: "AsyncIOScheduler", app: "FastAPI") -> None:
     """
-    Liest scheduler.json und passt den APScheduler-Job an.
+    Liest die Scheduler-Felder aus vereinsconfig.json und passt den APScheduler-Job an.
     Wird beim Start und nach jeder Konfigurationsänderung aufgerufen.
     """
     from apscheduler.triggers.cron import CronTrigger

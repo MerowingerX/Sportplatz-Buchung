@@ -105,16 +105,6 @@ enthalten ausführliche Kommentare zu jedem Feld.
 | `primary_color` / `_dark` / `_darker` | Vereinsfarben → steuern das gesamte Farbschema |
 | `logo_url` | Pfad zum Logo (z. B. `"/static/logo.svg"`) |
 
-### `config/scheduler.json`
-
-Steuert den automatischen Spielplan-Sync. Wird beim ersten Speichern im
-Admin-Dashboard automatisch erzeugt. Kann auch manuell angelegt werden:
-
-```bash
-echo '{"spielplan_sync_enabled": true, "spielplan_sync_uhrzeit": "06:00"}' \
-  > config/scheduler.json
-```
-
 ---
 
 ## 4. Python-Umgebung einrichten

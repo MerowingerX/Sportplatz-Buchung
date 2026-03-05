@@ -1067,3 +1067,129 @@ body::before {
   .table-scroll { background: rgba(255, 255, 255, 0.90); }
   .week-nav { flex-wrap: wrap; }
 }
+
+/* ===== Vereinskonfiguration ===== */
+.vc-section {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.vc-section h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.vc-hint, .vc-field-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.75rem;
+}
+.vc-field-hint { display: block; margin-top: 0.25rem; }
+.vc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.vc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+.vc-field span { font-weight: 600; }
+.vc-field small { font-weight: 400; color: var(--color-text-muted); }
+.vc-field input[type="text"],
+.vc-field textarea { width: 100%; }
+.vc-field--wide { grid-column: 1 / -1; }
+
+/* Farbfelder */
+.vc-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.vc-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+.vc-color-field span { font-weight: 600; }
+.vc-color-field small { font-weight: 400; color: var(--color-text-muted); }
+.color-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.color-input-row input[type="color"] {
+  width: 2.5rem;
+  height: 2.2rem;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.color-text { flex: 1; font-family: monospace; }
+
+/* Saisontabelle */
+.saison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.saison-table th {
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-border);
+}
+.saison-table td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.saison-table input { width: 6rem; }
+
+/* JSON-Textarea */
+.code-textarea {
+  font-family: monospace;
+  font-size: 0.8rem;
+  resize: vertical;
+  width: 100%;
+}
+
+/* Aktionszeile */
+.vc-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.vc-actions-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* Secret-Felder */
+.vc-secret-badge {
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 15%, white);
+  color: #92400e;
+  border: 1px solid color-mix(in srgb, var(--color-warning, #f59e0b) 40%, transparent);
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.secret-input-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.secret-input-row input { flex: 1; }

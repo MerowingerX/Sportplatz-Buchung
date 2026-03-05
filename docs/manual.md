@@ -317,25 +317,14 @@ Spielgemeinschaft / JSG (Teams laufen unter verschiedenen Namen):
 
 ---
 
-### `config/scheduler.json`
-
-Steuert den automatischen Spielplan-Sync (in-process APScheduler).
-Die Konfiguration kann auch direkt im Admin-Dashboard (unter **fussball.de Spielplan-Sync**) geändert werden — Änderungen dort wirken sofort ohne Server-Neustart.
+**Automatischer Spielplan-Sync** – die Scheduler-Einstellungen liegen in `vereinsconfig.json`:
 
 | Schlüssel | Standardwert | Bedeutung |
 |-----------|-------------|-----------|
 | `spielplan_sync_enabled` | `true` | Automatischen Cron-Job ein-/ausschalten |
 | `spielplan_sync_uhrzeit` | `"06:00"` | Uhrzeit der täglichen Ausführung (Format `HH:MM`) |
 
-Beispiel `config/scheduler.json`:
-```json
-{
-  "spielplan_sync_enabled": true,
-  "spielplan_sync_uhrzeit": "06:00"
-}
-```
-
-> Die Datei wird **nicht** gecacht — Änderungen werden beim nächsten Scheduler-Ereignis oder nach einem Speichern im Admin-Dashboard sofort wirksam.
+Diese Felder können auch direkt im Admin-Dashboard geändert werden — Änderungen greifen **sofort** ohne Server-Neustart, da der Scheduler-Teil ungecacht gelesen wird.
 
 ---
 

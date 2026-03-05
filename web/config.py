@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     apifussball_token: Optional[str] = None          # api-fussball.de API-Token
     apifussball_club_id: Optional[str] = None        # Vereins-ID auf fussball.de (z. B. 00ES8GN76C000016VV0AG08LVUPGND5I)
 
+    # Instagram Graph API
+    instagram_account_id: Optional[str] = None       # Instagram Business Account ID
+    instagram_access_token: Optional[str] = None     # Page Access Token (langlebig)
+
     # Buchungssystem-URL (öffentlich erreichbar, wird in E-Mails verlinkt)
     booking_url: str = "http://localhost:1946"  # Fallback; wird durch BOOKING_URL in .env überschrieben
 
@@ -59,3 +63,17 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+def reset_settings() -> Settings:
+    """Verwirft den gecachten Settings-Singleton und liest die .env neu ein.
+    Wird nach einer Änderung der .env-Datei über die Admin-UI aufgerufen."""
+    global _settings
+    _settings = None
+    return get_settings()
+
+
+def get_env_path():
+    """Gibt den Pfad zur aktiven .env-Datei zurück."""
+    from pathlib import Path
+    return Path(_ENV_FILE)
