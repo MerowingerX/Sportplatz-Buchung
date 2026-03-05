@@ -42,10 +42,10 @@ class Settings(BaseSettings):
     # Buchungssystem-URL (öffentlich erreichbar, wird in E-Mails verlinkt)
     booking_url: str = "http://localhost:1946"  # Fallback; wird durch BOOKING_URL in .env überschrieben
 
-    # Standort (Sonnenuntergang)
-    location_lat: float = 52.264
-    location_lon: float = 10.639
-    location_name: str = "Cremlingen/Germany"
+    # Standort (Sonnenuntergang) – in .env mit LOCATION_LAT/LON/NAME setzen
+    location_lat: float = 52.5200   # Fallback: Berlin
+    location_lon: float = 13.4050
+    location_name: str = "Germany"
 
     # Notion-Property-Check beim Start überspringen (z. B. in Offline-Tests)
     skip_notion_migrate: bool = False

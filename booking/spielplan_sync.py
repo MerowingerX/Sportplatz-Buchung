@@ -54,7 +54,7 @@ except ImportError as e:  # pragma: no cover
 # ---------------------------------------------------------------------------
 # Konstanten
 # ---------------------------------------------------------------------------
-_FALLBACK_CLUB_ID = "00ES8GN75400000VVV0AG08LVUPGND5I"  # Fallback wenn .env leer
+_FALLBACK_CLUB_ID = ""  # Kein Fallback – FUSSBALL_DE_VEREINSSEITE oder APIFUSSBALL_CLUB_ID in .env setzen
 
 from booking.vereinsconfig import get_spielort_zu_feld, get_feld_praefixe, get_heim_keywords
 
