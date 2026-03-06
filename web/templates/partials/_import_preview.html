@@ -60,6 +60,7 @@
               <input type="hidden" name="date_{{ i }}" value="{{ ev.date.isoformat() }}">
               <input type="hidden" name="spielkennung_{{ i }}" value="{{ ev.spielkennung | default('') }}">
               <input type="hidden" name="summary_{{ i }}" value="{{ ev.summary }}">
+              <input type="hidden" name="mannschaft_{{ i }}" value="{{ ev.mannschaft | default('') }}">
             </td>
             <td style="white-space: nowrap;">
               {{ ev.date.strftime('%d.%m.%Y') }}

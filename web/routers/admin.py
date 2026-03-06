@@ -610,6 +610,7 @@ def _parse_dfbnet_csv(content: bytes) -> list[dict]:
             "duration_min": 90,
             "summary": summary,
             "spielkennung": kennung,
+            "mannschaft": heim or "",   # Heimmannschaft als Mannschafts-Label (z.B. "TuS Cremlingen 1")
         })
 
     events.sort(key=lambda e: (e["date"], e["start_time"]))
@@ -703,6 +704,7 @@ async def csv_import_confirm(
         duration_str = form.get(f"duration_{i}")
         spielkennung = str(form.get(f"spielkennung_{i}", "") or "")
         summary = str(form.get(f"summary_{i}", "") or "DFBnet-Spiel")
+        mannschaft_val = str(form.get(f"mannschaft_{i}", "") or "")
 
         if not all([date_str, start_time_str, duration_str]):
             continue
@@ -730,6 +732,7 @@ async def csv_import_confirm(
             booking_type=BookingType.SPIEL,
             spielkennung=spielkennung or None,
             zweck=summary,
+            mannschaft=mannschaft_val or None,
         )
 
         existing = repo.get_bookings_for_date(booking_date)

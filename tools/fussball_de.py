@@ -71,11 +71,12 @@ class Spiel:
     uhrzeit: str            # HH:MM  (leer wenn noch nicht bekannt)
     heim: str
     gast: str
-    mannschaft: str         # z.B. "Herren Ü32"
+    altersklasse: str       # z.B. "D-Junioren" (Abschnittsheader auf fussball.de)
     wettbewerb: str         # z.B. "Kreisfreundschaftsspiele"
     ergebnis: Optional[str] = None
     spielort: Optional[str] = None
     ist_heimspiel: bool = False
+    spielkennung: Optional[str] = None   # fussball.de Spiel-ID aus "Zum Spiel"-Link
 
     @property
     def datum_obj(self) -> Optional[date]:
@@ -310,6 +311,17 @@ def parse_matchplan(html: str, heim_keywords: "list[str] | str" = "") -> list[Sp
         if ergebnis and not re.search(r"\d", ergebnis):
             ergebnis = None
 
+        # Spielkennung aus dem "Zum Spiel"-Link extrahieren
+        # href-Format: /spiel/-/id/05004D0R3U00003IVV0AG08LVUPGND3I/-/
+        spielkennung: Optional[str] = None
+        link_td = row.find("td", attrs={"colspan": "2"})
+        if link_td:
+            a = link_td.find("a", href=True)
+            if a:
+                m = re.search(r"/id/([A-Z0-9]{10,})/", a["href"])
+                if m:
+                    spielkennung = m.group(1)
+
         _keywords = [heim_keywords] if isinstance(heim_keywords, str) else heim_keywords
         ist_heimspiel = any(kw and kw.lower() in heim.lower() for kw in _keywords)
 
@@ -319,10 +331,11 @@ def parse_matchplan(html: str, heim_keywords: "list[str] | str" = "") -> list[Sp
                 uhrzeit=aktuelle_uhrzeit,
                 heim=heim,
                 gast=gast,
-                mannschaft=aktuelle_mannschaft,
+                altersklasse=aktuelle_mannschaft,
                 wettbewerb=aktueller_wettbewerb,
                 ergebnis=ergebnis,
                 ist_heimspiel=ist_heimspiel,
+                spielkennung=spielkennung,
             )
         )
 
@@ -362,7 +375,7 @@ def print_tabelle(spiele: list[Spiel]) -> None:
         print(
             f"{s.datum:<12} {uhrzeit:<8} {heimzeichen:<2} "
             f"{s.heim[:29]:<30} {s.gast[:29]:<30} "
-            f"{ergebnis:<10} {s.mannschaft}"
+            f"{ergebnis:<10} {s.altersklasse}"
         )
 
     print(f"\nGesamt: {len(spiele)} Spiele")
@@ -480,8 +493,8 @@ def import_notion(spiele: list[Spiel]) -> None:
             "Datum": {"date": {"start": s.datum}},
             "Startzeit": {"rich_text": [{"text": {"content": startzeit}}]},
         }
-        if s.mannschaft:
-            props["Mannschaft"] = {"rich_text": [{"text": {"content": s.mannschaft}}]}
+        if s.altersklasse:
+            props["Mannschaft"] = {"rich_text": [{"text": {"content": s.altersklasse}}]}
         if beschreibung:
             props["Beschreibung"] = {"rich_text": [{"text": {"content": beschreibung}}]}
 

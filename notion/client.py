@@ -595,6 +595,21 @@ class NotionRepository:
         page = self._update_page(booking_id, {"Status": _select(status.value)})
         return self._page_to_booking(page)
 
+    def enrich_booking(
+        self,
+        booking_id: str,
+        mannschaft: Optional[str] = None,
+        spielkennung: Optional[str] = None,
+    ) -> None:
+        """Ergänzt fehlende Felder einer bestehenden Buchung (einzelner API-Call)."""
+        props: dict = {}
+        if mannschaft:
+            props["Mannschaft"] = _rich_text(mannschaft)
+        if spielkennung:
+            props["Spielkennung"] = _rich_text(spielkennung)
+        if props:
+            self._update_page(booking_id, props)
+
     def mark_series_exception(self, booking_id: str) -> Booking:
         page = self._update_page(
             booking_id,

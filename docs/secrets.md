@@ -38,7 +38,7 @@ eingelesen. Kein Handlungsbedarf.
 | `NOTION_NUTZER_DB_ID` | Notion Datenbank: Nutzer |
 | `NOTION_AUFGABEN_DB_ID` | Notion Datenbank: Aufgaben |
 | `NOTION_EVENTS_DB_ID` | Notion Datenbank: Externe Termine |
-| `JWT_SECRET` | JWT Signing-Key |
+| `JWT_SECRET` | JWT Signing-Key — signiert und verifiziert Session-Cookies (`session`-Cookie, HS256). Bei Änderung werden alle aktiven Sessions ungültig (alle Nutzer ausgeloggt). Muss pro Instanz einzigartig sein; Demo- und Live-Server dürfen **nicht** denselben Wert teilen. Empfohlen: `openssl rand -hex 32` |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | Mail-Versand |
 | `ADMIN_EMAIL` | Empfänger für Crash-Mails |
 | `BOOKING_URL` | Öffentliche URL des Buchungssystems |

@@ -200,7 +200,9 @@ def _format_date(d: date) -> tuple[str, str, str]:
 
 def page_to_game(page: dict, field_display: dict[str, str]) -> dict:
     props = page["properties"]
-    title     = _prop_title(props, "Titel")
+    # Zweck enthält den lesbaren Spieltitel (z.B. "[Liga] Heim vs Gast").
+    # Titel ist nur ein technischer Schlüssel ("Platz – Datum Uhrzeit").
+    zweck      = _prop_rich_text(props, "Zweck") or _prop_title(props, "Titel")
     mannschaft = _prop_rich_text(props, "Mannschaft") or None
     field_key  = _prop_select(props, "Platz") or ""
     venue      = field_display.get(field_key, field_key)
@@ -209,11 +211,25 @@ def page_to_game(page: dict, field_display: dict[str, str]) -> dict:
     end_time   = _prop_select(props, "Endzeit")
 
     weekday, date_short, _ = _format_date(game_date)
-    home, away = _identify_home_away(title)
+
+    # Optionalen [Altersklasse · Wettbewerb]-Präfix extrahieren
+    # Format (fussball.de-Sync): "[D-Junioren · Kreisfreundschaftsspiele] Heim vs Gast"
+    # Format (DFBnet-Import):    "[Wettbewerb] Heim vs Gast"
+    match_text = zweck
+    liga: Optional[str] = None
+    if match_text.startswith("["):
+        end_bracket = match_text.find("]")
+        if end_bracket > 0:
+            bracket_content = match_text[1:end_bracket]
+            # Altersklasse steht vor dem " · " Trenner (falls vorhanden)
+            liga = bracket_content.split(" · ")[0].strip()
+            match_text = match_text[end_bracket + 1:].strip()
+
+    home, away = _identify_home_away(match_text)
 
     return {
-        "title":      title,
-        "mannschaft": mannschaft,
+        "title":      match_text,           # Bereinigt ohne [Bracket]-Präfix
+        "mannschaft": mannschaft or liga,   # Altersklasse / Mannschafts-Label
         "date":       game_date,
         "weekday":    weekday,
         "date_short": date_short,
@@ -221,7 +237,7 @@ def page_to_game(page: dict, field_display: dict[str, str]) -> dict:
         "end_time":   end_time,
         "field":      field_key,
         "venue":      venue,
-        "home":       home,
+        "home":       home or match_text,   # Fallback: ganzer Text wenn kein Trennzeichen
         "away":       away,
     }
 
@@ -358,11 +374,17 @@ def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Instagram Matchday-Karussell generieren")
-    parser.add_argument("--days",    type=int,  default=21,   help="Zeitraum in Tagen (Standard: 21)")
-    parser.add_argument("--output",  type=Path, default=None, help="Ausgabeverzeichnis")
-    parser.add_argument("--dry-run", action="store_true",     help="Nur Vorschau, keine Bilder erzeugen")
-    parser.add_argument("--post",    action="store_true",     help="Nach Generierung auf Instagram posten")
+    parser.add_argument("--days",       type=int,  default=21,   help="Zeitraum in Tagen (Standard: 21)")
+    parser.add_argument("--output",     type=Path, default=None, help="Ausgabeverzeichnis")
+    parser.add_argument("--dry-run",    action="store_true",     help="Nur Vorschau, keine Bilder erzeugen")
+    parser.add_argument("--post",       action="store_true",     help="Nach Generierung auf Instagram posten")
+    parser.add_argument("--config-dir", type=Path, default=None, help="Alternativer Config-Ordner (Standard: config/)")
     args = parser.parse_args()
+
+    # Config-Verzeichnis überschreiben falls angegeben
+    if args.config_dir:
+        global CONFIG_DIR
+        CONFIG_DIR = args.config_dir.resolve()
 
     # Notion API Key
     notion_key = os.getenv("NOTION_API_KEY")

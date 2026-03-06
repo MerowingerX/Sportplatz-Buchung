@@ -270,14 +270,28 @@ async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResu
             continue
 
         buchungs_datum = date.fromisoformat(spiel.datum)
-        zweck = f"[{spiel.wettbewerb}] {spiel.heim} vs {spiel.gast}"
+        # Altersklasse in den Zweck einbauen, damit sie für die Matchday-Anzeige
+        # verfügbar ist — ins Mannschaft-Feld kommt sie nicht, da es mehrere
+        # gleichaltrige Teams geben kann (D1, D2 …).
+        if spiel.altersklasse:
+            zweck = f"[{spiel.altersklasse} · {spiel.wettbewerb}] {spiel.heim} vs {spiel.gast}"
+        else:
+            zweck = f"[{spiel.wettbewerb}] {spiel.heim} vs {spiel.gast}"
 
         # Bestehende Buchungen des Tages für Konfliktcheck
         existing = repo.get_bookings_for_date(buchungs_datum)
 
         # Duplikat-Check: schon als Spiel gebucht (von anderem System)?
         konflikte = check_availability(existing, feld, start_time, 90)
-        if any(b.booking_type == BookingType.SPIEL for b in konflikte):
+        spiel_konflikte = [b for b in konflikte if b.booking_type == BookingType.SPIEL]
+        if spiel_konflikte:
+            # Spielkennung nachpflegen falls noch leer
+            for b in spiel_konflikte:
+                if spiel.spielkennung and not b.spielkennung:
+                    try:
+                        repo.enrich_booking(b.notion_id, spielkennung=spiel.spielkennung)
+                    except Exception:
+                        pass
             result.uebersprungen.append(f"{spiel.datum} {spiel.uhrzeit} {feld.value}")
             continue
 
@@ -288,6 +302,7 @@ async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResu
             duration_min=90,
             booking_type=BookingType.SPIEL,
             zweck=zweck,
+            spielkennung=spiel.spielkennung or None,
         )
 
         try:
