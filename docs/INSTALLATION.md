@@ -450,7 +450,60 @@ Nach der Installation folgende Punkte prüfen:
 
 ---
 
-## 12. Datensicherung
+## 12. Instagram Matchday-Karussell *(optional)*
+
+Das Script `scripts/instagram_matchday.py` generiert automatisch Spielvorschau-Bilder
+(1080×1080 px) und kann sie als Karussell-Post auf Instagram veröffentlichen.
+
+### Voraussetzungen
+
+**Playwright installieren** (einmalig, ca. 150 MB):
+
+```bash
+.venv/bin/pip install playwright
+.venv/bin/playwright install chromium
+.venv/bin/playwright install-deps chromium   # Debian/Ubuntu: GTK-/ATK-Bibliotheken
+```
+
+**`.env`-Variablen setzen:**
+
+| Variable | Quelle |
+|----------|--------|
+| `INSTAGRAM_ACCOUNT_ID` | Meta Business Manager → Instagram-Konto → Konto-ID |
+| `INSTAGRAM_ACCESS_TOKEN` | [Graph API Explorer](https://developers.facebook.com/tools/explorer/) → `instagram_basic,instagram_content_publish` |
+
+> **Hinweis:** Access Tokens laufen nach ~60 Tagen ab. Fehlercode `190 – Malformed access token`
+> bedeutet, ein neuer Token muss im Graph API Explorer generiert werden.
+
+### Verwendung
+
+```bash
+# Vorschau (nur Liste, keine Bilder)
+.venv/bin/python scripts/instagram_matchday.py --dry-run
+
+# Bilder generieren (lokal, kein Posting)
+.venv/bin/python scripts/instagram_matchday.py
+
+# Bilder generieren und auf Instagram posten
+.venv/bin/python scripts/instagram_matchday.py --post
+
+# Nur die nächsten 7 Tage
+.venv/bin/python scripts/instagram_matchday.py --days 7 --post
+```
+
+### Wie das Posting funktioniert
+
+1. Bilder werden nach `web/static/instagram/<datum>/` kopiert → per `BOOKING_URL` öffentlich erreichbar
+2. Jedes Bild wird als Carousel-Item bei der Instagram Graph API registriert
+3. Ein Karussell-Container wird angelegt
+4. Der Post wird veröffentlicht
+
+> Der Server muss unter `BOOKING_URL` öffentlich erreichbar sein, damit Instagram
+> die Bilder abrufen kann. Bei lokalem Betrieb (localhost) schlägt das Posting fehl.
+
+---
+
+## 13. Datensicherung
 
 Da alle Daten in Notion gespeichert sind, übernimmt Notion das Hosting und die Verfügbarkeit. Empfehlungen:
 

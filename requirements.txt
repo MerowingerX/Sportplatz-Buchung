@@ -19,5 +19,5 @@ icalendar==6.1.0
 # tools/
 requests>=2.32
 beautifulsoup4>=4.12
-# Instagram-Script (optional, braucht: playwright install chromium)
-# playwright>=1.48
+# Instagram-Script (braucht zusätzlich: playwright install chromium + playwright install-deps chromium)
+playwright>=1.48
