@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Instagram Graph API
     instagram_account_id: Optional[str] = None       # Instagram Business Account ID
     instagram_access_token: Optional[str] = None     # Page Access Token (langlebig)
+    instagram_image_base_url: Optional[str] = None   # Öffentliche HTTPS-URL für Bilder (z.B. ngrok)
 
     # Buchungssystem-URL (öffentlich erreichbar, wird in E-Mails verlinkt)
     booking_url: str = "http://localhost:1946"  # Fallback; wird durch BOOKING_URL in .env überschrieben

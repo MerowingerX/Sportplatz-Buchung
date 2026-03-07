@@ -35,7 +35,10 @@ from typing import Optional
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Explizit PROJECT_ROOT/.env laden – sonst findet load_dotenv() die Datei
+    # nicht, wenn das Script aus einem anderen Verzeichnis aufgerufen wird.
+    _env_file = Path(__file__).parent.parent / ".env"
+    load_dotenv(_env_file, override=False)
 except ImportError:
     pass
 
@@ -335,11 +338,36 @@ def screenshot(html: str, output_path: Path) -> None:
 #   4. Veröffentlichen
 
 def _publish_images_to_static(image_paths: list[Path]) -> list[str]:
-    """Kopiert Bilder in web/static/instagram/<datum>/ und gibt öffentliche URLs zurück."""
+    """Kopiert Bilder in web/static/instagram/<datum>/ und gibt öffentliche URLs zurück.
+
+    Meta verlangt eine öffentlich erreichbare HTTPS-URL – private IPs (z.B. 192.168.x.x
+    oder Server-IPs auf Port 1946) werden blockiert.
+    Lösung: INSTAGRAM_IMAGE_BASE_URL in .env auf eine öffentliche HTTPS-URL setzen,
+    z.B. via ngrok: ngrok http 1946  →  https://xxxx.ngrok-free.app
+    """
     import shutil
-    base_url = os.getenv("BOOKING_URL", "").rstrip("/")
+    # Eigene Env-Variable hat Vorrang vor BOOKING_URL.
+    # Nur nicht-leere Werte zählen: leerer String "" gilt als "nicht gesetzt".
+    img_base = os.getenv("INSTAGRAM_IMAGE_BASE_URL", "").strip()
+    booking  = os.getenv("BOOKING_URL", "").strip()
+    base_url = (img_base or booking).rstrip("/")
+
+    print(f"  INSTAGRAM_IMAGE_BASE_URL = {img_base!r}")
+    print(f"  BOOKING_URL              = {booking!r}")
+    print(f"  → verwende Base-URL: {base_url!r}")
+
     if not base_url:
-        raise RuntimeError("BOOKING_URL nicht in .env gesetzt.")
+        raise RuntimeError(
+            "Weder INSTAGRAM_IMAGE_BASE_URL noch BOOKING_URL in .env gesetzt.\n"
+            "Setze INSTAGRAM_IMAGE_BASE_URL auf eine öffentlich erreichbare HTTPS-URL,\n"
+            "z.B. via ngrok:  ngrok http 1946  →  https://xxxx.ngrok-free.app"
+        )
+    if not base_url.startswith("https://"):
+        raise RuntimeError(
+            f"INSTAGRAM_IMAGE_BASE_URL muss eine HTTPS-URL sein, nicht: {base_url!r}\n"
+            "Meta blockiert HTTP und private IP-Adressen.\n"
+            "Lösung: ngrok http 1946  →  INSTAGRAM_IMAGE_BASE_URL=https://xxxx.ngrok-free.app"
+        )
 
     date_slug = image_paths[0].parent.name
     static_dir = PROJECT_ROOT / "web" / "static" / "instagram" / date_slug
@@ -372,12 +400,15 @@ def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
     BASE = f"https://graph.facebook.com/v21.0/{account_id}"
 
     # Schritt 1: Jedes Bild als Carousel-Item registrieren
+    # media_type=IMAGE ist Pflicht – ohne diesen Parameter gibt die API 400 zurück.
+    # caption gehört NUR auf den Container (Schritt 2), nicht auf einzelne Items.
     print(f"[Instagram] Registriere {len(public_urls)} Bilder als Carousel-Items …")
     children: list[str] = []
     for i, url in enumerate(public_urls, 1):
         r = httpx.post(
             f"{BASE}/media",
             params={
+                "media_type": "IMAGE",
                 "image_url": url,
                 "is_carousel_item": "true",
                 "access_token": access_token,
