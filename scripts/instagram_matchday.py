@@ -130,13 +130,18 @@ def _prop_date(props: dict, key: str) -> Optional[date]:
     return None
 
 
+def _next_sunday(today: date) -> date:
+    """Gibt das Datum des kommenden Sonntags zurück (inkl. heute falls Sonntag)."""
+    days_until = (6 - today.weekday()) % 7
+    return today + timedelta(days=days_until)
+
+
 def get_upcoming_games(
     client: Client,
     db_id: str,
-    days: int,
+    until: date,
 ) -> list[dict]:
     today = date.today()
-    until = today + timedelta(days=days)
     pages: list[dict] = []
     cursor = None
     while True:
@@ -462,7 +467,7 @@ def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Instagram Matchday-Karussell generieren")
-    parser.add_argument("--days",       type=int,  default=21,   help="Zeitraum in Tagen (Standard: 21)")
+    parser.add_argument("--days",       type=int,  default=None, help="Zeitraum in Tagen (Standard: bis kommenden Sonntag)")
     parser.add_argument("--output",     type=Path, default=None, help="Ausgabeverzeichnis")
     parser.add_argument("--dry-run",    action="store_true",     help="Nur Vorschau, keine Bilder erzeugen")
     parser.add_argument("--post",       action="store_true",     help="Nach Generierung auf Instagram posten")
@@ -489,10 +494,19 @@ def main() -> None:
     logo = _logo_b64(vc)
     env  = _build_env()
 
+    # Zeitraum bestimmen: explizit via --days oder bis kommenden Sonntag
+    today = date.today()
+    if args.days is not None:
+        until = today + timedelta(days=args.days)
+        label = f"nächsten {args.days} Tage"
+    else:
+        until = _next_sunday(today)
+        label = f"bis Sonntag {until.strftime('%d.%m.')}"
+
     # Spiele laden
-    print(f"Lade Spiele der nächsten {args.days} Tage …")
+    print(f"Lade Spiele ({label}) …")
     client = Client(auth=notion_key)
-    pages  = get_upcoming_games(client, db_id, args.days)
+    pages  = get_upcoming_games(client, db_id, until)
     games  = [page_to_game(p, field_display) for p in pages]
 
     if not games:
