@@ -35,7 +35,10 @@ from typing import Optional
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Explizit PROJECT_ROOT/.env laden – sonst findet load_dotenv() die Datei
+    # nicht, wenn das Script aus einem anderen Verzeichnis aufgerufen wird.
+    _env_file = Path(__file__).parent.parent / ".env"
+    load_dotenv(_env_file, override=False)
 except ImportError:
     pass
 
@@ -127,13 +130,18 @@ def _prop_date(props: dict, key: str) -> Optional[date]:
     return None
 
 
+def _next_sunday(today: date) -> date:
+    """Gibt das Datum des kommenden Sonntags zurück (inkl. heute falls Sonntag)."""
+    days_until = (6 - today.weekday()) % 7
+    return today + timedelta(days=days_until)
+
+
 def get_upcoming_games(
     client: Client,
     db_id: str,
-    days: int,
+    until: date,
 ) -> list[dict]:
     today = date.today()
-    until = today + timedelta(days=days)
     pages: list[dict] = []
     cursor = None
     while True:
@@ -335,11 +343,36 @@ def screenshot(html: str, output_path: Path) -> None:
 #   4. Veröffentlichen
 
 def _publish_images_to_static(image_paths: list[Path]) -> list[str]:
-    """Kopiert Bilder in web/static/instagram/<datum>/ und gibt öffentliche URLs zurück."""
+    """Kopiert Bilder in web/static/instagram/<datum>/ und gibt öffentliche URLs zurück.
+
+    Meta verlangt eine öffentlich erreichbare HTTPS-URL – private IPs (z.B. 192.168.x.x
+    oder Server-IPs auf Port 1946) werden blockiert.
+    Lösung: INSTAGRAM_IMAGE_BASE_URL in .env auf eine öffentliche HTTPS-URL setzen,
+    z.B. via ngrok: ngrok http 1946  →  https://xxxx.ngrok-free.app
+    """
     import shutil
-    base_url = os.getenv("BOOKING_URL", "").rstrip("/")
+    # Eigene Env-Variable hat Vorrang vor BOOKING_URL.
+    # Nur nicht-leere Werte zählen: leerer String "" gilt als "nicht gesetzt".
+    img_base = os.getenv("INSTAGRAM_IMAGE_BASE_URL", "").strip()
+    booking  = os.getenv("BOOKING_URL", "").strip()
+    base_url = (img_base or booking).rstrip("/")
+
+    print(f"  INSTAGRAM_IMAGE_BASE_URL = {img_base!r}")
+    print(f"  BOOKING_URL              = {booking!r}")
+    print(f"  → verwende Base-URL: {base_url!r}")
+
     if not base_url:
-        raise RuntimeError("BOOKING_URL nicht in .env gesetzt.")
+        raise RuntimeError(
+            "Weder INSTAGRAM_IMAGE_BASE_URL noch BOOKING_URL in .env gesetzt.\n"
+            "Setze INSTAGRAM_IMAGE_BASE_URL auf eine öffentlich erreichbare HTTPS-URL,\n"
+            "z.B. via ngrok:  ngrok http 1946  →  https://xxxx.ngrok-free.app"
+        )
+    if not base_url.startswith("https://"):
+        raise RuntimeError(
+            f"INSTAGRAM_IMAGE_BASE_URL muss eine HTTPS-URL sein, nicht: {base_url!r}\n"
+            "Meta blockiert HTTP und private IP-Adressen.\n"
+            "Lösung: ngrok http 1946  →  INSTAGRAM_IMAGE_BASE_URL=https://xxxx.ngrok-free.app"
+        )
 
     date_slug = image_paths[0].parent.name
     static_dir = PROJECT_ROOT / "web" / "static" / "instagram" / date_slug
@@ -372,12 +405,15 @@ def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
     BASE = f"https://graph.facebook.com/v21.0/{account_id}"
 
     # Schritt 1: Jedes Bild als Carousel-Item registrieren
+    # media_type=IMAGE ist Pflicht – ohne diesen Parameter gibt die API 400 zurück.
+    # caption gehört NUR auf den Container (Schritt 2), nicht auf einzelne Items.
     print(f"[Instagram] Registriere {len(public_urls)} Bilder als Carousel-Items …")
     children: list[str] = []
     for i, url in enumerate(public_urls, 1):
         r = httpx.post(
             f"{BASE}/media",
             params={
+                "media_type": "IMAGE",
                 "image_url": url,
                 "is_carousel_item": "true",
                 "access_token": access_token,
@@ -431,7 +467,7 @@ def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Instagram Matchday-Karussell generieren")
-    parser.add_argument("--days",       type=int,  default=21,   help="Zeitraum in Tagen (Standard: 21)")
+    parser.add_argument("--days",       type=int,  default=None, help="Zeitraum in Tagen (Standard: bis kommenden Sonntag)")
     parser.add_argument("--output",     type=Path, default=None, help="Ausgabeverzeichnis")
     parser.add_argument("--dry-run",    action="store_true",     help="Nur Vorschau, keine Bilder erzeugen")
     parser.add_argument("--post",       action="store_true",     help="Nach Generierung auf Instagram posten")
@@ -458,10 +494,19 @@ def main() -> None:
     logo = _logo_b64(vc)
     env  = _build_env()
 
+    # Zeitraum bestimmen: explizit via --days oder bis kommenden Sonntag
+    today = date.today()
+    if args.days is not None:
+        until = today + timedelta(days=args.days)
+        label = f"nächsten {args.days} Tage"
+    else:
+        until = _next_sunday(today)
+        label = f"bis Sonntag {until.strftime('%d.%m.')}"
+
     # Spiele laden
-    print(f"Lade Spiele der nächsten {args.days} Tage …")
+    print(f"Lade Spiele ({label}) …")
     client = Client(auth=notion_key)
-    pages  = get_upcoming_games(client, db_id, args.days)
+    pages  = get_upcoming_games(client, db_id, until)
     games  = [page_to_game(p, field_display) for p in pages]
 
     if not games:

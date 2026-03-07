@@ -245,3 +245,4 @@ Logs: `logs/` (in `.gitignore`). Backups: `backup/` (gemountet in Docker).
 | `docs/feldtopologie_aendern.md` | Anleitung Platzstruktur ändern |
 | `docs/db_migration_plan.md` | Plan: Notion → SQLite (AbstractRepository, 6 Phasen) |
 | `docs/secrets.md` | Alle Hardcodes und bekannte Secrets |
+| `docs/instagram_setup.md` | Instagram Business-Konto, Token, ngrok, häufige Fehler |

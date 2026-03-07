@@ -91,6 +91,7 @@ Alle Zugangsdaten und Tokens werden in `.env` gespeichert (ebenfalls nicht im Re
 | [docs/manual.md](docs/manual.md) | Betriebshandbuch: Saisonplanung, Sommer/Winterbetrieb, Nutzerverwaltung |
 | [docs/naming_constraints.md](docs/naming_constraints.md) | String-Kopplungen zwischen Code, Notion, CSS und Templates |
 | [docs/feldtopologie_aendern.md](docs/feldtopologie_aendern.md) | Anleitung: Platzstruktur ändern |
+| [docs/instagram_setup.md](docs/instagram_setup.md) | Instagram Business-Konto, Token generieren, ngrok, häufige Fehler |
 
 ---
 
