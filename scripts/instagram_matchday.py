@@ -321,25 +321,43 @@ def screenshot(html: str, output_path: Path) -> None:
         browser.close()
 
 
-# ── Instagram Graph API (Stub) ────────────────────────────────────────────────
+# ── Instagram Graph API ───────────────────────────────────────────────────────
 #
-# Um das Posting zu aktivieren, braucht es:
+# Benötigt in .env:
 #   INSTAGRAM_ACCOUNT_ID=<Business-Account-ID>
 #   INSTAGRAM_ACCESS_TOKEN=<Page-Access-Token>
+#   BOOKING_URL=http://<host>:<port>   ← Basis-URL des Servers (öffentlich erreichbar)
 #
 # Ablauf Karussell:
-#   1. Jedes Bild via POST /v21.0/{account_id}/media hochladen (image_url oder
-#      is_carousel_item=true + image_url) → creation_id
-#   2. Karussell-Container: POST /v21.0/{account_id}/media mit
-#      media_type=CAROUSEL, children=[creation_id, ...]
-#   3. Veröffentlichen: POST /v21.0/{account_id}/media_publish
-#      mit creation_id des Containers
-#
-# Bilder müssen von Instagram erreichbar sein → öffentliche URL nötig (z.B.
-# S3, Cloudflare R2, oder ein eigener öffentlicher Ordner).
-# Alternativ: Meta Content Publishing API über Facebook Graph Explorer testen.
+#   1. Bilder nach web/static/instagram/<datum>/ kopieren → öffentlich per /static/...
+#   2. Jedes Bild als Carousel-Item bei Graph API registrieren → creation_id
+#   3. Karussell-Container anlegen
+#   4. Veröffentlichen
+
+def _publish_images_to_static(image_paths: list[Path]) -> list[str]:
+    """Kopiert Bilder in web/static/instagram/<datum>/ und gibt öffentliche URLs zurück."""
+    import shutil
+    base_url = os.getenv("BOOKING_URL", "").rstrip("/")
+    if not base_url:
+        raise RuntimeError("BOOKING_URL nicht in .env gesetzt.")
+
+    date_slug = image_paths[0].parent.name
+    static_dir = PROJECT_ROOT / "web" / "static" / "instagram" / date_slug
+    static_dir.mkdir(parents=True, exist_ok=True)
+
+    public_urls = []
+    for src in image_paths:
+        dst = static_dir / src.name
+        shutil.copy2(src, dst)
+        public_urls.append(f"{base_url}/static/instagram/{date_slug}/{src.name}")
+        print(f"  Kopiert: {src.name} → {dst}")
+
+    return public_urls
+
 
 def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
+    import httpx
+
     account_id   = os.getenv("INSTAGRAM_ACCOUNT_ID")
     access_token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
 
@@ -348,26 +366,65 @@ def post_carousel_to_instagram(image_paths: list[Path], caption: str) -> None:
         print("  Bilder liegen lokal bereit und können manuell hochgeladen werden.")
         return
 
-    # TODO: Bilder auf öffentlich erreichbaren Speicher hochladen (z.B. S3/R2)
-    # public_urls = upload_to_storage(image_paths)
-    #
-    # import httpx
-    # BASE = f"https://graph.facebook.com/v21.0/{account_id}"
-    # children = []
-    # for url in public_urls:
-    #     r = httpx.post(f"{BASE}/media",
-    #                    params={"image_url": url, "is_carousel_item": "true",
-    #                            "access_token": access_token})
-    #     children.append(r.json()["id"])
-    # container = httpx.post(f"{BASE}/media",
-    #                        params={"media_type": "CAROUSEL",
-    #                                "children": ",".join(children),
-    #                                "caption": caption,
-    #                                "access_token": access_token})
-    # httpx.post(f"{BASE}/media_publish",
-    #            params={"creation_id": container.json()["id"],
-    #                    "access_token": access_token})
-    print("[Instagram] Posting-Stub aufgerufen – noch nicht implementiert.")
+    print("\n[Instagram] Bilder werden auf Server bereitgestellt …")
+    public_urls = _publish_images_to_static(image_paths)
+
+    BASE = f"https://graph.facebook.com/v21.0/{account_id}"
+
+    # Schritt 1: Jedes Bild als Carousel-Item registrieren
+    print(f"[Instagram] Registriere {len(public_urls)} Bilder als Carousel-Items …")
+    children: list[str] = []
+    for i, url in enumerate(public_urls, 1):
+        r = httpx.post(
+            f"{BASE}/media",
+            params={
+                "image_url": url,
+                "is_carousel_item": "true",
+                "access_token": access_token,
+            },
+            timeout=30,
+        )
+        data = r.json()
+        if "id" not in data:
+            print(f"  FEHLER bei Bild {i}: {data}")
+            return
+        children.append(data["id"])
+        print(f"  Bild {i}/{len(public_urls)}: {data['id']}")
+
+    # Schritt 2: Karussell-Container anlegen
+    print("[Instagram] Erstelle Karussell-Container …")
+    r = httpx.post(
+        f"{BASE}/media",
+        params={
+            "media_type": "CAROUSEL",
+            "children": ",".join(children),
+            "caption": caption,
+            "access_token": access_token,
+        },
+        timeout=30,
+    )
+    container = r.json()
+    if "id" not in container:
+        print(f"  FEHLER beim Container: {container}")
+        return
+    container_id = container["id"]
+    print(f"  Container-ID: {container_id}")
+
+    # Schritt 3: Veröffentlichen
+    print("[Instagram] Veröffentliche …")
+    r = httpx.post(
+        f"{BASE}/media_publish",
+        params={
+            "creation_id": container_id,
+            "access_token": access_token,
+        },
+        timeout=30,
+    )
+    result = r.json()
+    if "id" in result:
+        print(f"Erfolgreich gepostet! Post-ID: {result['id']}")
+    else:
+        print(f"  FEHLER beim Veröffentlichen: {result}")
 
 
 # ── Hauptprogramm ─────────────────────────────────────────────────────────────

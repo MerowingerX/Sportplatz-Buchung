@@ -44,6 +44,8 @@ eingelesen. Kein Handlungsbedarf.
 | `BOOKING_URL` | Öffentliche URL des Buchungssystems |
 | `FUSSBALL_DE_VEREINSSEITE` | fussball.de Vereinsseiten-URL (enthält Club-ID) |
 | `LOCATION_LAT` / `LOCATION_LON` / `LOCATION_NAME` | Standort für Sonnenuntergang |
+| `INSTAGRAM_ACCOUNT_ID` | Instagram Business-Account-ID (Meta Business Manager) |
+| `INSTAGRAM_ACCESS_TOKEN` | Page Access Token für Graph API; läuft ab (Fehlercode 190 = abgelaufen) |
 
 ---
 
