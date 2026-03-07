@@ -2,6 +2,8 @@
 
 Buchungs- und Verwaltungssystem für Sportvereine — vereinsunabhängig konfigurierbar.
 
+→ **[Kurzübersicht & Einrichtungsanforderungen für Vereine](docs/PITCH.md)**
+
 ---
 
 ## Funktionsumfang

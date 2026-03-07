@@ -1,0 +1,23 @@
+services:
+  buchung-demo:
+    build: .
+    container_name: buchung-demo
+    restart: unless-stopped
+    ports:
+      - "1947:1946"
+    env_file:
+      - .env.demo
+    environment:
+      PYTHONUNBUFFERED: "1"
+      ENV_FILE: ".env.demo"
+      CONFIG_DIR: "config/demo"
+    volumes:
+      - ./logs:/app/logs
+      - ./backup:/app/backup
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:1946/login')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
