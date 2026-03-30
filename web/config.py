@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Notion-Property-Check beim Start überspringen (z. B. in Offline-Tests)
     skip_notion_migrate: bool = False
 
+    # Datenbank-Backend — "notion" (Standard) oder "sqlite"
+    db_backend: str = "notion"
+    sqlite_db_path: str = "data/sportplatz.db"
+
 
 _settings: Settings | None = None
 

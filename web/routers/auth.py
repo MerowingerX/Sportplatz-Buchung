@@ -47,7 +47,7 @@ async def login(
 
     token = create_jwt(
         user.notion_id, user.name, user.role, settings,
-        mannschaft=user.mannschaft.value if user.mannschaft else None,
+        mannschaft=user.mannschaft if user.mannschaft else None,
         must_change_password=user.must_change_password,
     )
 
@@ -134,3 +134,47 @@ async def logout(request: Request, current_user: CurrentUser):
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("session")
     return response
+
+
+@router.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request, current_user: CurrentUser):
+    repo = request.app.state.repo
+    mannschaft = None
+    all_teams = repo.get_all_mannschaften()
+    for m in all_teams:
+        if m.trainer_id == current_user.sub:
+            mannschaft = m
+            break
+    return templates.TemplateResponse(
+        "profile.html",
+        {"request": request, "current_user": current_user, "mannschaft": mannschaft},
+    )
+
+
+@router.post("/profile/cc", response_class=HTMLResponse)
+async def profile_cc(
+    request: Request,
+    current_user: CurrentUser,
+    cc_emails: str = Form(""),
+):
+    repo = request.app.state.repo
+    all_teams = repo.get_all_mannschaften()
+    mannschaft = next((m for m in all_teams if m.trainer_id == current_user.sub), None)
+    if mannschaft is None:
+        return HTMLResponse(
+            '<div id="toast" class="toast toast--error">Keine Mannschaft zugeordnet.</div>'
+        )
+    cc_list = [e.strip() for e in cc_emails.replace(",", "\n").splitlines() if e.strip()]
+    repo.update_mannschaft(
+        mannschaft_id=mannschaft.notion_id,
+        name=mannschaft.name,
+        shortname=mannschaft.shortname,
+        trainer_id=mannschaft.trainer_id,
+        trainer_name=mannschaft.trainer_name,
+        fussball_de_team_id=mannschaft.fussball_de_team_id,
+        cc_emails=cc_list,
+        aktiv=mannschaft.aktiv,
+    )
+    return HTMLResponse(
+        '<div id="toast" class="toast toast--success">CC-Adressen gespeichert.</div>'
+    )

@@ -1,0 +1,60 @@
+<div class="step-card">
+  <div class="step-title">Schritt 1 — Systemprüfung</div>
+
+  <!-- Sources -->
+  <div style="margin-bottom:1.25rem; padding:0.6rem 0.75rem; background:var(--color-bg-subtle,#f9fafb); border:1px solid var(--color-border,#e5e7eb); border-radius:6px; font-size:0.82rem;">
+    <strong style="display:block; margin-bottom:0.35rem; color:var(--color-text-muted,#6b7280);">Gelesene Dateien</strong>
+    {% for s in sources %}
+    <div style="display:flex; gap:0.5rem; align-items:center; padding:0.15rem 0;">
+      <span style="color:{% if s.exists %}#16a34a{% else %}#dc2626{% endif %};">{% if s.exists %}✔{% else %}✘{% endif %}</span>
+      <span style="color:var(--color-text-muted,#6b7280); min-width:8rem;">{{ s.label }}</span>
+      <code style="font-size:0.8rem; word-break:break-all;">{{ s.path }}</code>
+    </div>
+    {% endfor %}
+  </div>
+
+  <p style="margin-bottom:1rem;">Konfigurationswerte aus der <code>.env</code>-Datei.
+  Pflichtfelder (❌) müssen gesetzt sein, bevor die Einrichtung fortgesetzt werden kann.</p>
+
+  <table style="width:100%; border-collapse:collapse; font-size:0.88rem; margin-bottom:1.5rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--color-border,#e5e7eb); text-align:left;">
+        <th style="padding:0.3rem 0.5rem 0.5rem 0; width:1.5rem;"></th>
+        <th style="padding:0.3rem 0.5rem 0.5rem 0;">Variable</th>
+        <th style="padding:0.3rem 0 0.5rem 0.5rem;">Wert</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in checks %}
+      <tr style="border-bottom:1px solid var(--color-border,#e5e7eb);">
+        <td style="padding:0.4rem 0.5rem 0.4rem 0; font-size:1rem; line-height:1;">
+          {% if c.ok %}✅{% elif c.required %}❌{% else %}⚠️{% endif %}
+        </td>
+        <td style="padding:0.4rem 0.5rem; vertical-align:top;">
+          <code>{{ c.label }}</code>
+          {% if not c.ok %}
+          <div style="font-size:0.78rem; color:var(--color-text-muted,#6b7280); margin-top:0.2rem;">{{ c.hint }}</div>
+          {% endif %}
+        </td>
+        <td style="padding:0.4rem 0 0.4rem 0.5rem; vertical-align:top; word-break:break-all;">
+          {% if c.value == "(nicht gesetzt)" %}
+            <span style="color:var(--color-text-muted,#9ca3af); font-style:italic;">nicht gesetzt</span>
+          {% else %}
+            <code style="font-size:0.82rem; color:{% if c.ok %}inherit{% else %}#dc2626{% endif %};">{{ c.value }}</code>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if blocked %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    Bitte die fehlenden Pflichtfelder in der <code>.env</code>-Datei eintragen und den Server neu starten.
+  </div>
+  {% endif %}
+
+  <form hx-post="/onboarding/step/checks" hx-target="#onboarding-content" hx-swap="innerHTML">
+    <button type="submit" class="btn btn--primary">Weiter →</button>
+  </form>
+</div>

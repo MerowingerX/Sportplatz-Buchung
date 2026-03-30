@@ -20,3 +20,7 @@ config/field_config.json
 config/demo/vereinsconfig.json
 config/demo/field_config.json
 .env.demo
+data/*.db
+data/*.db-shm
+data/*.db-wal
+web/static/instagram/

@@ -1,0 +1,27 @@
+<div id="mannschaft-sync-result" class="card" style="margin-bottom: 1.5rem;">
+  {% if not neu %}
+  <p class="text-muted">Alle auf fussball.de gefundenen Mannschaften sind bereits vorhanden.</p>
+  <p><strong>Gefunden:</strong> {{ altersklassen_alle | join(', ') or '–' }}</p>
+  {% else %}
+  <h3 style="margin-bottom: 0.75rem;">Neue Mannschaften auf fussball.de ({{ neu | length }})</h3>
+  <form hx-post="/admin/mannschaften/from-fussball-de"
+        hx-target="#mannschaft-tbody"
+        hx-swap="outerHTML">
+    <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem;">
+      {% for name in neu %}
+      <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+        <input type="checkbox" name="add_mannschaft" value="{{ name }}" checked>
+        <span>{{ name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn--primary btn--small">Ausgewählte anlegen</button>
+  </form>
+  {% endif %}
+  {% if existing %}
+  <details style="margin-top: 1rem;">
+    <summary class="text-muted" style="cursor: pointer;">Bereits vorhandene Mannschaften ({{ existing | length }})</summary>
+    <p style="margin-top: 0.5rem;">{{ existing | map(attribute='name') | join(', ') }}</p>
+  </details>
+  {% endif %}
+</div>

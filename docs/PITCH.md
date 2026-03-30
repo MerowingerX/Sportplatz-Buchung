@@ -32,10 +32,13 @@ Vor dem Wochenende generiert das System automatisch ein Karussell mit allen anst
 
 ## Was ihr braucht
 
-### 1. Notion-Konto (kostenlos)
-**Warum:** Notion dient als Datenbank. Kein eigener Datenbankserver, keine Backups von Hand — Notion übernimmt Speicherung, Ausfallsicherheit und ist über die offizielle API angebunden. 
+### 1. Datenbank — Notion oder SQLite (ihr habt die Wahl)
 
-**Was konkret:** Ein kostenloses Notion-Konto reicht. Einmalig eine „Integration" anlegen (API-Schlüssel). Den API-Schlüssel müsst Ihr in die .env einfügen, dann 6 Datenbanken erstellen — das erledigt ein Setup-Script auch automatisch.
+**Option A: SQLite** *(empfohlen für Einsteiger)*
+Alle Daten liegen als einzelne Datei direkt auf eurem Server. Kein externer Dienst, keine Accounts. Setup dauert 2 Minuten: ein Script anlaufen lassen, fertig.
+
+**Option B: Notion-Konto (kostenlos)**
+Notion dient als Datenbank. Speicherung und Ausfallsicherheit übernimmt Notion, ihr braucht keinen eigenen Datenbankserver. Ein kostenloses Konto reicht; einmalig eine Integration anlegen (API-Schlüssel) und 6 Datenbanken erstellen — das erledigt ein Setup-Script automatisch.
 
 ---
 
@@ -69,12 +72,12 @@ Vor dem Wochenende generiert das System automatisch ein Karussell mit allen anst
 
 | Schritt | Aufwand |
 |---|---|
-| Notion-Konto + Datenbanken anlegen | ~20 Minuten (Setup-Script) |
+| Datenbank einrichten (SQLite: 2 Min. / Notion: ~20 Min.) | 2–20 Minuten |
 | Server mieten + Docker einrichten | ~30 Minuten |
 | System deployen + Nutzer anlegen | ~15 Minuten |
 | Konfiguration (Verein, Plätze, Farben, Logo) | ~20 Minuten |
 | Instagram verknüpfen | ~30 Minuten |
-| **Gesamt** | **ca. 2 Stunden** |
+| **Gesamt** | **ca. 1,5–2 Stunden** |
 
 Danach läuft das System selbstständig. Updates werden per `git pull` + Container-Neustart eingespielt.
 
@@ -83,7 +86,7 @@ Danach läuft das System selbstständig. Updates werden per `git pull` + Contain
 ## Was ihr *nicht* braucht
 
 - Keine Programmierkenntnisse für den Betrieb
-- Keine eigene Datenbank (Notion übernimmt das)
+- Keine eigene Datenbank nötig — SQLite läuft direkt auf dem Server, Notion ist optional
 - Keine monatlichen Lizenzgebühren
 - Keine App-Installation für Trainer (läuft im Browser)
 

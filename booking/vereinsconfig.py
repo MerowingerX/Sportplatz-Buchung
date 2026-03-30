@@ -23,9 +23,25 @@ def get_config_path() -> Path:
     return _config_file()
 
 
+_DEFAULTS = {
+    "vereinsname": "Sportverein",
+    "vereinsname_lang": "Sportverein e.V.",
+    "primary_color": "#1e4fa3",
+    "primary_color_dark": "#0d2f6b",
+    "primary_color_darker": "#071c44",
+    "gold_color": "#e8c04a",
+    "logo_url": "/static/logo.svg",
+    "heim_keywords": [],
+    "spielorte": [],
+}
+
+
 @lru_cache(maxsize=1)
 def load() -> dict:
-    with open(_config_file(), encoding="utf-8") as f:
+    p = _config_file()
+    if not p.exists():
+        return dict(_DEFAULTS)
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 

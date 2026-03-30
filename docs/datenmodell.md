@@ -62,8 +62,11 @@
 | Rolle | Select | Trainer, Administrator, Platzwart, DFBnet |
 | E-Mail | Email | – |
 | Password_Hash | Rich Text | bcrypt-Hash |
-| Mannschaft | Select | G1…Mädchen (optional) |
+| Mannschaft | Rich Text | Name der verknüpften Mannschaft (optional, freier String) |
 | Passwort ändern | Checkbox | Erzwingt Passwortänderung |
+
+> **Hinweis:** `User.mannschaft` und `MannschaftConfig.trainer_id` beschreiben dieselbe Beziehung aus zwei Richtungen.
+> Beide werden bei jeder Änderung automatisch synchron gehalten (bidirektionaler Sync in `admin.py`).
 
 ## 5. Externe Termine (Events)
 
@@ -79,6 +82,41 @@
 | Erstellt von Name | Rich Text | Anzeigename |
 
 Konfiguriert über `NOTION_EVENTS_DB_ID` in der `.env`-Datei.
+
+## 7. Mannschaften
+
+| Property | Typ | Werte / Hinweis |
+|----------|-----|-----------------|
+| Name | Title | Vollständiger Name (z. B. „A-Junioren U19") |
+| Shortname | Rich Text | Kompakter Kurzname für Kalenderanzeige (z. B. „A1", „H2", „Fr1") |
+| Trainer Name | Rich Text | Anzeigename des zugewiesenen Trainers |
+| Trainer ID | Rich Text | Notion-ID / UUID des Trainer-Nutzers |
+| fussball.de Team-ID | Rich Text | Team-ID von api-fussball.de für Spielplan-Import |
+| CC-Mails | Rich Text | Kommagetrennte E-Mail-Adressen für Buchungsbenachrichtigungen |
+| Aktiv | Checkbox | Inaktive Mannschaften werden bei Neubuchungen ausgeblendet |
+
+Konfiguriert über `NOTION_MANNSCHAFTEN_DB_ID` in der `.env`-Datei.
+
+### Shortname-Logik
+
+Der Kurzname (`shortname`) wird im Kalender anstelle des vollen Mannschaftsnamens angezeigt.
+Er wird beim fussball.de-Import automatisch abgeleitet (`_derive_shortname()` in `onboarding.py`)
+und kann jederzeit unter **Admin → Mannschaften** angepasst werden.
+
+Ableitungsregeln:
+
+| fussball.de-Name | Kurzname |
+|---|---|
+| 1. Herren | Herren-1 |
+| 2. Herren | Herren-2 |
+| Herren II | Herren-2 |
+| 1. Frauen / 1. Damen | Frauen-1 |
+| Frauen / Damen | Frauen |
+| A-Junioren | A1 |
+| B-Junioren 2 | B2 |
+| A-Mädchen | AM1 |
+| Senioren Ü32 | Ü32 |
+| (sonstiges) | Anfangsbuchstaben der Wörter |
 
 ## 6. Aufgaben
 

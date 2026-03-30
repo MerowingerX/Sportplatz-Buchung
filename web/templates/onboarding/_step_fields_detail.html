@@ -1,0 +1,60 @@
+<div class="step-card">
+  <div class="step-title">Schritt 4 — Platzkonfiguration</div>
+  <p class="check-hint" style="margin-bottom:1.25rem;">
+    Vergib lesbare Namen. Aktiviere Unterteilungen (Hälften/Drittel) wo nötig.
+    Flutlicht-Haken: dieser Platz hat Beleuchtung → kein Sonnenuntergangs-Hinweis.
+  </p>
+  <form hx-post="/onboarding/step/fields" hx-target="#onboarding-content" hx-swap="innerHTML">
+    <input type="hidden" name="count" value="{{ count }}">
+
+    {% for p in pitches %}
+    <div style="background:var(--color-bg-subtle,#f9fafb); border:1px solid var(--color-border,#e5e7eb); border-radius:8px; padding:1rem; margin-bottom:1rem;">
+
+      <!-- Gruppenzeile -->
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+        <span style="font-size:1.3rem; font-weight:700; color:var(--color-primary); min-width:1.75rem; text-align:center;">{{ p.letter }}</span>
+        <div style="flex:1;">
+          <label style="font-size:0.82rem; color:var(--color-text-muted,#6b7280); display:block; margin-bottom:0.2rem;">Gruppenname</label>
+          <input type="text" name="group_name_{{ p.letter }}" value="{{ p.group_name }}"
+                 placeholder="z. B. Kunstrasen" class="input--small" style="width:100%; max-width:260px;">
+        </div>
+      </div>
+
+      <!-- Hauptplatz (Ganz) -->
+      <div style="display:flex; align-items:center; gap:0.75rem; padding:0.35rem 0.5rem; background:var(--color-surface,#fff); border-radius:5px; margin-bottom:0.3rem;">
+        <code style="min-width:2.75rem; font-size:0.88rem; color:var(--color-primary); font-weight:600;">{{ p.letter }}</code>
+        <input type="text" name="dn_{{ p.letter }}" value="{{ p.dn_whole }}"
+               placeholder="Anzeigename (Ganz)" class="input--small" style="flex:1; min-width:120px;">
+        <label style="display:flex; align-items:center; gap:0.3rem; white-space:nowrap; cursor:pointer; font-size:0.88rem;">
+          <input type="checkbox" name="lit_{{ p.letter }}" {% if p.lit %}checked{% endif %}> Flutlicht
+        </label>
+      </div>
+
+      <!-- Unterteilungen -->
+      <div style="padding-left:0.5rem; margin-top:0.4rem;">
+        <div class="check-hint" style="margin-bottom:0.3rem; font-size:0.78rem;">Unterteilungen (optional):</div>
+        {% for sub in p.subs %}
+        <div style="display:flex; align-items:center; gap:0.75rem; padding:0.25rem 0.5rem; border-radius:4px; margin-bottom:0.2rem;">
+          <input type="checkbox" name="sub_{{ p.letter }}_{{ sub.suffix }}"
+                 id="sub_{{ sub.field_id }}" {% if sub.enabled %}checked{% endif %}>
+          <label for="sub_{{ sub.field_id }}" style="font-family:monospace; min-width:2.75rem; font-size:0.88rem; cursor:pointer; color:var(--color-text-muted,#6b7280);">{{ sub.field_id }}</label>
+          <input type="text" name="dn_{{ sub.field_id }}" value="{{ sub.dn }}"
+                 placeholder="{% if loop.index == 1 %}Hälfte A{% elif loop.index == 2 %}Hälfte B{% else %}Drittel{% endif %}"
+                 class="input--small" style="flex:1; min-width:120px;">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div style="display:flex; gap:0.75rem; margin-top:0.75rem; align-items:center;">
+      <button type="button" class="btn btn--ghost btn--small"
+              hx-post="/onboarding/step/fields-count"
+              hx-target="#onboarding-content"
+              hx-swap="innerHTML"
+              hx-vals='{"count": "{{ [count - 1, 1] | max }}"}'>← Anzahl ändern</button>
+      <div style="flex:1;"></div>
+      <button type="submit" class="btn btn--primary">Speichern →</button>
+    </div>
+  </form>
+</div>

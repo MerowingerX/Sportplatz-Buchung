@@ -72,6 +72,9 @@ async def calendar_day(request: Request, current_user: CurrentUser, d: str):
         bookings = _cache[cache_key]
 
     day_bookings = [b for b in bookings if b.date == target]
+    mannschaft_shortnames = {
+        m.name: m.shortname for m in repo.get_all_mannschaften() if m.shortname
+    }
     return templates.TemplateResponse(
         "partials/_calendar_day.html",
         {
@@ -82,6 +85,7 @@ async def calendar_day(request: Request, current_user: CurrentUser, d: str):
             "today": Date.today().isoformat(),
             "prev_day": target - timedelta(days=1),
             "next_day": target + timedelta(days=1),
+            "mannschaft_shortnames": mannschaft_shortnames,
             **_field_context(current_user.role.value),
         },
     )
@@ -124,6 +128,9 @@ async def calendar_week(
     last_slot = slots[-1]
     time_range = f"{slots[0]} – {last_slot}"
 
+    mannschaft_shortnames = {
+        m.name: m.shortname for m in repo.get_all_mannschaften() if m.shortname
+    }
     ctx = _get_week_context(year, week)
     return templates.TemplateResponse(
         "partials/_calendar_week.html",
@@ -137,6 +144,7 @@ async def calendar_week(
             "prev_start_hour": prev_start_hour,
             "next_start_hour": next_start_hour,
             "time_range": time_range,
+            "mannschaft_shortnames": mannschaft_shortnames,
             **_field_context(current_user.role.value),
             **ctx,
         },

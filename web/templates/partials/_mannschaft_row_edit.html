@@ -1,0 +1,40 @@
+<tr id="mannschaft-{{ m.notion_id }}" class="user-row--editing">
+  <td>
+    <input type="text" name="name" value="{{ m.name }}" class="input--small" style="width:140px;" required>
+  </td>
+  <td>
+    <input type="text" name="shortname" value="{{ m.shortname or '' }}" class="input--small" style="width:80px;" placeholder="z.B. A1">
+  </td>
+  <td>
+    <select name="trainer_id" class="input--small" style="width:130px;">
+      <option value="">– kein Trainer –</option>
+      {% for t in trainers %}
+        <option value="{{ t.notion_id }}" {{ 'selected' if m.trainer_id == t.notion_id }}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </td>
+  <td>
+    <input type="text" name="fussball_de_team_id" value="{{ m.fussball_de_team_id or '' }}" class="input--small" style="width:140px;" placeholder="Team-ID">
+  </td>
+  <td>
+    <input type="text" name="cc_emails" value="{{ m.cc_emails | join(', ') }}" class="input--small" style="width:180px;" placeholder="kommagetrennt">
+  </td>
+  <td>
+    <input type="checkbox" name="aktiv" value="1" {{ 'checked' if m.aktiv }}>
+  </td>
+  <td class="text-right nowrap">
+    <button class="btn btn--primary btn--small"
+            hx-patch="/admin/mannschaften/{{ m.notion_id }}"
+            hx-include="closest tr"
+            hx-target="#mannschaft-{{ m.notion_id }}"
+            hx-swap="outerHTML">
+      Speichern
+    </button>
+    <button class="btn btn--ghost btn--small"
+            hx-get="/admin/mannschaften/{{ m.notion_id }}/row"
+            hx-target="#mannschaft-{{ m.notion_id }}"
+            hx-swap="outerHTML">
+      Abbrechen
+    </button>
+  </td>
+</tr>

@@ -185,8 +185,12 @@ async def update_user(
     mannschaft: Optional[str] = Form(None),
 ):
     repo = request.app.state.repo
-    user = repo.update_user(user_id, role=role, email=email, mannschaft=mannschaft or None)
+    old_user = repo.get_user_by_id(user_id)
+    new_mannschaft = mannschaft or None
+    user = repo.update_user(user_id, role=role, email=email, mannschaft=new_mannschaft)
     _invalidate_user_tokens(request.app.state, user_id)
+    if old_user:
+        _sync_user_mannschaft_change(repo, user_id, user.name, old_user.mannschaft, new_mannschaft)
     return HTMLResponse(
         templates.get_template("partials/_user_row.html").render(_user_row_ctx(user, current_user, repo))
         + _toast(f"Nutzer '{user.name}' aktualisiert.")
@@ -205,6 +209,284 @@ async def delete_user(request: Request, user_id: str, current_user: CurrentUser)
     return HTMLResponse(
         f'<tr id="user-{user_id}"></tr>'
         + _toast(f"Nutzer '{user.name}' gelöscht.")
+    )
+
+
+# ------------------------------------------------------------------ Mannschaftsverwaltung
+
+def _mannschaft_row_ctx(m, current_user, repo):
+    trainers = [u for u in repo.get_all_users() if u.role == UserRole.TRAINER]
+    return {"m": m, "current_user": current_user, "trainers": trainers}
+
+
+def _sync_trainer_change(repo, old_trainer_id: Optional[str], new_trainer_id: Optional[str],
+                         mannschaft_name: str) -> None:
+    """
+    Hält User.mannschaft und MannschaftConfig.trainer_id synchron wenn der Trainer einer
+    Mannschaft geändert wird.
+    - old_trainer_id: bisheriger Trainer (dessen User.mannschaft geleert wird)
+    - new_trainer_id: neuer Trainer (dessen User.mannschaft auf mannschaft_name gesetzt wird)
+    """
+    if old_trainer_id and old_trainer_id != new_trainer_id:
+        old_trainer = repo.get_user_by_id(old_trainer_id)
+        if old_trainer and old_trainer.mannschaft == mannschaft_name:
+            repo.update_user(old_trainer_id, old_trainer.role.value, old_trainer.email, None)
+    if new_trainer_id:
+        new_trainer = repo.get_user_by_id(new_trainer_id)
+        if new_trainer and new_trainer.mannschaft != mannschaft_name:
+            repo.update_user(new_trainer_id, new_trainer.role.value, new_trainer.email, mannschaft_name)
+
+
+def _sync_user_mannschaft_change(repo, user_id: str, user_name: str,
+                                 old_mannschaft: Optional[str], new_mannschaft: Optional[str]) -> None:
+    """
+    Hält MannschaftConfig.trainer_id und User.mannschaft synchron wenn die Mannschaft
+    eines Nutzers geändert wird.
+    - Alte Mannschaft: trainer_id wird geleert (falls sie auf diesen Nutzer zeigt)
+    - Neue Mannschaft: trainer_id wird auf diesen Nutzer gesetzt
+    """
+    all_teams = repo.get_all_mannschaften()
+    if old_mannschaft and old_mannschaft != new_mannschaft:
+        for m in all_teams:
+            if m.name == old_mannschaft and m.trainer_id == user_id:
+                repo.update_mannschaft(m.notion_id, m.name, None, None,
+                                       m.fussball_de_team_id, m.cc_emails, m.aktiv,
+                                       shortname=m.shortname)
+    if new_mannschaft:
+        for m in all_teams:
+            if m.name == new_mannschaft and m.trainer_id != user_id:
+                repo.update_mannschaft(m.notion_id, m.name, user_id, user_name,
+                                       m.fussball_de_team_id, m.cc_emails, m.aktiv,
+                                       shortname=m.shortname)
+
+
+@router.get("/mannschaften", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaften_page(request: Request, current_user: CurrentUser):
+    repo = request.app.state.repo
+    mannschaften = repo.get_all_mannschaften()
+    trainers = [u for u in repo.get_all_users() if u.role == UserRole.TRAINER]
+    return templates.TemplateResponse(
+        "admin/mannschaften.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "mannschaften": mannschaften,
+            "trainers": trainers,
+        },
+    )
+
+
+@router.post("/mannschaften", response_class=HTMLResponse, dependencies=[_manage_users])
+async def create_mannschaft(
+    request: Request,
+    current_user: CurrentUser,
+    name: str = Form(...),
+    shortname: Optional[str] = Form(None),
+    trainer_id: Optional[str] = Form(None),
+    fussball_de_team_id: Optional[str] = Form(None),
+    cc_emails: Optional[str] = Form(None),
+    aktiv: Optional[str] = Form(None),
+):
+    repo = request.app.state.repo
+    trainer_name: Optional[str] = None
+    if trainer_id:
+        trainer = repo.get_user_by_id(trainer_id)
+        trainer_name = trainer.name if trainer else None
+    cc_list = [e.strip() for e in (cc_emails or "").split(",") if e.strip()]
+    repo.create_mannschaft(
+        name=name.strip(),
+        shortname=shortname.strip() if shortname else None,
+        trainer_id=trainer_id or None,
+        trainer_name=trainer_name,
+        fussball_de_team_id=fussball_de_team_id.strip() if fussball_de_team_id else None,
+        cc_emails=cc_list,
+        aktiv=aktiv is not None,
+    )
+    return HTMLResponse(_toast(f"Mannschaft '{name}' angelegt."))
+
+
+# ── fussball.de Mannschaft-Sync ───────────────────────────────────────────────
+
+def _load_fussball_de_mod():
+    import importlib.util as _ilu
+    import pathlib as _pl
+    path = _pl.Path(__file__).parent.parent.parent / "tools" / "fussball_de.py"
+    spec = _ilu.spec_from_file_location("fussball_de", path)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@router.post("/mannschaften/sync-fussball-de", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaft_sync_fussball_de(request: Request, current_user: CurrentUser):
+    import asyncio as _asyncio
+    repo = request.app.state.repo
+    settings = get_settings()
+    url = getattr(settings, "fussball_de_vereinsseite", None)
+    if not url:
+        return HTMLResponse(_toast("FUSSBALL_DE_VEREINSSEITE nicht konfiguriert.", "error"))
+
+    from booking.vereinsconfig import get_heim_keywords
+    heim_kw = get_heim_keywords()
+
+    def _scrape():
+        mod = _load_fussball_de_mod()
+        club_id = mod._club_id_from_url(url)
+        if not club_id:
+            raise ValueError(f"Konnte Club-ID nicht aus URL extrahieren: {url}")
+        html = mod.fetch_matchplan_html(club_id)
+        return mod.parse_matchplan(html, heim_kw)
+
+    try:
+        loop = _asyncio.get_event_loop()
+        spiele = await loop.run_in_executor(None, _scrape)
+    except Exception as exc:
+        return HTMLResponse(_toast(f"fussball.de konnte nicht abgerufen werden: {exc}", "error"))
+
+    altersklassen = sorted({s.altersklasse for s in spiele if s.altersklasse})
+    existing = repo.get_all_mannschaften()
+    existing_names = {m.name for m in existing}
+    neu = [a for a in altersklassen if a not in existing_names]
+
+    return HTMLResponse(
+        templates.get_template("partials/_mannschaft_sync.html").render({
+            "neu": neu,
+            "existing": existing,
+            "altersklassen_alle": altersklassen,
+        })
+    )
+
+
+@router.post("/mannschaften/from-fussball-de", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaft_from_fussball_de(
+    request: Request,
+    current_user: CurrentUser,
+):
+    form = await request.form()
+    selected = form.getlist("add_mannschaft")
+    repo = request.app.state.repo
+    created = 0
+    for name in selected:
+        name = name.strip()
+        if not name:
+            continue
+        existing = repo.get_all_mannschaften()
+        if any(m.name == name for m in existing):
+            continue
+        repo.create_mannschaft(
+            name=name,
+            trainer_id=None,
+            trainer_name=None,
+            fussball_de_team_id=None,
+            cc_emails=[],
+            aktiv=True,
+        )
+        created += 1
+    msg = f"{created} Mannschaft(en) angelegt." if created else "Keine neuen Mannschaften ausgewählt."
+    level = "success" if created else "warning"
+    # Reload full table body
+    mannschaften = repo.get_all_mannschaften()
+    rows_html = "".join(
+        templates.get_template("partials/_mannschaft_row.html").render(
+            _mannschaft_row_ctx(m, current_user, repo)
+        )
+        for m in mannschaften
+    )
+    return HTMLResponse(
+        f'<tbody id="mannschaft-tbody">{rows_html}</tbody>'
+        + _toast(msg, level)
+    )
+
+
+@router.get("/mannschaften/{mid}/row", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaft_row(request: Request, mid: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    m = repo.get_mannschaft_by_id(mid)
+    if not m:
+        return HTMLResponse(_toast("Mannschaft nicht gefunden.", "error"), status_code=404)
+    return HTMLResponse(
+        templates.get_template("partials/_mannschaft_row.html").render(
+            _mannschaft_row_ctx(m, current_user, repo)
+        )
+    )
+
+
+@router.get("/mannschaften/{mid}/edit", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaft_edit_row(request: Request, mid: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    m = repo.get_mannschaft_by_id(mid)
+    if not m:
+        return HTMLResponse(_toast("Mannschaft nicht gefunden.", "error"), status_code=404)
+    return HTMLResponse(
+        templates.get_template("partials/_mannschaft_row_edit.html").render(
+            _mannschaft_row_ctx(m, current_user, repo)
+        )
+    )
+
+
+@router.patch("/mannschaften/{mid}", response_class=HTMLResponse, dependencies=[_manage_users])
+async def update_mannschaft(
+    request: Request,
+    mid: str,
+    current_user: CurrentUser,
+    name: str = Form(...),
+    shortname: Optional[str] = Form(None),
+    trainer_id: Optional[str] = Form(None),
+    fussball_de_team_id: Optional[str] = Form(None),
+    cc_emails: Optional[str] = Form(None),
+    aktiv: Optional[str] = Form(None),
+):
+    repo = request.app.state.repo
+    old_m = repo.get_mannschaft_by_id(mid)
+    new_trainer_id = trainer_id or None
+    trainer_name: Optional[str] = None
+    if new_trainer_id:
+        trainer = repo.get_user_by_id(new_trainer_id)
+        trainer_name = trainer.name if trainer else None
+    cc_list = [e.strip() for e in (cc_emails or "").split(",") if e.strip()]
+    m = repo.update_mannschaft(
+        mannschaft_id=mid,
+        name=name.strip(),
+        shortname=shortname.strip() if shortname else None,
+        trainer_id=new_trainer_id,
+        trainer_name=trainer_name,
+        fussball_de_team_id=fussball_de_team_id.strip() if fussball_de_team_id else None,
+        cc_emails=cc_list,
+        aktiv=aktiv is not None,
+    )
+    if old_m:
+        _sync_trainer_change(repo, old_m.trainer_id, new_trainer_id, m.name)
+    return HTMLResponse(
+        templates.get_template("partials/_mannschaft_row.html").render(
+            _mannschaft_row_ctx(m, current_user, repo)
+        )
+        + _toast(f"Mannschaft '{m.name}' aktualisiert.")
+    )
+
+
+@router.delete("/mannschaften/{mid}", response_class=HTMLResponse, dependencies=[_manage_users])
+async def delete_mannschaft(request: Request, mid: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    m = repo.get_mannschaft_by_id(mid)
+    if not m:
+        return HTMLResponse(_toast("Mannschaft nicht gefunden.", "error"))
+    # Alle Buchungen dieser Mannschaft stornieren
+    from booking.models import BookingStatus
+    from web.routers.calendar import invalidate_week_cache
+    all_bookings = repo.get_all_bookings()
+    cancelled = 0
+    for b in all_bookings:
+        if b.mannschaft == m.name and b.status == BookingStatus.BESTAETIGT:
+            repo.update_booking_status(b.notion_id, BookingStatus.STORNIERT)
+            invalidate_week_cache(b.date)
+            cancelled += 1
+    repo.delete_mannschaft(mid)
+    msg = f"Mannschaft '{m.name}' gelöscht."
+    if cancelled:
+        msg += f" {cancelled} Buchung(en) storniert."
+    return HTMLResponse(
+        f'<tr id="mannschaft-{mid}"></tr>'
+        + _toast(msg, "warning" if cancelled else "success")
     )
 
 
@@ -531,250 +813,6 @@ async def dfbnet_import_confirm(
         msg += f" {displaced_total} bestehende Buchung(en) verdrängt und benachrichtigt."
 
     return HTMLResponse(_toast(msg))
-
-
-# ------------------------------------------------------------------ CSV-Import
-
-_PLATZBELEGUNG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "Platzbelegung")
-
-
-def _parse_dfbnet_csv(content: bytes) -> list[dict]:
-    """Parst DFBnet-Platzbelegungs-CSV (Tab-separiert) und gibt sortierte Event-Liste zurück."""
-    import csv
-    import io
-
-    try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = content.decode("utf-16")
-    reader = csv.reader(io.StringIO(text), delimiter="\t")
-
-    header = next(reader, None)
-    if not header:
-        return []
-
-    # Spaltenindizes anhand der Header bestimmen
-    col_map = {h.strip(): idx for idx, h in enumerate(header)}
-    idx_datum = col_map.get("Spieldatum")
-    idx_zeit = col_map.get("Uhrzeit")
-    idx_heim = col_map.get("Heimmannschaft")
-    idx_gast = col_map.get("Gastmannschaft")
-    idx_liga = col_map.get("Liga")
-    idx_kennung = col_map.get("Spielkennung")
-
-    if idx_datum is None or idx_zeit is None:
-        return []
-
-    today = date.today()
-    events = []
-
-    for row in reader:
-        if len(row) <= max(idx_datum, idx_zeit):
-            continue
-
-        # Spieldatum parsen: "Sa., 28.02.2026" → date
-        datum_raw = row[idx_datum].strip()
-        if ", " in datum_raw:
-            datum_raw = datum_raw.split(", ", 1)[1]
-        try:
-            parts = datum_raw.split(".")
-            event_date = date(int(parts[2]), int(parts[1]), int(parts[0]))
-        except (ValueError, IndexError):
-            continue
-
-        # Vergangene Termine überspringen
-        if event_date < today:
-            continue
-
-        # Uhrzeit parsen
-        zeit_raw = row[idx_zeit].strip()
-        try:
-            h, m = zeit_raw.split(":")
-            event_time = _round_to_slot(time(int(h), int(m)))
-        except (ValueError, IndexError):
-            continue
-
-        # Summary zusammenbauen
-        heim = row[idx_heim].strip() if idx_heim is not None and len(row) > idx_heim else ""
-        gast = row[idx_gast].strip() if idx_gast is not None and len(row) > idx_gast else ""
-        liga = row[idx_liga].strip() if idx_liga is not None and len(row) > idx_liga else ""
-        summary = f"{heim} vs {gast}" if heim and gast else heim or "DFBnet-Spiel"
-        if liga:
-            summary = f"[{liga}] {summary}"
-
-        kennung = row[idx_kennung].strip() if idx_kennung is not None and len(row) > idx_kennung else ""
-
-        events.append({
-            "date": event_date,
-            "start_time": event_time,
-            "duration_min": 90,
-            "summary": summary,
-            "spielkennung": kennung,
-            "mannschaft": heim or "",   # Heimmannschaft als Mannschafts-Label (z.B. "TuS Cremlingen 1")
-        })
-
-    events.sort(key=lambda e: (e["date"], e["start_time"]))
-    return events
-
-
-def _save_csv_file(content: bytes, filename: str) -> str:
-    """Speichert die CSV-Datei im Platzbelegung-Ordner."""
-    os.makedirs(_PLATZBELEGUNG_DIR, exist_ok=True)
-    target = os.path.join(_PLATZBELEGUNG_DIR, filename)
-
-    if os.path.exists(target):
-        base, ext = os.path.splitext(filename)
-        from datetime import datetime as dt
-        suffix = dt.now().strftime("%Y%m%d_%H%M%S")
-        target = os.path.join(_PLATZBELEGUNG_DIR, f"{base}_{suffix}{ext}")
-
-    with open(target, "wb") as f:
-        f.write(content)
-    return target
-
-
-@router.get("/csv-import", response_class=HTMLResponse, dependencies=[_dfbnet_required])
-async def csv_import_page(request: Request, current_user: CurrentUser):
-    return templates.TemplateResponse(
-        "admin/csv_import.html",
-        {"request": request, "current_user": current_user},
-    )
-
-
-@router.post("/csv-import", response_class=HTMLResponse, dependencies=[_dfbnet_required])
-async def csv_import_preview(
-    request: Request,
-    current_user: CurrentUser,
-    csv_file: UploadFile = File(...),
-):
-    content = await csv_file.read()
-    filename = csv_file.filename or "import.csv"
-    _save_csv_file(content, filename)
-
-    events = _parse_dfbnet_csv(content)
-
-    # Bekannte Spielkennungen prüfen
-    repo = request.app.state.repo
-    kennungen = [ev["spielkennung"] for ev in events if ev.get("spielkennung")]
-    known = repo.get_bookings_by_spielkennung(kennungen) if kennungen else {}
-    for ev in events:
-        ev["already_known"] = ev.get("spielkennung", "") in known
-
-    return templates.TemplateResponse(
-        "partials/_import_preview.html",
-        {
-            "request": request,
-            "events": events,
-            "fields": list(FieldName),
-            "start_slots": get_all_start_slots(),
-            "durations": _ALLOWED_DURATIONS,
-            "confirm_url": "/admin/csv-import/confirm",
-        },
-    )
-
-
-@router.post("/csv-import/confirm", response_class=HTMLResponse, dependencies=[_dfbnet_required])
-async def csv_import_confirm(
-    request: Request,
-    current_user: CurrentUser,
-    background_tasks: BackgroundTasks,
-):
-    form = await request.form()
-    count = int(form.get("count", 0))
-    repo = request.app.state.repo
-    settings = get_settings()
-
-    created_bookings: list[tuple[str, str]] = []  # (summary, spielkennung)
-    skipped_known: list[str] = []  # summaries von bereits bekannten
-    displaced_total = 0
-
-    # Pauschal gewählter Zielplatz für alle Spiele
-    field_str = form.get("field")
-    try:
-        field = FieldName(str(field_str))
-    except (ValueError, KeyError):
-        return HTMLResponse(_toast("Kein gültiger Platz gewählt.", "error"))
-
-    for i in range(count):
-        if not form.get(f"include_{i}"):
-            continue
-
-        date_str = form.get(f"date_{i}")
-        start_time_str = form.get(f"start_time_{i}")
-        duration_str = form.get(f"duration_{i}")
-        spielkennung = str(form.get(f"spielkennung_{i}", "") or "")
-        summary = str(form.get(f"summary_{i}", "") or "DFBnet-Spiel")
-        mannschaft_val = str(form.get(f"mannschaft_{i}", "") or "")
-
-        if not all([date_str, start_time_str, duration_str]):
-            continue
-
-        try:
-            booking_date = date.fromisoformat(str(date_str))
-            hh, mm = str(start_time_str).split(":")
-            parsed_start = time(int(hh), int(mm))
-            duration_min = int(str(duration_str))
-        except (ValueError, KeyError):
-            continue
-
-        # Duplikat-Check: Spielkennung bereits in Notion?
-        if spielkennung:
-            existing_by_kennung = repo.get_bookings_by_spielkennung([spielkennung])
-            if spielkennung in existing_by_kennung:
-                skipped_known.append(f"{booking_date.strftime('%d.%m.%Y')} {summary}")
-                continue
-
-        data = BookingCreate(
-            field=field,
-            date=booking_date,
-            start_time=parsed_start,
-            duration_min=duration_min,
-            booking_type=BookingType.SPIEL,
-            spielkennung=spielkennung or None,
-            zweck=summary,
-            mannschaft=mannschaft_val or None,
-        )
-
-        existing = repo.get_bookings_for_date(booking_date)
-        new_booking, displaced = dfbnet_displace(
-            repo=repo,
-            data=data,
-            current_user=current_user,
-            settings=settings,
-            existing_bookings=existing,
-        )
-
-        invalidate_week_cache(booking_date)
-        created_bookings.append((f"{booking_date.strftime('%d.%m.%Y')} {summary}", spielkennung))
-        displaced_total += len(displaced)
-
-        if displaced:
-            from notifications.notify import send_dfbnet_displacement_notice
-            for b in displaced:
-                owner = repo.get_user_by_id(b.booked_by_id)
-                if owner:
-                    await send_dfbnet_displacement_notice(b, owner, new_booking, settings)
-
-    # Import-Zusammenfassung per E-Mail an Admin
-    from notifications.notify import send_csv_import_summary
-    admin_user = repo.get_user_by_id(current_user.sub)
-    if admin_user and admin_user.email:
-        background_tasks.add_task(
-            send_csv_import_summary,
-            created=[c[0] for c in created_bookings],
-            skipped_known=skipped_known,
-            displaced_count=displaced_total,
-            admin=admin_user,
-            settings=settings,
-        )
-
-    msg = f"{len(created_bookings)} DFBnet-Buchung(en) aus CSV-Import erstellt."
-    if skipped_known:
-        msg += f" {len(skipped_known)} bereits bekannt (übersprungen)."
-    if displaced_total:
-        msg += f" {displaced_total} bestehende Buchung(en) verdrängt."
-
-    return HTMLResponse(_toast(msg, "warning" if skipped_known else "success"))
 
 
 # ------------------------------------------------------------------ Instagram

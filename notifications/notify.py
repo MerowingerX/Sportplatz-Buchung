@@ -13,12 +13,15 @@ from web.config import Settings
 logger = logging.getLogger(__name__)
 
 
-async def _send_email(to: str, subject: str, body: str, settings: Settings) -> None:
+async def _send_email(to: str, subject: str, body: str, settings: Settings, cc: list[str] = []) -> None:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
     msg["To"] = to
+    if cc:
+        msg["Cc"] = ", ".join(cc)
     msg.attach(MIMEText(body, "plain", "utf-8"))
+    all_recipients = [to] + cc
 
     try:
         await aiosmtplib.send(
@@ -28,12 +31,13 @@ async def _send_email(to: str, subject: str, body: str, settings: Settings) -> N
             username=settings.smtp_user,
             password=settings.smtp_password,
             start_tls=True,
+            recipients=all_recipients,
         )
     except Exception as e:
         logger.error("E-Mail-Versand fehlgeschlagen an %s: %s", to, e)
 
 
-async def send_booking_confirmation(booking: Booking, user: User, settings: Settings) -> None:
+async def send_booking_confirmation(booking: Booking, user: User, settings: Settings, cc: list[str] = []) -> None:
     subject = f"Buchungsbestätigung: {booking.field.value} am {booking.date}"
     body = (
         f"Hallo {user.name},\n\n"
@@ -46,10 +50,10 @@ async def send_booking_confirmation(booking: Booking, user: User, settings: Sett
     if booking.sunset_note:
         body += f"\n⚠️  {booking.sunset_note}\n"
     body += "\nViel Spaß auf dem Platz!\n"
-    await _send_email(user.email, subject, body, settings)
+    await _send_email(user.email, subject, body, settings, cc=cc)
 
 
-async def send_cancellation_notice(booking: Booking, user: User, settings: Settings) -> None:
+async def send_cancellation_notice(booking: Booking, user: User, settings: Settings, cc: list[str] = []) -> None:
     subject = f"Buchung storniert: {booking.field.value} am {booking.date}"
     body = (
         f"Hallo {user.name},\n\n"
@@ -59,7 +63,7 @@ async def send_cancellation_notice(booking: Booking, user: User, settings: Setti
         f"  Uhrzeit:  {booking.start_time.strftime('%H:%M')} – {booking.end_time.strftime('%H:%M')}\n\n"
         f"Bei Fragen wende dich an den Administrator.\n"
     )
-    await _send_email(user.email, subject, body, settings)
+    await _send_email(user.email, subject, body, settings, cc=cc)
 
 
 async def send_dfbnet_displacement_notice(
@@ -125,38 +129,6 @@ async def send_series_confirmation(
     await _send_email(admin.email, subject, body, settings)
 
 
-async def send_csv_import_summary(
-    created: list[str],
-    skipped_known: list[str],
-    displaced_count: int,
-    admin: User,
-    settings: Settings,
-) -> None:
-    subject = f"CSV-Import: {len(created)} Spiel(e) importiert"
-
-    body = f"Hallo {admin.name},\n\n"
-
-    if created:
-        created_list = "\n".join(f"  - {c}" for c in created)
-        body += (
-            f"Neu importierte Spiele ({len(created)}):\n"
-            f"{created_list}\n\n"
-        )
-    else:
-        body += "Es wurden keine neuen Spiele importiert.\n\n"
-
-    if skipped_known:
-        skipped_list = "\n".join(f"  - {s}" for s in skipped_known)
-        body += (
-            f"Bereits bekannte Spiele ({len(skipped_known)}) – übersprungen:\n"
-            f"{skipped_list}\n\n"
-        )
-
-    if displaced_count:
-        body += f"⚠️  {displaced_count} bestehende Buchung(en) wurden durch die neuen Spiele verdrängt.\n\n"
-
-    body += "Bei Fragen wende dich an den Administrator.\n"
-    await _send_email(admin.email, subject, body, settings)
 
 
 async def send_series_cancellation_notice(

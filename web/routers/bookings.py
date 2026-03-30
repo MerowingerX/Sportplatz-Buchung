@@ -29,6 +29,14 @@ def _visible_fields(current_user) -> list[FieldName]:
 from web.htmx import toast as _toast
 
 
+def _get_cc_emails(repo, mannschaft_name: Optional[str]) -> list[str]:
+    if not mannschaft_name:
+        return []
+    mannschaften = repo.get_all_mannschaften()
+    m = next((m for m in mannschaften if m.name == mannschaft_name), None)
+    return m.cc_emails if m else []
+
+
 @router.get("", response_class=HTMLResponse)
 async def bookings_page(
     request: Request,
@@ -37,6 +45,9 @@ async def bookings_page(
     field: Optional[str] = None,
     start_time: Optional[str] = None,
 ):
+    repo = request.app.state.repo
+    mannschaften = repo.get_all_mannschaften(only_active=True)
+    user_mannschaft = current_user.mannschaft
     start_slots = get_all_start_slots()
     return templates.TemplateResponse(
         "partials/_booking_form.html",
@@ -51,6 +62,8 @@ async def bookings_page(
             "prefill_date": date,
             "prefill_field": field,
             "prefill_start_time": start_time,
+            "mannschaften": mannschaften,
+            "user_mannschaft": user_mannschaft,
         },
     )
 
@@ -64,6 +77,7 @@ async def create_booking(
     start_time: str = Form(...),
     duration_min: int = Form(...),
     booking_type: str = Form(...),
+    mannschaft: Optional[str] = Form(None),
 ):
     from datetime import time as dtime
     repo = request.app.state.repo
@@ -78,6 +92,7 @@ async def create_booking(
         start_time=parsed_start,
         duration_min=duration_min,
         booking_type=BookingType(booking_type),
+        mannschaft=mannschaft or None,
     )
 
     existing = repo.get_bookings_for_date(booking_date)
@@ -92,6 +107,7 @@ async def create_booking(
 
     if errors:
         start_slots = get_all_start_slots()
+        mannschaften = repo.get_all_mannschaften(only_active=True)
         return templates.TemplateResponse(
             "partials/_booking_form.html",
             {
@@ -107,6 +123,8 @@ async def create_booking(
                 "prefill_start_time": start_time,
                 "errors": errors,
                 "form_toast": _toast("Buchung fehlgeschlagen", "error"),
+                "mannschaften": mannschaften,
+                "user_mannschaft": current_user.mannschaft,
             },
         )
 
@@ -115,8 +133,9 @@ async def create_booking(
 
     owner = repo.get_user_by_id(current_user.sub)
     if owner:
+        cc = _get_cc_emails(repo, booking.mannschaft)
         from notifications.notify import send_booking_confirmation
-        await send_booking_confirmation(booking, owner, settings)
+        await send_booking_confirmation(booking, owner, settings, cc=cc)
 
     display = get_display_name(booking.field.value)
     iso = booking_date.isocalendar()
@@ -154,8 +173,9 @@ async def cancel_booking(
 
     owner = repo.get_user_by_id(booking.booked_by_id)
     if owner:
+        cc = _get_cc_emails(repo, booking.mannschaft)
         from notifications.notify import send_cancellation_notice
-        await send_cancellation_notice(booking, owner, settings)
+        await send_cancellation_notice(booking, owner, settings, cc=cc)
 
     display = get_display_name(booking.field.value)
     free_slot = (

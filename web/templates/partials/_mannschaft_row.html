@@ -1,0 +1,19 @@
+<tr id="mannschaft-{{ m.notion_id }}">
+  <td>{{ m.name }}</td>
+  <td>{{ m.shortname or '–' }}</td>
+  <td>{{ m.trainer_name or '–' }}</td>
+  <td>{{ m.fussball_de_team_id or '–' }}</td>
+  <td>{{ m.cc_emails | join(', ') or '–' }}</td>
+  <td>{{ 'Ja' if m.aktiv else 'Nein' }}</td>
+  <td class="text-right nowrap">
+    <button class="btn btn--secondary btn--small"
+            hx-get="/admin/mannschaften/{{ m.notion_id }}/edit"
+            hx-target="#mannschaft-{{ m.notion_id }}"
+            hx-swap="outerHTML">Bearbeiten</button>
+    <button class="btn btn--danger btn--small"
+            hx-delete="/admin/mannschaften/{{ m.notion_id }}"
+            hx-target="#mannschaft-{{ m.notion_id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Mannschaft '{{ m.name }}' löschen? Alle Buchungen dieser Mannschaft werden storniert.">Löschen</button>
+  </td>
+</tr>

@@ -1,0 +1,43 @@
+<div class="step-card">
+  <div class="step-title">Schritt 5 — Spielort-Zuordnung (fussball.de)</div>
+  <p class="check-hint" style="margin-bottom:1rem;">
+    Damit Spiele aus fussball.de automatisch dem richtigen Platz zugeordnet werden:
+    Trage den Spielort-Teilstring aus fussball.de ein (Kleinschreibung reicht).
+    <br>
+    <strong>Platz-Präfixe</strong> sind die Feld-IDs, die auf diesem Spielort vorkommen
+    (kommagetrennt, z. B. <code>A, AA, AB</code>). Optional — kann später im Admin-Bereich angepasst werden.
+  </p>
+  <form hx-post="/onboarding/step/spielorte" hx-target="#onboarding-content" hx-swap="innerHTML">
+    {% if spielorte_fields %}
+    {% for s in spielorte_fields %}
+    <input type="hidden" name="spielort_feld" value="{{ s.letter }}">
+    <div style="background:var(--color-bg-subtle,#f9fafb); border:1px solid var(--color-border,#e5e7eb); border-radius:6px; padding:0.85rem 1rem; margin-bottom:0.75rem;">
+      <div style="font-weight:600; margin-bottom:0.5rem;">
+        <code style="color:var(--color-primary);">{{ s.letter }}</code>
+        <span style="color:var(--color-text-muted,#6b7280); font-weight:400;"> — {{ s.dn }}</span>
+      </div>
+      <div class="form-group" style="margin-bottom:0.5rem;">
+        <label style="font-size:0.82rem;">fussball.de Spielort-String <span class="label-hint">(optional)</span></label>
+        <input type="text" name="spielort_string_{{ s.letter }}"
+               value="{{ s.fussball_de_string }}"
+               placeholder="z. B. meeschestadion a-platz"
+               class="input--small" style="width:100%;">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label style="font-size:0.82rem;">Platz-Präfixe <span class="label-hint">(kommagetrennt)</span></label>
+        <input type="text" name="spielort_praefix_{{ s.letter }}"
+               value="{{ s.platz_praefix }}"
+               placeholder="z. B. A, AA, AB"
+               class="input--small" style="width:100%;">
+        <small class="check-hint">Welche Feld-IDs auf diesem Spielort liegen (für check_spielplan).</small>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="color:var(--color-text-muted,#6b7280); margin-bottom:1rem;">Keine Plätze konfiguriert.</p>
+    {% endif %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Weiter →</button>
+    </div>
+  </form>
+</div>

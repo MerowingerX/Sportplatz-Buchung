@@ -1,0 +1,12 @@
+<div class="step-card" style="text-align:center;">
+  <div style="font-size:3rem; margin-bottom:1rem;">✅</div>
+  <div class="step-title">Einrichtung abgeschlossen!</div>
+  <p style="margin-bottom:0.5rem;">
+    {% if count %}{{ count }} Mannschaft(en) angelegt. {% endif %}Das System ist jetzt einsatzbereit.
+  </p>
+  <p class="check-hint" style="margin-bottom:2rem;">
+    Du kannst alle Einstellungen jederzeit im <strong>Admin-Bereich</strong> anpassen:<br>
+    Vereinsfarben, Platzkonfiguration, Spielorte, Mannschaften, Trainer, CC-Mails.
+  </p>
+  <a href="/login" class="btn btn--primary" hx-boost="false">Zum Login →</a>
+</div>

@@ -1,0 +1,21 @@
+<div class="step-card">
+  <div class="step-title">Schritt 4 — Platzkonfiguration</div>
+  <p style="margin-bottom:0.5rem;">Wie viele buchbare <strong>Hauptplätze</strong> hat euer Verein?</p>
+  <p class="check-hint" style="margin-bottom:1.25rem;">
+    Jeder Hauptplatz (A, B, C …) kann optional in bis zu 3 Teilflächen unterteilt werden (z. B. AA = Hälfte A, AB = Hälfte B, AC = Drittel).
+    Anzeigenamen und Flutlicht-Status werden im nächsten Schritt konfiguriert.
+  </p>
+  <form hx-post="/onboarding/step/fields-count" hx-target="#onboarding-content" hx-swap="innerHTML">
+    <div class="form-group">
+      <label>Anzahl Hauptplätze <span class="label-required">*</span></label>
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <input type="number" name="count" min="1" max="26" value="{{ existing_count }}" required
+               style="width:5rem;" class="input--small">
+        <span class="check-hint">A = 1 Platz, A+B = 2 Plätze, … (max. 26)</span>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Weiter →</button>
+    </div>
+  </form>
+</div>

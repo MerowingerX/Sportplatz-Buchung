@@ -1,0 +1,34 @@
+<div class="step-card">
+  <div class="step-title">Schritt 3 — Vereinskonfiguration</div>
+  <form hx-post="/onboarding/step/vereinsconfig" hx-target="#onboarding-content" hx-swap="innerHTML">
+    <div class="form-group">
+      <label>Vereinsname (kurz) <span class="label-required">*</span></label>
+      <input type="text" name="vereinsname" required placeholder="TuS Musterstadt"
+             value="{{ vereinsname }}">
+    </div>
+    <div class="form-group">
+      <label>Vereinsname (lang) <span class="label-hint">(optional)</span></label>
+      <input type="text" name="vereinsname_lang" placeholder="Turn- und Sportverein Musterstadt e. V."
+             value="{{ vereinsname_lang }}">
+    </div>
+    <div class="form-group">
+      <label>Heim-Keywords für Spielplan <span class="label-hint">(kommagetrennt)</span></label>
+      <input type="text" name="heim_keywords" placeholder="musterstadt, sg musterstadt"
+             value="{{ heim_keywords }}">
+      <small class="check-hint">Wörter im Heimteam-Namen auf fussball.de, die ein Heimspiel kennzeichnen (Groß-/Kleinschreibung egal).</small>
+    </div>
+    <div class="form-group">
+      <label>Primärfarbe <span class="label-hint">(optional)</span></label>
+      <input type="color" name="primary_color" value="{{ primary_color }}"
+             style="width:3.5rem; height:2.2rem; padding:0.1rem; cursor:pointer;">
+    </div>
+    <div class="form-group">
+      <label>Logo-URL <span class="label-hint">(optional, Standard: /static/logo.svg)</span></label>
+      <input type="text" name="logo_url" placeholder="/static/logo.svg"
+             value="{{ logo_url }}">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Speichern →</button>
+    </div>
+  </form>
+</div>

@@ -10,6 +10,9 @@ from booking.models import (
     AufgabeCreate,
     AufgabeStatus,
     AufgabeTyp,
+    BlackoutCreate,
+    BlackoutPeriod,
+    BlackoutType,
     Booking,
     BookingCreate,
     BookingStatus,
@@ -28,6 +31,7 @@ from booking.models import (
     UserCreate,
     UserRole,
 )
+from db.repository import AbstractRepository
 from web.config import Settings
 
 
@@ -112,7 +116,7 @@ def _parse_time(value: Optional[str]) -> Optional[time]:
     return time(int(h), int(m))
 
 
-class NotionRepository:
+class NotionRepository(AbstractRepository):
     def __init__(self, settings: Settings) -> None:
         self._client = Client(auth=settings.notion_api_key)
         self._settings = settings
@@ -273,13 +277,16 @@ class NotionRepository:
 
     def _page_to_mannschaft(self, page: dict) -> MannschaftConfig:
         props = page["properties"]
+        raw_cc = _get_rich_text(props, "CC-Mails") or ""
         return MannschaftConfig(
             notion_id=page["id"],
             name=_get_title(props, "Name"),
+            shortname=_get_rich_text(props, "Shortname") or None,
             trainer_name=_get_rich_text(props, "Trainer Name") or None,
             trainer_id=_get_rich_text(props, "Trainer ID") or None,
             fussball_de_team_id=_get_rich_text(props, "FussballDeTeamId") or None,
             aktiv=_get_checkbox(props, "Aktiv"),
+            cc_emails=[e.strip() for e in raw_cc.split(",") if e.strip()],
         )
 
     def get_all_mannschaften(self, only_active: bool = False) -> list[MannschaftConfig]:
@@ -294,6 +301,70 @@ class NotionRepository:
         result = [self._page_to_mannschaft(p) for p in pages]
         result.sort(key=lambda m: m.name)
         return result
+
+    def get_mannschaft_by_id(self, mannschaft_id: str) -> Optional[MannschaftConfig]:
+        try:
+            page = self._client.pages.retrieve(page_id=mannschaft_id)
+            return self._page_to_mannschaft(page)
+        except Exception:
+            return None
+
+    def create_mannschaft(
+        self,
+        name: str,
+        trainer_id: Optional[str],
+        trainer_name: Optional[str],
+        fussball_de_team_id: Optional[str],
+        cc_emails: list[str],
+        aktiv: bool = True,
+        shortname: Optional[str] = None,
+    ) -> MannschaftConfig:
+        db_id = self._settings.notion_mannschaften_db_id
+        props: dict = {
+            "Name": _title(name),
+            "Aktiv": _checkbox(aktiv),
+        }
+        if shortname:
+            props["Shortname"] = _rich_text(shortname)
+        if trainer_name:
+            props["Trainer Name"] = _rich_text(trainer_name)
+        if trainer_id:
+            props["Trainer ID"] = _rich_text(trainer_id)
+        if fussball_de_team_id:
+            props["FussballDeTeamId"] = _rich_text(fussball_de_team_id)
+        if cc_emails:
+            props["CC-Mails"] = _rich_text(",".join(cc_emails))
+        page = self._client.pages.create(
+            parent={"database_id": db_id},
+            properties=props,
+        )
+        return self._page_to_mannschaft(page)
+
+    def update_mannschaft(
+        self,
+        mannschaft_id: str,
+        name: str,
+        trainer_id: Optional[str],
+        trainer_name: Optional[str],
+        fussball_de_team_id: Optional[str],
+        cc_emails: list[str],
+        aktiv: bool,
+        shortname: Optional[str] = None,
+    ) -> MannschaftConfig:
+        props: dict = {
+            "Name": _title(name),
+            "Aktiv": _checkbox(aktiv),
+            "Shortname": _rich_text(shortname or ""),
+            "Trainer Name": _rich_text(trainer_name or ""),
+            "Trainer ID": _rich_text(trainer_id or ""),
+            "FussballDeTeamId": _rich_text(fussball_de_team_id or ""),
+            "CC-Mails": _rich_text(",".join(cc_emails)),
+        }
+        page = self._update_page(mannschaft_id, props)
+        return self._page_to_mannschaft(page)
+
+    def delete_mannschaft(self, mannschaft_id: str) -> None:
+        self._client.pages.update(page_id=mannschaft_id, archived=True)
 
     def create_user(self, user: UserCreate, password_hash: str) -> User:
         page = self._client.pages.create(
@@ -815,3 +886,48 @@ class NotionRepository:
 
     def delete_aufgabe(self, aufgabe_id: str) -> None:
         self._client.pages.update(page_id=aufgabe_id, archived=True)
+
+    # ------------------------------------------------------------------ bookings_in_range
+
+    def get_bookings_in_range(self, start: date, end: date) -> list[Booking]:
+        """Alle bestätigten Buchungen im Datumsbereich [start, end] (inklusiv)."""
+        pages = self._query_all(
+            self._settings.notion_buchungen_db_id,
+            filter={
+                "and": [
+                    {"property": "Datum", "date": {"on_or_after": start.isoformat()}},
+                    {"property": "Datum", "date": {"on_or_before": end.isoformat()}},
+                    {"property": "Status", "select": {"equals": BookingStatus.BESTAETIGT.value}},
+                ]
+            },
+            sorts=[{"property": "Datum", "direction": "ascending"}],
+        )
+        return [self._page_to_booking(p) for p in pages]
+
+    # ------------------------------------------------------------------ blackouts (Sperrzeiten)
+    # Notion-Sperrzeiten-DB ist optional. Die Methoden liefern leere Listen / tun nichts,
+    # bis eine `notion_blackouts_db_id` in den Settings konfiguriert wird.
+
+    def get_blackouts_for_date(self, blackout_date: date) -> list[BlackoutPeriod]:
+        return []
+
+    def get_blackouts_for_week(self, year: int, week: int) -> list[BlackoutPeriod]:
+        return []
+
+    def get_all_blackouts(self) -> list[BlackoutPeriod]:
+        return []
+
+    def create_blackout(
+        self,
+        data: BlackoutCreate,
+        entered_by_id: str,
+        entered_by_name: str,
+    ) -> BlackoutPeriod:
+        raise NotImplementedError(
+            "Sperrzeiten-DB ist in Notion noch nicht implementiert."
+        )
+
+    def delete_blackout(self, blackout_id: str) -> None:
+        raise NotImplementedError(
+            "Sperrzeiten-DB ist in Notion noch nicht implementiert."
+        )

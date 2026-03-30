@@ -34,7 +34,7 @@ from booking.models import (
     TokenPayload,
     UserRole,
 )
-from notion.client import NotionRepository
+from db.repository import AbstractRepository
 from notifications.notify import send_cancellation_notice, send_dfbnet_displacement_notice
 from web.config import Settings
 
@@ -144,68 +144,10 @@ def _system_user() -> TokenPayload:
     )
 
 
-def _get_select(props: dict, name: str) -> str:
-    try:
-        return props[name]["select"]["name"] or ""
-    except (KeyError, TypeError):
-        return ""
-
-
-def _get_date(props: dict, name: str) -> str:
-    try:
-        return props[name]["date"]["start"] or ""
-    except (KeyError, TypeError):
-        return ""
-
-
-# ---------------------------------------------------------------------------
-# Bulk-Abfrage: alle bestätigten Buchungen in einem Datumsbereich
-# ---------------------------------------------------------------------------
-def _lade_buchungen_mit_id(
-    repo: NotionRepository,
-    von_iso: str,
-    bis_iso: str,
-) -> dict[str, list[dict]]:
-    """
-    Lädt alle bestätigten Buchungen im Bereich [von, bis] als
-    {datum_iso: [{"id": notion_page_id, "props": {...}}, ...]} zurück.
-    """
-    ergebnis: dict[str, list[dict]] = defaultdict(list)
-    cursor = None
-
-    while True:
-        kwargs: dict = {
-            "database_id": repo._settings.notion_buchungen_db_id,
-            "page_size": 100,
-            "filter": {
-                "and": [
-                    {"property": "Datum", "date": {"on_or_after": von_iso}},
-                    {"property": "Datum", "date": {"on_or_before": bis_iso}},
-                    {"property": "Status", "select": {"equals": "Bestätigt"}},
-                ]
-            },
-        }
-        if cursor:
-            kwargs["start_cursor"] = cursor
-
-        result = repo._client.databases.query(**kwargs)
-        for page in result["results"]:
-            props = page["properties"]
-            datum = _get_date(props, "Datum")
-            if datum:
-                ergebnis[datum].append({"id": page["id"], "props": props})
-
-        if not result.get("has_more"):
-            break
-        cursor = result.get("next_cursor")
-
-    return dict(ergebnis)
-
-
 # ---------------------------------------------------------------------------
 # Kern-Synchronisation (async für E-Mail-Versand)
 # ---------------------------------------------------------------------------
-async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResult:
+async def sync_spielplan(repo: AbstractRepository, settings: Settings) -> SyncResult:
     """
     Führt den vollständigen Spielplan-Abgleich durch:
 
@@ -248,11 +190,11 @@ async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResu
 
     # Datumsbereich
     daten = sorted(s.datum for s in heim_spiele)
-    von_iso = date.today().isoformat()
-    bis_iso = daten[-1]
+    von_date = date.today()
+    bis_date = date.fromisoformat(daten[-1])
 
-    # ── 2. Notion-Buchungen (Bulk) laden ────────────────────────────────────
-    buchungen = _lade_buchungen_mit_id(repo, von_iso, bis_iso)
+    # ── 2. Buchungen (Bulk) laden ────────────────────────────────────────────
+    alle_buchungen = repo.get_bookings_in_range(von_date, bis_date)
 
     # ── 3. Hincheck: Heimspiele ohne Buchung ─────────────────────────────────
     for spiel in sorted(heim_spiele, key=lambda s: (s.datum, s.uhrzeit)):
@@ -328,30 +270,28 @@ async def sync_spielplan(repo: NotionRepository, settings: Settings) -> SyncResu
             if feld:
                 spiel_tage[s.datum].add(feld.value.split()[0])
 
-    for datum_str, tages_eintraege in sorted(buchungen.items()):
-        for eintrag in tages_eintraege:
-            props = eintrag["props"]
-            notion_id = eintrag["id"]
-            platz = _get_select(props, "Platz")
-            typ = _get_select(props, "Typ")
+    for buchung in alle_buchungen:
+        platz = buchung.field.value if buchung.field else ""
+        typ = buchung.booking_type.value if buchung.booking_type else ""
+        datum_str = buchung.date.isoformat()
 
-            # Nur Kura*/Rasen*-Spielbuchungen prüfen
-            prefix = next((p for p in _FELD_PRAEFIXE if platz.startswith(p)), None)
-            if not prefix or typ == "Training":
-                continue
+        # Nur Plätze mit bekanntem Präfix und Spiel-Buchungen prüfen
+        prefix = next((p for p in _FELD_PRAEFIXE if platz.startswith(p)), None)
+        if not prefix or typ == "Training":
+            continue
 
-            if prefix not in spiel_tage.get(datum_str, set()):
-                try:
-                    updated = repo.update_booking_status(notion_id, BookingStatus.STORNIERT)
-                    result.storniert.append(f"{datum_str} {platz}")
+        if prefix not in spiel_tage.get(datum_str, set()):
+            try:
+                updated = repo.update_booking_status(buchung.notion_id, BookingStatus.STORNIERT)
+                result.storniert.append(f"{datum_str} {platz}")
 
-                    owner = repo.get_user_by_id(updated.booked_by_id)
-                    if owner and getattr(owner, "email", None):
-                        email_coros.append(
-                            send_cancellation_notice(updated, owner, settings)
-                        )
-                except Exception as exc:
-                    result.fehler.append(f"Stornierung {datum_str} {platz}: {exc}")
+                owner = repo.get_user_by_id(updated.booked_by_id)
+                if owner and getattr(owner, "email", None):
+                    email_coros.append(
+                        send_cancellation_notice(updated, owner, settings)
+                    )
+            except Exception as exc:
+                result.fehler.append(f"Stornierung {datum_str} {platz}: {exc}")
 
     # ── 5. E-Mails senden ───────────────────────────────────────────────────
     if email_coros:

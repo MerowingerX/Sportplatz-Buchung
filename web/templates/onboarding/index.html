@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ersteinrichtung – Sportplatz-Buchungssystem</title>
+  <script src="/static/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css?v=9">
+  <style>
+    :root {
+      --color-primary: {{ vereinsfarben.primary }};
+      --color-primary-hover: {{ vereinsfarben.primary_dark }};
+      --color-primary-darker: {{ vereinsfarben.primary_darker }};
+      --color-gold: {{ vereinsfarben.gold }};
+    }
+    .onboarding-wrap {
+      max-width: 640px;
+      margin: 3rem auto;
+      padding: 1rem;
+    }
+    .onboarding-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .onboarding-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+    .check-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+    }
+    .check-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--color-border, #e5e7eb);
+    }
+    .check-list li:last-child {
+      border-bottom: none;
+    }
+    .check-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .check-hint {
+      font-size: 0.82rem;
+      color: var(--color-text-muted, #6b7280);
+      margin-top: 0.1rem;
+    }
+    .step-card {
+      background: var(--color-surface, #fff);
+      border: 1px solid var(--color-border, #e5e7eb);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .step-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--color-primary);
+    }
+    .label-required {
+      color: var(--color-danger, #dc2626);
+    }
+    .label-hint {
+      font-size: 0.82rem;
+      color: var(--color-text-muted, #6b7280);
+      font-weight: 400;
+    }
+    .input--small {
+      font-size: 0.9rem;
+      padding: 0.35rem 0.6rem;
+    }
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius, 6px);
+      border: 1px solid transparent;
+    }
+    .alert--error {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+    .alert--warning {
+      background: #fef3c7;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+  </style>
+</head>
+<body>
+<div class="onboarding-wrap">
+  <div class="onboarding-header">
+    <img src="{{ logo_url }}" alt="" style="height:60px; margin-bottom:0.75rem; display:block; margin-left:auto; margin-right:auto;">
+    <h1>Willkommen beim Sportplatz-Buchungssystem</h1>
+    <p class="check-hint" style="margin-top:0.5rem;">Ersteinrichtung — folge den Schritten, um das System zu konfigurieren.</p>
+  </div>
+
+  <div id="onboarding-content">
+    {% include "onboarding/_step_checks.html" %}
+  </div>
+</div>
+<div id="toast" class="toast toast--hidden" aria-live="polite"></div>
+<script>
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    var toast = document.getElementById('toast');
+    if (toast && !toast.classList.contains('toast--hidden')) {
+      setTimeout(function() { toast.classList.add('toast--hidden'); }, 3500);
+    }
+  });
+</script>
+</body>
+</html>

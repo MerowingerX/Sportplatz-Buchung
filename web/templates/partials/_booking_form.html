@@ -80,6 +80,18 @@
     </div>
   </div>
 
+  {% if mannschaften %}
+  <div class="form-group">
+    <label for="mannschaft">Mannschaft <span class="label-hint">(optional)</span></label>
+    <select id="mannschaft" name="mannschaft">
+      <option value="">– keine –</option>
+      {% for m in mannschaften %}
+        <option value="{{ m.name }}" {{ 'selected' if user_mannschaft == m.name }}>{{ m.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
   <!-- Serienbuchung: Formular direkt ins Modal laden -->
   {% if current_user and current_user.role.value in ["Administrator", "DFBnet"] %}
   <div class="form-group" style="border-top:1px solid var(--border-color); padding-top:0.75rem; margin-top:0.25rem;">

@@ -7,21 +7,15 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class FieldName(str, Enum):
-    # Stabile interne IDs — Anzeigenamen kommen aus config/field_config.json
-    A  = "A"   # Platzgruppe A (ganz)
-    AA = "AA"  # Platzgruppe A – Hälfte A
-    AB = "AB"  # Platzgruppe A – Hälfte B
-    B  = "B"   # Platzgruppe B (ganz)
-    BA = "BA"  # Platzgruppe B – Hälfte A
-    BB = "BB"  # Platzgruppe B – Hälfte B
-    C  = "C"   # Platzgruppe C (ganz)
-    CA = "CA"  # Platzgruppe C – Hälfte A
-    CB = "CB"  # Platzgruppe C – Hälfte B
-    D  = "D"   # Einzelfeld D (ohne Unterteilung)
-    E  = "E"   # Platzgruppe E (ganz)
-    EA = "EA"  # Platzgruppe E – Hälfte A
-    EB = "EB"  # Platzgruppe E – Hälfte B
+# FieldName: Stabile interne Feld-IDs — Anzeigenamen kommen aus config/field_config.json
+# A–Z, je mit Ganzer Platz + 3 Unterteilungen (AA/AB/AC, BA/BB/BC, …)
+# Welche davon aktiv sind, bestimmt ausschließlich config/field_config.json → field_groups
+FieldName = Enum(  # type: ignore[misc]
+    "FieldName",
+    {v: v for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+     for v in (letter, f"{letter}A", f"{letter}B", f"{letter}C")},
+    type=str,
+)
 
 
 class BookingStatus(str, Enum):
@@ -125,13 +119,15 @@ class SeriesSaison(str, Enum):
 
 
 class MannschaftConfig(BaseModel):
-    """Mannschafts-Konfiguration aus der Notion-Teams-DB."""
+    """Mannschafts-Konfiguration aus der Teams-DB (Notion oder SQLite)."""
     notion_id: str
     name: str
+    shortname: Optional[str] = None
     trainer_name: Optional[str] = None
     trainer_id: Optional[str] = None
     fussball_de_team_id: Optional[str] = None
     aktiv: bool = True
+    cc_emails: list[str] = []
 
 
 # --- Booking ---
@@ -167,6 +163,7 @@ class BookingCreate(BaseModel):
     zweck: Optional[str] = None
     kontakt: Optional[str] = None
     spielkennung: Optional[str] = None
+    mannschaft: Optional[str] = None
 
 
 # --- Series ---
@@ -286,6 +283,36 @@ class ExternalEventCreate(BaseModel):
     location: Optional[str] = None
     description: Optional[str] = None
     mannschaft: Optional[str] = None   # Team, dem der Termin zugeordnet ist
+
+
+# --- Sperrzeiten ---
+
+class BlackoutType(str, Enum):
+    GANZTAEGIG = "Ganztägig"
+    ZEITLICH   = "Zeitlich"
+
+
+class BlackoutPeriod(BaseModel):
+    notion_id: str
+    title: str
+    start_date: date
+    end_date: date
+    blackout_type: BlackoutType
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+    reason: str = ""
+    entered_by_id: str
+    entered_by_name: str
+
+
+class BlackoutCreate(BaseModel):
+    title: str
+    start_date: date
+    end_date: date
+    blackout_type: BlackoutType
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+    reason: str = ""
 
 
 # JWT token payload (kein Pydantic-Model, nur TypedDict-ähnlich)

@@ -120,7 +120,7 @@ und mit den Einträgen in `scripts/setup_notion.py` übereinstimmen.
 | `"E-Mail"` | rich_text |
 | `"Password_Hash"` | rich_text |
 | `"Passwort ändern"` | checkbox |
-| `"Mannschaft"` | select |
+| `"Mannschaft"` | rich_text |
 
 ### Aufgaben-DB
 
@@ -149,6 +149,20 @@ und mit den Einträgen in `scripts/setup_notion.py` übereinstimmen.
 | `"Mannschaft"` | rich_text |
 | `"Erstellt von ID"` | rich_text |
 | `"Erstellt von Name"` | rich_text |
+
+### Mannschaften-DB
+
+| Property | Typ | Hinweis |
+|----------|-----|---------|
+| `"Name"` | title | Vollständiger Name |
+| `"Shortname"` | rich_text | Kompakter Kurzname für Kalenderanzeige |
+| `"Trainer Name"` | rich_text | Anzeigename |
+| `"Trainer ID"` | rich_text | Notion-ID / UUID |
+| `"fussball.de Team-ID"` | rich_text | Team-ID von api-fussball.de |
+| `"CC-Mails"` | rich_text | Kommagetrennt |
+| `"Aktiv"` | checkbox | |
+
+> Shortname wird beim Onboarding-Import automatisch abgeleitet und ist danach frei editierbar.
 
 ---
 

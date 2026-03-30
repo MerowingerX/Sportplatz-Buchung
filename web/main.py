@@ -1,11 +1,14 @@
+import os
+import shutil
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from auth.auth import decode_jwt
-from notion.client import NotionRepository
 from web.config import get_settings
 from web.routers import auth, bookings, calendar, series, admin, tasks, events
 
@@ -16,7 +19,31 @@ async def lifespan(app: FastAPI):
     from booking.scheduler import apply_schedule
 
     settings = get_settings()
-    app.state.repo = NotionRepository(settings)
+
+    # Ensure config files exist (copy from example if missing)
+    project_root = Path(__file__).parent.parent
+    config_dir = project_root / os.environ.get("CONFIG_DIR", "config")
+    vc_path = config_dir / "vereinsconfig.json"
+    fc_path = config_dir / "field_config.json"
+    if not vc_path.exists():
+        example = project_root / "config" / "vereinsconfig.example.json"
+        if example.exists():
+            vc_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(example, vc_path)
+    if not fc_path.exists():
+        example = project_root / "config" / "field_config.example.json"
+        if example.exists():
+            fc_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(example, fc_path)
+
+    if settings.db_backend == "sqlite":
+        from db.sqlite_repository import SQLiteRepository
+        os.makedirs(os.path.dirname(os.path.abspath(settings.sqlite_db_path)), exist_ok=True)
+        app.state.repo = SQLiteRepository(settings.sqlite_db_path)
+    else:
+        from notion.client import NotionRepository
+        app.state.repo = NotionRepository(settings)
+
     app.state.settings = settings
     app.state.token_invalidations: dict[str, int] = {}  # {user_sub: invalidated_after_ts}
 
@@ -32,8 +59,34 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Sportplatz-Buchungssystem", lifespan=lifespan)
 
+
+class OnboardingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        # Always allow static files, onboarding itself, login, logout
+        if (
+            path.startswith("/static")
+            or path.startswith("/onboarding")
+            or path in ("/login", "/logout")
+        ):
+            return await call_next(request)
+        try:
+            if not hasattr(request.app.state, "repo"):
+                return await call_next(request)
+            users = request.app.state.repo.get_all_users()
+            if not users:
+                return RedirectResponse(url="/onboarding", status_code=303)
+        except Exception:
+            pass
+        return await call_next(request)
+
+
+app.add_middleware(OnboardingMiddleware)
+
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
+from web.routers import onboarding  # noqa: E402
+app.include_router(onboarding.router)
 app.include_router(auth.router)
 app.include_router(calendar.router)
 app.include_router(bookings.router)
@@ -42,7 +95,7 @@ app.include_router(admin.router)
 app.include_router(tasks.router)
 app.include_router(events.router)
 
-from web.templates_instance import templates
+from web.templates_instance import templates  # noqa: E402
 
 
 @app.get("/")

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Mannschaftsverwaltung{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Mannschaftsverwaltung</h1>
+  <a href="/admin" class="btn btn--ghost">← Admin</a>
+</div>
+
+<!-- fussball.de Sync -->
+<div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+  <button class="btn btn--secondary"
+          hx-post="/admin/mannschaften/sync-fussball-de"
+          hx-target="#sync-result"
+          hx-swap="innerHTML"
+          hx-indicator="#sync-btn-label">
+    <span id="sync-btn-label">fussball.de Mannschaften abgleichen</span>
+  </button>
+  <span class="text-muted text-sm">Vergleicht fussball.de-Altersklassen mit der Mannschaftsliste</span>
+</div>
+<div id="sync-result"></div>
+
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Kurzname</th>
+        <th>Trainer</th>
+        <th>fussball.de Team-ID</th>
+        <th>CC-Mails</th>
+        <th>Aktiv</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="mannschaft-tbody">
+      {% for m in mannschaften %}
+        {% include "partials/_mannschaft_row.html" %}
+      {% else %}
+      <tr><td colspan="7">Keine Mannschaften vorhanden.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<hr style="margin: 2rem 0;">
+
+<h2 style="margin-bottom: 1rem;">Neue Mannschaft anlegen</h2>
+<div class="card">
+  <form hx-post="/admin/mannschaften"
+        hx-target="#toast"
+        hx-swap="outerHTML">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Name <span class="label-required">*</span></label>
+        <input type="text" name="name" required placeholder="z.B. 1. Herren">
+      </div>
+      <div class="form-group">
+        <label>Kurzname <span class="label-hint">(optional, für Kalender)</span></label>
+        <input type="text" name="shortname" placeholder="z.B. A1, H1, Frauen">
+      </div>
+      <div class="form-group">
+        <label>Trainer <span class="label-hint">(optional)</span></label>
+        <select name="trainer_id">
+          <option value="">– kein Trainer –</option>
+          {% for t in trainers %}
+            <option value="{{ t.notion_id }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>fussball.de Team-ID <span class="label-hint">(optional)</span></label>
+        <input type="text" name="fussball_de_team_id" placeholder="z.B. 011MIAAP7R000000VS54898097QCPR9J">
+      </div>
+      <div class="form-group">
+        <label>CC-Mails <span class="label-hint">(kommagetrennt, optional)</span></label>
+        <input type="text" name="cc_emails" placeholder="z.B. trainer@verein.de, vorstand@verein.de">
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" name="aktiv" value="1" checked>
+          Aktiv
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Mannschaft anlegen</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

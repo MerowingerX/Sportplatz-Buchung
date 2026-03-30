@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -c \"from web.routers import admin, onboarding; print\\(''OK''\\)\")",
+      "Bash(ENV_FILE=.env.demo CONFIG_DIR=config/demo .venv/bin/python -c \":*)",
+      "Bash(grep -r \"ENV_FILE\" /home/frank/Sportplatz-Buchung/*.sh)",
+      "Bash(.venv/bin/python -c \"from booking.models import FieldName; print\\(list\\(FieldName\\)[:8]\\); print\\(FieldName\\(''AA''\\)\\)\")"
+    ]
+  }
+}

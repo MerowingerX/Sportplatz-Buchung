@@ -1,8 +1,9 @@
-{# Erwartet: found[0] = Booking-Objekt #}
+{# Erwartet: found[0] = Booking-Objekt, mannschaft_shortnames = {name: shortname} #}
 {% set b = found[0] %}
+{% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
 <div class="slot slot--booked slot--{{ b.booking_type.value | lower }}"
      title="{{ b.zweck or b.mannschaft or b.booked_by_name }}{% if b.kontakt %} – {{ b.kontakt }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}{% if b.sunset_note %} | {{ b.sunset_note }}{% endif %}">
-  <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
+  <span class="slot__name">{{ b.zweck or m_display or b.booked_by_name }}</span>
   <span class="slot__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
   {% if b.sunset_note %}
     <span class="slot__sun" title="{{ b.sunset_note }}">🌅</span>

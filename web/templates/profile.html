@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Mein Profil{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Mein Profil</h1>
+</div>
+
+<div class="card" style="max-width: 520px; margin-bottom: 1.5rem;">
+  <table class="table">
+    <tbody>
+      <tr><th style="width:40%">Nutzername</th><td>{{ current_user.username }}</td></tr>
+      <tr><th>Rolle</th><td>{{ current_user.role.value }}</td></tr>
+      {% if mannschaft %}
+      <tr><th>Mannschaft</th><td>{{ mannschaft.name }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% if mannschaft %}
+<div class="card" style="max-width: 520px;">
+  <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">
+    CC-Adressen – {{ mannschaft.name }}
+  </h2>
+  <p style="font-size:0.875rem; color:var(--color-text-muted,#6b7280); margin-bottom:1rem;">
+    Diese Adressen erhalten eine Kopie aller Buchungsbestätigungen und Stornierungen
+    für deine Mannschaft. Eine Adresse pro Zeile (oder kommagetrennt).
+  </p>
+  <form hx-post="/profile/cc" hx-target="#toast" hx-swap="outerHTML">
+    <div class="form-group">
+      <label for="cc_emails">CC-E-Mail-Adressen</label>
+      <textarea id="cc_emails" name="cc_emails" rows="4"
+                style="width:100%; font-family:monospace; font-size:0.875rem;"
+                placeholder="trainer@example.com&#10;co-trainer@example.com">{{ mannschaft.cc_emails | join('\n') }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Speichern</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="card" style="max-width: 520px;">
+  <p style="color:var(--color-text-muted,#6b7280);">
+    Dir ist keine Mannschaft zugeordnet. Ein Administrator kann dich unter
+    <strong>Admin → Mannschaften</strong> als Trainer eintragen.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

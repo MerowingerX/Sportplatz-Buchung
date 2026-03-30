@@ -55,11 +55,21 @@ flowchart LR
 |---|---|
 | Backend | Python 3.13, FastAPI, Uvicorn |
 | Frontend | Jinja2-Templates, HTMX 2.0, vanilla CSS |
-| Datenbank | Notion API (notion-client) |
+| Datenbank | Notion API **oder** SQLite — wählbar via `DB_BACKEND` in `.env` |
 | Auth | JWT (HS256), HTTP-only Cookie |
 | E-Mail | smtplib (STARTTLS, Port 587) |
-| Betrieb | systemd, Python venv |
+| Betrieb | systemd, Python venv / Docker Compose |
 | Logging | RotatingFileHandler → `logs/audit.log` |
+
+### Datenbank-Backends
+
+Das Repository-Interface `db/repository.py → AbstractRepository` abstrahiert den Datenbankzugriff.
+Alle Router greifen ausschließlich über `request.app.state.repo` auf Daten zu.
+
+| `DB_BACKEND` | Implementierung | Beschreibung |
+|---|---|---|
+| `notion` (Standard) | `notion/client.py → NotionRepository` | Notion API als Cloud-Datenbank |
+| `sqlite` | `db/sqlite_repository.py → SQLiteRepository` | Lokale SQLite-Datei, WAL-Modus, stdlib `sqlite3` |
 
 ---
 
@@ -125,8 +135,19 @@ classDiagram
         role: UserRole
         email: str
         password_hash: str
-        mannschaft: Mannschaft?
+        mannschaft: str?
         must_change_password: bool
+    }
+
+    class MannschaftConfig {
+        notion_id: str
+        name: str
+        shortname: str?
+        trainer_name: str?
+        trainer_id: str?
+        fussball_de_team_id: str?
+        aktiv: bool
+        cc_emails: list[str]
     }
 
     class ExternalEvent {
@@ -189,6 +210,7 @@ classDiagram
     User --> UserRole
     BlackoutPeriod --> BlackoutType
     Series --> SeriesStatus
+    User "0..1" --> "0..1" MannschaftConfig : mannschaft ↔ trainer_id (bidirektional synchron)
 ```
 
 ### Konflikt-Mapping der Plätze
@@ -227,63 +249,73 @@ flowchart TD
 
 ```
 Sportplatz-Buchung/
-├── web/                    # Buchungssystem (Port 1946)
-│   ├── main.py             # FastAPI App, Router-Registrierung
-│   ├── config.py           # Settings (Pydantic, lädt .env)
-│   ├── audit_log.py        # Login- und Buchungs-Audit-Log
+├── web/                         # Buchungssystem (Port 1946)
+│   ├── main.py                  # FastAPI App, Router-Registrierung, Lifespan
+│   ├── config.py                # Settings (Pydantic, lädt .env)
+│   ├── audit_log.py             # Login- und Buchungs-Audit-Log
+│   ├── templates_instance.py    # Gemeinsame Jinja2Templates + Globals
 │   ├── routers/
-│   │   ├── auth.py         # Login, Logout, Passwort ändern
-│   │   ├── bookings.py     # Einzelbuchungen CRUD
-│   │   ├── series.py       # Serienbuchungen CRUD
-│   │   ├── blackouts.py    # Sperrzeiten CRUD
-│   │   ├── calendar.py     # Wochenkalender (mit Cache)
-│   │   ├── admin.py        # Nutzerverwaltung, DFBnet-Import, CSV-Import
-│   │   ├── tasks.py        # Aufgaben/Schwarzes Brett
-│   │   └── events.py       # Externe Termine (Turniere, Auswärtsspiele)
+│   │   ├── auth.py              # Login, Logout, Passwort ändern, Profil
+│   │   ├── bookings.py          # Einzelbuchungen CRUD
+│   │   ├── series.py            # Serienbuchungen CRUD
+│   │   ├── blackouts.py         # Sperrzeiten CRUD
+│   │   ├── calendar.py          # Wochenkalender (mit TTL-Cache)
+│   │   ├── admin.py             # Nutzer- und Mannschaftsverwaltung, DFBnet-Import
+│   │   ├── tasks.py             # Aufgaben/Schwarzes Brett
+│   │   ├── events.py            # Externe Termine (Turniere, Auswärtsspiele)
+│   │   └── onboarding.py        # Ersteinrichtungs-Assistent (Schritt-für-Schritt)
 │   ├── templates/
-│   │   ├── base.html       # Layout, Nav
-│   │   ├── calendar.html   # Wochenkalender-Seite
-│   │   ├── blackouts/      # Sperrzeiten-Listenansicht
-│   │   ├── series/         # Serien-Listenansicht
-│   │   ├── tasks/          # Aufgaben
-│   │   ├── events/         # Externe Termine
-│   │   ├── admin/          # Admin-Seiten
-│   │   └── partials/       # HTMX-Fragmente
+│   │   ├── base.html            # Layout, Nav
+│   │   ├── calendar.html        # Wochenkalender-Seite
+│   │   ├── profile.html         # Trainer-Profil (CC-Mails verwalten)
+│   │   ├── blackouts/           # Sperrzeiten-Listenansicht
+│   │   ├── series/              # Serien-Listenansicht
+│   │   ├── tasks/               # Aufgaben
+│   │   ├── events/              # Externe Termine
+│   │   ├── admin/               # Admin-Seiten (inkl. mannschaften.html)
+│   │   ├── onboarding/          # Ersteinrichtungs-Templates
+│   │   └── partials/            # HTMX-Fragmente
 │   └── static/style.css
 │
-├── booking/                # Buchungslogik (rein)
-│   ├── models.py           # Pydantic-Datenmodelle
-│   ├── booking.py          # Verfügbarkeit, Konflikt-Check, Buchung bauen
-│   └── series.py           # Serientermin-Generierung, Storno
+├── booking/                     # Buchungslogik (rein)
+│   ├── models.py                # Pydantic-Datenmodelle + Enums
+│   ├── field_config.py          # Platzkonfiguration (Gruppen, Sichtbarkeit, Konflikte)
+│   ├── booking.py               # Verfügbarkeit, Konflikt-Check, Buchung bauen
+│   ├── series.py                # Serientermin-Generierung, Storno
+│   └── spielplan_sync.py        # Spielplan-Sync (fussball.de → Buchungen)
+│
+├── db/                          # Repository-Abstraktionsschicht
+│   ├── repository.py            # AbstractRepository (ABC) — Interface
+│   ├── sqlite_repository.py     # SQLiteRepository — stdlib sqlite3, WAL
+│   └── schema.sql               # DDL: Tabellen, Indizes
 │
 ├── notion/
-│   └── client.py           # NotionRepository – alle DB-Operationen
+│   └── client.py                # NotionRepository – alle DB-Operationen
 │
 ├── auth/
-│   ├── auth.py             # JWT erstellen/lesen, Passwort-Hashing
-│   └── dependencies.py     # FastAPI CurrentUser, require_role
+│   ├── auth.py                  # JWT erstellen/lesen, Passwort-Hashing
+│   └── dependencies.py          # FastAPI CurrentUser, require_role
 │
-├── homepage/               # Öffentliche Seite (Port 8046)
-│   ├── main.py             # Fastapi-Homepage
-│   ├── static/
-│   └── templates/
+├── config/
+│   ├── vereinsconfig.json       # Club: Name, Farben, heim_keywords, spielorte
+│   └── field_config.json        # Plätze: Anzeigenamen, Gruppen, Sichtbarkeit
 │
 ├── notifications/
-│   └── notify.py           # E-Mail-Benachrichtigungen (Bestätigung, Storno, DFBnet)
-│
-├── utils/
-│   ├── time_slots.py       # Slot-Berechnung (16–22 Uhr, 30-Min-Raster)
-│   └── sunset.py           # Sonnenuntergangswarnung (ephem)
+│   └── notify.py                # E-Mail-Benachrichtigungen (Bestätigung, Storno, DFBnet)
 │
 ├── scripts/
-│   └── notify_crash.py     # Crash-Mail (von systemd OnFailure aufgerufen)
+│   ├── backup_notion.py         # Alle 6 Notion-DBs als JSON sichern
+│   ├── restore_notion.py        # Nutzer + Serien aus Backup wiederherstellen
+│   ├── fetch_spielplan.py       # Spielplan von fussball.de importieren
+│   ├── setup_notion.py          # Notion-DBs initial anlegen / Properties prüfen
+│   ├── setup_sqlite.py          # SQLite-Schema + erste Nutzer anlegen
+│   └── instagram_matchday.py    # Matchday-Karussell-Bilder (Playwright)
 │
-├── deploy/                 # systemd Unit-Files
-│   ├── sportplatz-buchung.service
-│   ├── sportplatz-homepage.service
-│   └── sportplatz-crash@.service
-│
-└── logs/audit.log          # Audit-Protokoll (Login/Buchungen)
+├── data/                        # SQLite-DB-Datei (gitignored)
+├── docs/                        # Architekturdokumentation
+├── Dockerfile
+├── docker-compose.yml
+└── logs/audit.log               # Audit-Protokoll (Login/Buchungen)
 ```
 
 ---
@@ -301,6 +333,8 @@ Sportplatz-Buchung/
 | DFBnet-Verdrängung | – | – | ✓ | ✓ |
 | Sperrzeiten verwalten | – | ✓ | ✓ | – |
 | Nutzerverwaltung | – | – | ✓ | – |
+| Mannschaftsverwaltung | – | – | ✓ | – |
+| CC-Mails eigener Mannschaft verwalten | ✓ | – | ✓ | – |
 | Aufgaben erstellen | ✓ | ✓ | ✓ | ✓ |
 | Termine (Events) erstellen | ✓ | ✓ | ✓ | ✓ |
 
@@ -633,6 +667,8 @@ sequenceDiagram
 | POST | `/login` | Authentifizierung | öffentlich |
 | POST | `/logout` | Session löschen | eingeloggt |
 | GET/POST | `/change-password` | Passwort ändern | eingeloggt |
+| GET | `/profile` | Trainer-Profilseite (zeigt verknüpfte Mannschaft) | eingeloggt |
+| POST | `/profile/cc` | CC-Mails der eigenen Mannschaft aktualisieren | eingeloggt |
 
 ### Kalender
 | Methode | Route | Beschreibung | Berechtigung |
@@ -679,9 +715,26 @@ sequenceDiagram
 | GET/POST | `/admin/dfbnet` | DFBnet-Einzelbuchung | Admin/DFBnet |
 | GET/POST | `/admin/dfbnet-import` | ICS-Datei importieren | Admin/DFBnet |
 | POST | `/admin/dfbnet-import/confirm` | ICS-Import bestätigen | Admin/DFBnet |
-| GET/POST | `/admin/csv-import` | DFBnet-CSV importieren | Admin/DFBnet |
-| POST | `/admin/csv-import/confirm` | CSV-Import bestätigen | Admin/DFBnet |
 | POST | `/admin/fetch-spielplan` | Spielplan von api-fussball.de | Admin/DFBnet |
+| GET | `/admin/mannschaften` | Mannschaftsliste | Admin |
+| POST | `/admin/mannschaften` | Neue Mannschaft anlegen | Admin |
+| GET | `/admin/mannschaften/{id}/row` | Mannschaftszeile (Anzeigemodus, HTMX) | Admin |
+| GET | `/admin/mannschaften/{id}/edit` | Mannschaftszeile (Bearbeitungsmodus, HTMX) | Admin |
+| PATCH | `/admin/mannschaften/{id}` | Mannschaft aktualisieren | Admin |
+| DELETE | `/admin/mannschaften/{id}` | Mannschaft löschen | Admin |
+| POST | `/admin/mannschaften/sync-fussball-de` | Abgleich mit api-fussball.de | Admin |
+
+### Onboarding
+| Methode | Route | Beschreibung | Berechtigung |
+|---|---|---|---|
+| GET | `/onboarding` | Ersteinrichtungs-Startseite (nur wenn keine User vorhanden) | öffentlich |
+| POST | `/onboarding/step/checks` | Konfigurationsprüfung | öffentlich |
+| POST | `/onboarding/step/admin` | Admin-Account anlegen | öffentlich |
+| POST | `/onboarding/step/vereinsconfig` | Vereinsname, Farben, Keywords | öffentlich |
+| POST | `/onboarding/step/fields-count` | Anzahl Plätze | öffentlich |
+| POST | `/onboarding/step/fields` | Platzkonfiguration | öffentlich |
+| POST | `/onboarding/step/spielorte` | Spielorte + Mannschaften von api-fussball.de laden | öffentlich |
+| POST | `/onboarding/step/mannschaften` | Mannschaften in DB anlegen | öffentlich |
 
 ### Aufgaben & Termine
 | Methode | Route | Beschreibung | Berechtigung |

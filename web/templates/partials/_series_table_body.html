@@ -1,5 +1,16 @@
 {% for s in series_list %}
   {% include "partials/_series_row.html" %}
 {% else %}
-  <tr><td colspan="9" class="text-muted">Keine Serien gefunden.</td></tr>
+  <tr>
+    <td colspan="9" style="text-align:center; padding:2rem;">
+      <p class="text-muted" style="margin-bottom:1rem;">Keine Serien gefunden.</p>
+      <button class="btn btn--primary"
+              hx-get="/series/new"
+              hx-target="#series-modal-content"
+              hx-swap="innerHTML"
+              onclick="document.getElementById('series-modal').showModal()">
+        + Neue Serie anlegen
+      </button>
+    </td>
+  </tr>
 {% endfor %}
