@@ -56,15 +56,13 @@ except ImportError:
 # Konfiguration
 # ---------------------------------------------------------------------------
 
-# Club-ID aus .env extrahieren (FUSSBALL_DE_VEREINSSEITE enthält die ID)
+# Club-ID aus FUSSBALL_DE_VEREINSSEITE extrahieren
 _vereinsseite = os.environ.get("FUSSBALL_DE_VEREINSSEITE", "")
-CLUB_ID = os.environ.get("APIFUSSBALL_CLUB_ID", "")  # aus .env
+CLUB_ID = ""
 if _vereinsseite:
     try:
         from fussball_de import _club_id_from_url
-        _extracted = _club_id_from_url(_vereinsseite)
-        if _extracted:
-            CLUB_ID = _extracted
+        CLUB_ID = _club_id_from_url(_vereinsseite) or ""
     except Exception:
         pass
 

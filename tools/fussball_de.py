@@ -207,11 +207,31 @@ def fetch_matchplan_html(
     resp = requests.post(url, headers=post_headers, data=payload, timeout=30)
     resp.raise_for_status()
 
+    raw_json: dict = {}
     try:
-        data = resp.json()
-        html = data.get("html", "")
+        raw_json = resp.json()
+        html = raw_json.get("html", "")
     except ValueError:
         html = resp.text
+
+    # Alle Rohdaten von fussball.de persistent loggen
+    _ts = datetime.now().isoformat()
+    _meta = {"abgerufen": _ts, "club_id": club_id, "von": von_de, "bis": bis_de}
+    try:
+        _log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+        os.makedirs(_log_dir, exist_ok=True)
+        # 1) Vollständige JSON-Antwort (alle Felder, html-Feld eingeschlossen)
+        _raw_log = os.path.join(_log_dir, "fussball_de_last_raw.json")
+        with open(_raw_log, "w", encoding="utf-8") as _f:
+            json.dump({"_meta": _meta, "response": raw_json or {"html": html}},
+                      _f, ensure_ascii=False, indent=2)
+        # 2) Nur der HTML-Teil (für Browser-Analyse)
+        _html_log = os.path.join(_log_dir, "fussball_de_last_matchplan.html")
+        with open(_html_log, "w", encoding="utf-8") as _f:
+            _f.write(f"<!-- Abgerufen: {_ts} · club_id={club_id} · von={von_de} bis={bis_de} -->\n")
+            _f.write(html)
+    except Exception:
+        pass
 
     if debug:
         print("\n--- HTML-Auszug (erste 4000 Zeichen) ---")
@@ -339,6 +359,20 @@ def parse_matchplan(html: str, heim_keywords: "list[str] | str" = "") -> list[Sp
             )
         )
 
+    # Geparste Spiele loggen
+    try:
+        _log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+        os.makedirs(_log_dir, exist_ok=True)
+        _spiele_log = os.path.join(_log_dir, "fussball_de_last_spiele.json")
+        with open(_spiele_log, "w", encoding="utf-8") as _f:
+            json.dump(
+                {"geparst": datetime.now().isoformat(), "anzahl": len(spiele),
+                 "spiele": [asdict(s) for s in spiele]},
+                _f, ensure_ascii=False, indent=2,
+            )
+    except Exception:
+        pass
+
     return spiele
 
 
@@ -383,6 +417,112 @@ def print_tabelle(spiele: list[Spiel]) -> None:
 
 # ---------------------------------------------------------------------------
 # JSON-Export
+# ---------------------------------------------------------------------------
+# Teams
+# ---------------------------------------------------------------------------
+def fetch_teams(club_id: str, saison: str = "") -> list[dict]:
+    """
+    Holt alle gemeldeten Mannschaften des Vereins von fussball.de.
+
+    Filtert heraus:
+    - 'zg.' (zurückgezogen) im Namen
+    - Reine Hallen-Teams bei Junioren/Juniorinnen (alle Wettbewerbe Hallen)
+      Ausnahme: KiFu/Kinderfestival/Kinderfußball zählen als Rasen
+
+    Herren, Frauen und Ü-Teams werden nie herausgefiltert.
+
+    Gibt zurück: [{"team_id": str, "name": str, "wettbewerbe": [str]}]
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        raise ImportError("beautifulsoup4 nicht installiert: pip install beautifulsoup4")
+
+    if not saison:
+        today = date.today()
+        y = today.year
+        if today.month >= 7:
+            saison = f"{str(y)[2:]}{str(y + 1)[2:]}"
+        else:
+            saison = f"{str(y - 1)[2:]}{str(y)[2:]}"
+
+    url = f"{BASE_URL}/ajax.club.teams/-/action/search/id/{club_id}"
+    post_headers = {
+        **HEADERS,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    resp = requests.post(url, headers=post_headers, data={"saison": saison}, timeout=30)
+    resp.raise_for_status()
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    teams: list[dict] = []
+    seen_ids: set[str] = set()
+
+    # Wörter, die auf Rasen hinweisen (trotz "hall" ggf. im Wettbewerbsnamen)
+    _RASEN_KEYWORDS = ("kifu", "kinderfestival", "kinderfußball", "kinderfu")
+    # Wörter, die auf Halle hinweisen
+    _HALLEN_KEYWORD = "hall"
+
+    def _is_rasen_wettbewerb(w: str) -> bool:
+        wl = w.lower()
+        if any(k in wl for k in _RASEN_KEYWORDS):
+            return True
+        return _HALLEN_KEYWORD not in wl
+
+    # Junioren/Juniorinnen erkennen (A–G)
+    _JUNIOREN_RE = re.compile(
+        r"^[A-G][-\s](?:Junior|Jugend|Jun\.|Mädchen|M\.?-Jun)", re.IGNORECASE
+    )
+
+    for item in soup.select("div.item"):
+        h4 = item.find("h4")
+        p = item.find("p")
+        if not h4:
+            continue
+        a = h4.find("a", href=re.compile(r"team-id/"))
+        if not a:
+            continue
+        m = re.search(r"/team-id/([A-Z0-9]+)", a["href"])
+        if not m:
+            continue
+        team_id = m.group(1)
+        if team_id in seen_ids:
+            continue
+        seen_ids.add(team_id)
+
+        # Ersten Text-Node aus dem Link holen
+        name = next((t.strip() for t in a.strings if t.strip()), "")
+        name = " ".join(name.split())
+        if not name:
+            continue
+
+        # Zurückgezogene Teams überspringen
+        if "zg." in name:
+            continue
+
+        # Wettbewerbe sammeln (Links + Freitext)
+        wettbewerbe: list[str] = []
+        if p:
+            for lnk in p.find_all("a"):
+                txt = lnk.get_text(strip=True)
+                if txt:
+                    wettbewerbe.append(txt)
+            for frei in p.strings:
+                t = frei.strip().strip("|").strip()
+                if t and t not in wettbewerbe:
+                    wettbewerbe.append(t)
+
+        # Reine Hallen-Teams bei Junioren herausfiltern
+        if _JUNIOREN_RE.match(name) and wettbewerbe:
+            if not any(_is_rasen_wettbewerb(w) for w in wettbewerbe):
+                continue
+
+        teams.append({"team_id": team_id, "name": name, "wettbewerbe": wettbewerbe})
+
+    return teams
+
+
 # ---------------------------------------------------------------------------
 def export_json(spiele: list[Spiel], pfad: str) -> None:
     data = [asdict(s) for s in spiele]

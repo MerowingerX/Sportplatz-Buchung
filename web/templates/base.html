@@ -33,10 +33,10 @@
           <a href="/admin">Admin</a>
           {# <a href="/admin/dfbnet">DFBnet-Buchung</a> – ausgeblendet, Spielplan läuft automatisch #}
           <button class="btn btn--ghost btn--small"
-                  hx-post="/admin/fetch-spielplan"
+                  hx-post="/admin/spielplan-sync"
                   hx-target="#toast"
                   hx-swap="outerHTML"
-                  title="Spielplan von api-fussball.de abrufen und platzbelegung.csv aktualisieren">
+                  title="Spielplan von fussball.de abrufen und Heimspiele synchronisieren">
             Spielplan ↓
           </button>
         {% endif %}

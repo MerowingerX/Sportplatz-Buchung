@@ -8,15 +8,22 @@
 </div>
 
 <!-- fussball.de Sync -->
-<div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+<div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
   <button class="btn btn--secondary"
           hx-post="/admin/mannschaften/sync-fussball-de"
           hx-target="#sync-result"
           hx-swap="innerHTML"
           hx-indicator="#sync-btn-label">
-    <span id="sync-btn-label">fussball.de Mannschaften abgleichen</span>
+    <span id="sync-btn-label">Mannschaften abgleichen</span>
   </button>
-  <span class="text-muted text-sm">Vergleicht fussball.de-Altersklassen mit der Mannschaftsliste</span>
+  <button class="btn btn--secondary"
+          hx-post="/admin/mannschaften/assign-fussball-de"
+          hx-target="#sync-result"
+          hx-swap="innerHTML"
+          hx-indicator="#assign-btn-label">
+    <span id="assign-btn-label">Team-IDs zuordnen</span>
+  </button>
+  <span class="text-muted text-sm">Altersklassen abgleichen oder fussball.de Team-IDs den Mannschaften zuweisen</span>
 </div>
 <div id="sync-result"></div>
 

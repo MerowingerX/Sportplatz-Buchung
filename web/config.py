@@ -37,8 +37,6 @@ class Settings(BaseSettings):
 
     # fussball.de
     fussball_de_vereinsseite: Optional[str] = None  # z. B. https://www.fussball.de/verein/.../-/verein-id/00ES8GN…
-    apifussball_token: Optional[str] = None          # api-fussball.de API-Token
-    apifussball_club_id: Optional[str] = None        # Vereins-ID auf fussball.de (z. B. 00ES8GN76C000016VV0AG08LVUPGND5I)
 
     # Instagram Graph API
     instagram_account_id: Optional[str] = None       # Instagram Business Account ID

@@ -78,11 +78,9 @@ def post_wochenende(notion_key: str, db_id: str, booking_url: str,
 
     # ── Spiele laden ──────────────────────────────────────────────────────────
     sunday = _next_sunday()
-    today  = date.today()
-    days   = (sunday - today).days + 1  # inkl. Sonntag bis 23:59
 
     client = Client(auth=notion_key)
-    pages  = mod.get_upcoming_games(client, db_id, days)
+    pages  = mod.get_upcoming_games(client, db_id, sunday)
 
     if not pages:
         return {"posted": 0, "skipped": 0, "images": [], "caption": ""}

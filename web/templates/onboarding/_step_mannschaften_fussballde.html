@@ -1,0 +1,78 @@
+<div class="step-card">
+  <div class="step-title">Schritt 7 — fussball.de Zuordnung</div>
+
+  <p class="check-hint" style="margin-bottom:1.25rem;">
+    Weise jeder Mannschaft das passende Team von fussball.de zu.
+    Der <strong>Langname</strong> wird dann automatisch überschrieben (ohne Vereinsname),
+    der <strong>Kurzname</strong> bleibt unverändert.
+    Nicht zugeordnete Mannschaften behalten ihren eingetragenen Namen.
+  </p>
+
+  <form id="fd-assign-form"
+        hx-post="/onboarding/step/mannschaften/fussballde"
+        hx-target="#onboarding-content" hx-swap="innerHTML">
+
+    <div style="display:grid; grid-template-columns:1fr 1.5fr; gap:.5rem .75rem;
+                align-items:start; margin-bottom:1.5rem;">
+
+      <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;">
+        Mannschaft (intern)
+      </div>
+      <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;">
+        fussball.de Team
+      </div>
+
+      {% for m in mannschaften %}
+      <input type="hidden" id="fdname_{{ m.notion_id }}"
+             name="fdname_{{ m.notion_id }}" value="">
+
+      <div style="padding:.25rem 0; line-height:1.3;">
+        <span style="font-weight:600; font-size:.92rem;">{{ m.name }}</span>
+        {% if m.shortname %}
+        <span style="font-size:.78rem; color:var(--color-text-muted,#6b7280);"> · {{ m.shortname }}</span>
+        {% endif %}
+      </div>
+
+      <select name="fdteam_{{ m.notion_id }}"
+              class="input--small"
+              style="width:100%;"
+              onchange="document.getElementById('fdname_{{ m.notion_id }}').value = this.options[this.selectedIndex].dataset.name || '';">
+        <option value="" data-name="">— nicht zuordnen —</option>
+        {% set ns = namespace(last_ak="") %}
+        {% for t in fd_teams %}
+        {% set ak = t.name.split(' - ')[0] %}
+        {% if ak != ns.last_ak %}
+        {% if ns.last_ak %}
+        </optgroup>
+        {% endif %}
+        <optgroup label="{{ ak }}">
+        {% set ns.last_ak = ak %}
+        {% endif %}
+        <option value="{{ t.team_id }}" data-name="{{ t.name }}">
+          {{ t.name }}{% if t.wettbewerbe %} &nbsp;·&nbsp; {{ t.wettbewerbe[:2] | join(', ') }}{% if t.wettbewerbe | length > 2 %}, …{% endif %}{% endif %}
+        </option>
+        {% endfor %}
+        {% if ns.last_ak %}
+        </optgroup>
+        {% endif %}
+      </select>
+      {% endfor %}
+    </div>
+
+    <div class="form-actions" style="display:flex; align-items:center; gap:1rem;">
+      <button type="submit" class="btn btn--primary">Zuordnung speichern →</button>
+      <button type="submit" form="fd-skip-form"
+              style="background:none; border:none; cursor:pointer;
+                     font-size:.88rem; color:var(--color-text-muted,#6b7280);">
+        Überspringen
+      </button>
+    </div>
+  </form>
+
+  {# Separates Mini-Formular für "Überspringen" ohne Zuordnungen #}
+  <form id="fd-skip-form"
+        hx-post="/onboarding/step/mannschaften/fussballde"
+        hx-target="#onboarding-content" hx-swap="innerHTML"
+        style="display:none;">
+  </form>
+</div>

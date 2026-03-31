@@ -1,0 +1,68 @@
+<div id="mannschaft-sync-result" class="card" style="margin-bottom: 1.5rem;">
+  <h3 style="margin-bottom: .75rem;">fussball.de Team-IDs zuordnen</h3>
+  <p class="text-muted text-sm" style="margin-bottom: 1rem;">
+    Wähle für jede Mannschaft das passende fussball.de-Team aus.
+    Der <strong>Langname</strong> wird dabei überschrieben (ohne Vereinsnamen),
+    der <strong>Kurzname</strong> bleibt unverändert.
+    Nicht zugeordnete Mannschaften bleiben unverändert.
+  </p>
+
+  <form hx-post="/admin/mannschaften/save-fussball-de-ids"
+        hx-target="#mannschaft-tbody"
+        hx-swap="outerHTML">
+
+    <div style="display:grid; grid-template-columns:1fr 1.6fr; gap:.4rem .75rem;
+                align-items:center; margin-bottom:1.25rem;">
+
+      <div class="text-muted text-sm" style="padding-bottom:.25rem;">Mannschaft</div>
+      <div class="text-muted text-sm" style="padding-bottom:.25rem;">fussball.de Team (Wettbewerbe)</div>
+
+      {% for m in mannschaften %}
+      <input type="hidden" id="adm_fdname_{{ m.notion_id }}"
+             name="fdname_{{ m.notion_id }}" value="">
+
+      <div style="line-height:1.3; padding:.2rem 0;">
+        <span style="font-weight:600;">{{ m.name }}</span>
+        {% if m.shortname %}
+        <span class="text-muted text-sm"> · {{ m.shortname }}</span>
+        {% endif %}
+        {% if m.fussball_de_team_id %}
+        <br><span class="text-muted text-sm" title="{{ m.fussball_de_team_id }}">
+          ✓ {{ m.fussball_de_team_id[:12] }}…
+        </span>
+        {% endif %}
+      </div>
+
+      <select name="fdteam_{{ m.notion_id }}"
+              class="input--small"
+              style="width:100%;"
+              onchange="document.getElementById('adm_fdname_{{ m.notion_id }}').value = this.options[this.selectedIndex].dataset.name || '';">
+        <option value="" data-name="">— nicht zuordnen —</option>
+        {% set ns = namespace(last_ak="") %}
+        {% for t in fd_teams %}
+        {% set ak = t.name.split(' - ')[0] %}
+        {% if ak != ns.last_ak %}
+        {% if ns.last_ak %}</optgroup>{% endif %}
+        <optgroup label="{{ ak }}">
+        {% set ns.last_ak = ak %}
+        {% endif %}
+        <option value="{{ t.team_id }}"
+                data-name="{{ t.name }}"
+                {% if m.fussball_de_team_id == t.team_id %}selected{% endif %}>
+          {{ t.name }}{% if t.wettbewerbe %} · {{ t.wettbewerbe[:2] | join(', ') }}{% if t.wettbewerbe | length > 2 %}, …{% endif %}{% endif %}
+        </option>
+        {% endfor %}
+        {% if ns.last_ak %}</optgroup>{% endif %}
+      </select>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex; gap:.75rem; align-items:center;">
+      <button type="submit" class="btn btn--primary btn--small">Zuordnung speichern</button>
+      <button type="button" class="btn btn--ghost btn--small"
+              onclick="document.getElementById('mannschaft-sync-result').remove()">
+        Abbrechen
+      </button>
+    </div>
+  </form>
+</div>

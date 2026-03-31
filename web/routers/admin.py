@@ -3,6 +3,7 @@ from datetime import datetime, date, time, timezone
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
+import asyncio as _asyncio
 import os
 from fastapi import APIRouter, BackgroundTasks, Request, Form, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -319,7 +320,6 @@ def _load_fussball_de_mod():
 
 @router.post("/mannschaften/sync-fussball-de", response_class=HTMLResponse, dependencies=[_manage_users])
 async def mannschaft_sync_fussball_de(request: Request, current_user: CurrentUser):
-    import asyncio as _asyncio
     repo = request.app.state.repo
     settings = get_settings()
     url = getattr(settings, "fussball_de_vereinsseite", None)
@@ -338,7 +338,7 @@ async def mannschaft_sync_fussball_de(request: Request, current_user: CurrentUse
         return mod.parse_matchplan(html, heim_kw)
 
     try:
-        loop = _asyncio.get_event_loop()
+        loop = _asyncio.get_running_loop()
         spiele = await loop.run_in_executor(None, _scrape)
     except Exception as exc:
         return HTMLResponse(_toast(f"fussball.de konnte nicht abgerufen werden: {exc}", "error"))
@@ -392,6 +392,95 @@ async def mannschaft_from_fussball_de(
         )
         for m in mannschaften
     )
+    return HTMLResponse(
+        f'<tbody id="mannschaft-tbody">{rows_html}</tbody>'
+        + _toast(msg, level)
+    )
+
+
+@router.post("/mannschaften/assign-fussball-de", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaft_assign_fussball_de(request: Request, current_user: CurrentUser):
+    """Lädt fussball.de-Teams und zeigt die Zuordnungsmaske."""
+    settings = get_settings()
+    url = getattr(settings, "fussball_de_vereinsseite", None)
+    if not url:
+        return HTMLResponse(_toast("FUSSBALL_DE_VEREINSSEITE nicht konfiguriert.", "error"))
+
+    def _fetch():
+        mod = _load_fussball_de_mod()
+        club_id = mod._club_id_from_url(url)
+        if not club_id:
+            raise ValueError(f"Konnte Club-ID nicht aus URL extrahieren: {url}")
+        return mod.fetch_teams(club_id)
+
+    try:
+        loop = _asyncio.get_running_loop()
+        fd_teams = await loop.run_in_executor(None, _fetch)
+    except Exception as exc:
+        return HTMLResponse(_toast(f"fussball.de konnte nicht abgerufen werden: {exc}", "error"))
+
+    if not fd_teams:
+        return HTMLResponse(_toast("Keine Teams auf fussball.de gefunden.", "warning"))
+
+    repo = request.app.state.repo
+    mannschaften = repo.get_all_mannschaften()
+    return HTMLResponse(
+        templates.get_template("partials/_mannschaft_fd_assign.html").render({
+            "mannschaften": mannschaften,
+            "fd_teams": fd_teams,
+        })
+    )
+
+
+@router.post("/mannschaften/save-fussball-de-ids", response_class=HTMLResponse, dependencies=[_manage_users])
+async def mannschaft_save_fussball_de_ids(request: Request, current_user: CurrentUser):
+    """Speichert fussball.de Team-IDs und überschreibt Langnamen."""
+    import re
+    form = await request.form()
+    repo = request.app.state.repo
+
+    def _longname(full_name: str) -> str:
+        parts = full_name.split(" - ", 1)
+        altersklasse = parts[0].strip()
+        if len(parts) < 2:
+            return altersklasse
+        m = re.search(r"\s+([IVX]+)\s*$", parts[1])
+        return f"{altersklasse} {m.group(1)}" if m else altersklasse
+
+    updated = 0
+    for key in form.keys():
+        if not key.startswith("fdteam_"):
+            continue
+        mid = key[len("fdteam_"):]
+        team_id = (form.get(key) or "").strip()
+        if not team_id:
+            continue
+        mannschaft = repo.get_mannschaft_by_id(mid)
+        if not mannschaft:
+            continue
+        fd_name = (form.get(f"fdname_{mid}") or "").strip()
+        new_name = _longname(fd_name) if fd_name else mannschaft.name
+        repo.update_mannschaft(
+            mannschaft_id=mid,
+            name=new_name,
+            trainer_id=getattr(mannschaft, "trainer_id", None),
+            trainer_name=getattr(mannschaft, "trainer_name", None),
+            fussball_de_team_id=team_id,
+            cc_emails=getattr(mannschaft, "cc_emails", []) or [],
+            aktiv=getattr(mannschaft, "aktiv", True),
+            shortname=getattr(mannschaft, "shortname", None),
+        )
+        updated += 1
+
+    mannschaften = repo.get_all_mannschaften()
+    rows_html = "".join(
+        templates.get_template("partials/_mannschaft_row.html").render(
+            _mannschaft_row_ctx(m, current_user, repo)
+        )
+        for m in mannschaften
+    )
+    msg = f"{updated} Team-ID(s) gespeichert." if updated else "Keine Zuordnungen vorgenommen."
+    level = "success" if updated else "info"
     return HTMLResponse(
         f'<tbody id="mannschaft-tbody">{rows_html}</tbody>'
         + _toast(msg, level)
@@ -860,7 +949,7 @@ async def instagram_post_wochenende(request: Request):
 
     _instagram_job = {"running": True, "result": "", "error": ""}
 
-    loop = _asyncio.get_event_loop()
+    loop = _asyncio.get_running_loop()
     loop.run_in_executor(
         None, _run_instagram_post,
         notion_key, db_id, booking_url, account_id, access_token,
@@ -889,87 +978,6 @@ async def instagram_post_progress():
     if _instagram_job.get("result"):
         return HTMLResponse(_toast(f'\u2705 Instagram: {_instagram_job["result"]}', "success"))
     return HTMLResponse("")
-
-
-# ── Spielplan-CSV von api-fussball.de abrufen ─────────────────────────────────
-
-import asyncio as _asyncio
-import importlib.util as _importlib_util
-import pathlib as _pathlib
-
-# Gemeinsamer Job-Zustand (einfaches In-Memory-Dict, ausreichend für Einzel-Nutzer)
-_spielplan_job: dict = {"running": False, "current": 0, "total": 0, "team": "", "result": "", "error": ""}
-
-
-def _load_fetch_mod():
-    script_path = _pathlib.Path(__file__).parent.parent.parent / "scripts" / "fetch_spielplan.py"
-    spec = _importlib_util.spec_from_file_location("fetch_spielplan", script_path)
-    mod  = _importlib_util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def _run_generate_csv():
-    global _spielplan_job
-    mod = _load_fetch_mod()
-
-    def _cb(current: int, total: int, team_name: str):
-        _spielplan_job["current"] = current
-        _spielplan_job["total"]   = total
-        _spielplan_job["team"]    = team_name
-
-    try:
-        count, csv_path = mod.generate_csv(progress_cb=_cb)
-        _spielplan_job["result"] = f"{count} Heimspiele → {os.path.relpath(csv_path)}"
-        _spielplan_job["error"]  = ""
-    except Exception as exc:
-        _spielplan_job["error"]  = str(exc)
-        _spielplan_job["result"] = ""
-    finally:
-        _spielplan_job["running"] = False
-
-
-def _progress_toast(current: int, total: int, team: str) -> str:
-    label = f"{current} / {total}" if total else str(current)
-    team_short = team.split(" - ")[-1] if " - " in team else team
-    return (
-        f'<div id="toast" class="toast toast--progress"'
-        f' hx-get="/admin/fetch-spielplan/progress"'
-        f' hx-trigger="every 2s"'
-        f' hx-swap="outerHTML">'
-        f'&#8987; Spielplan wird geladen … {label}'
-        + (f'<br><small>{team_short}</small>' if team_short else '')
-        + '</div>'
-    )
-
-
-@router.post("/fetch-spielplan", response_class=HTMLResponse, dependencies=[_dfbnet_required])
-async def fetch_spielplan(request: Request):
-    """Startet den Spielplan-Abruf im Hintergrund und gibt sofort einen Progress-Toast zurück."""
-    global _spielplan_job
-    if _spielplan_job.get("running"):
-        return HTMLResponse(_progress_toast(
-            _spielplan_job["current"], _spielplan_job["total"], _spielplan_job["team"]
-        ))
-    _spielplan_job = {"running": True, "current": 0, "total": 0, "team": "", "result": "", "error": ""}
-    loop = _asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_generate_csv)
-    return HTMLResponse(_progress_toast(0, 0, ""))
-
-
-@router.get("/fetch-spielplan/progress", response_class=HTMLResponse, dependencies=[_dfbnet_required])
-async def fetch_spielplan_progress():
-    """Liefert den aktuellen Fortschritt des Spielplan-Abrufs."""
-    global _spielplan_job
-    if _spielplan_job.get("running"):
-        return HTMLResponse(_progress_toast(
-            _spielplan_job["current"], _spielplan_job["total"], _spielplan_job["team"]
-        ))
-    if _spielplan_job.get("error"):
-        return HTMLResponse(_toast(f'Fehler: {_spielplan_job["error"]}', "error"))
-    if _spielplan_job.get("result"):
-        return HTMLResponse(_toast(f'\u2705 {_spielplan_job["result"]}', "success"))
-    return HTMLResponse("")  # Kein aktiver Job
 
 
 # ------------------------------------------------------------------ Spielplan-Sync
@@ -1173,8 +1181,6 @@ async def vereinsconfig_page(request: Request, current_user: CurrentUser):
     # Secrets: Wert nie an den Client senden – nur ob gesetzt
     env = {
         "FUSSBALL_DE_VEREINSSEITE":  raw_env.get("FUSSBALL_DE_VEREINSSEITE", ""),
-        "APIFUSSBALL_CLUB_ID":       raw_env.get("APIFUSSBALL_CLUB_ID", ""),
-        "APIFUSSBALL_TOKEN":         "",   # nie senden
         "BOOKING_URL":               raw_env.get("BOOKING_URL", ""),
         "LOCATION_LAT":              raw_env.get("LOCATION_LAT", ""),
         "LOCATION_LON":              raw_env.get("LOCATION_LON", ""),
@@ -1183,7 +1189,6 @@ async def vereinsconfig_page(request: Request, current_user: CurrentUser):
         "INSTAGRAM_ACCESS_TOKEN":    "",   # nie senden
     }
     env_set = {
-        "APIFUSSBALL_TOKEN":      bool(raw_env.get("APIFUSSBALL_TOKEN")),
         "INSTAGRAM_ACCESS_TOKEN": bool(raw_env.get("INSTAGRAM_ACCESS_TOKEN")),
     }
     return templates.TemplateResponse(
@@ -1242,7 +1247,7 @@ async def save_vereinsconfig(request: Request, current_user: CurrentUser):
     # ── .env-Felder ─────────────────────────────────────────────────────
     env_path = str(get_env_path())
     _plain_env_fields = [
-        "FUSSBALL_DE_VEREINSSEITE", "APIFUSSBALL_CLUB_ID",
+        "FUSSBALL_DE_VEREINSSEITE",
         "BOOKING_URL", "LOCATION_LAT", "LOCATION_LON", "LOCATION_NAME",
         "INSTAGRAM_ACCOUNT_ID",
     ]
@@ -1252,7 +1257,7 @@ async def save_vereinsconfig(request: Request, current_user: CurrentUser):
             set_key(env_path, key, val)
 
     # Secrets: nur schreiben wenn explizit neuer Wert eingegeben
-    for secret_key in ("APIFUSSBALL_TOKEN", "INSTAGRAM_ACCESS_TOKEN"):
+    for secret_key in ("INSTAGRAM_ACCESS_TOKEN",):
         val = form.get(secret_key, "").strip()
         if val:
             set_key(env_path, secret_key, val)

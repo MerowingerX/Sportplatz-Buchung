@@ -22,6 +22,58 @@ router = APIRouter(prefix="/onboarding")
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
+# ── Mannschaft-Altersklassen ────────────────────────────────────────────────
+
+_ALTERSKLASSEN = [
+    {"key": "herren",      "label": "Herren",          "short_prefix": "Herren",    "long_prefix": "Herren"},
+    {"key": "ue70",        "label": "Ü70",              "short_prefix": "Ü70",       "long_prefix": "Ü70"},
+    {"key": "ue60",        "label": "Ü60",              "short_prefix": "Ü60",       "long_prefix": "Ü60"},
+    {"key": "ue50",        "label": "Ü50",              "short_prefix": "Ü50",       "long_prefix": "Ü50"},
+    {"key": "ue40",        "label": "Ü40",              "short_prefix": "Ü40",       "long_prefix": "Ü40"},
+    {"key": "ue32",        "label": "Ü32",              "short_prefix": "Ü32",       "long_prefix": "Ü32"},
+    {"key": "frauen",      "label": "Frauen",           "short_prefix": "Frauen",    "long_prefix": "Frauen"},
+    {"key": "frauen_ue32", "label": "Frauen Ü32",       "short_prefix": "Frauen-Ü32","long_prefix": "Frauen Ü32"},
+    {"key": "a_jun",       "label": "A-Junioren",       "short_prefix": "A",         "long_prefix": "A-Junioren"},
+    {"key": "b_jun",       "label": "B-Junioren",       "short_prefix": "B",         "long_prefix": "B-Junioren"},
+    {"key": "c_jun",       "label": "C-Junioren",       "short_prefix": "C",         "long_prefix": "C-Junioren"},
+    {"key": "d_jun",       "label": "D-Junioren",       "short_prefix": "D",         "long_prefix": "D-Junioren"},
+    {"key": "e_jun",       "label": "E-Junioren",       "short_prefix": "E",         "long_prefix": "E-Junioren"},
+    {"key": "f_jun",       "label": "F-Junioren",       "short_prefix": "F",         "long_prefix": "F-Junioren"},
+    {"key": "g_jun",       "label": "G-Junioren",       "short_prefix": "G",         "long_prefix": "G-Junioren"},
+    {"key": "a_junnin",    "label": "A-Juniorinnen",    "short_prefix": "Aw",        "long_prefix": "A-Juniorinnen"},
+    {"key": "b_junnin",    "label": "B-Juniorinnen",    "short_prefix": "Bw",        "long_prefix": "B-Juniorinnen"},
+    {"key": "c_junnin",    "label": "C-Juniorinnen",    "short_prefix": "Cw",        "long_prefix": "C-Juniorinnen"},
+    {"key": "d_junnin",    "label": "D-Juniorinnen",    "short_prefix": "Dw",        "long_prefix": "D-Juniorinnen"},
+    {"key": "e_junnin",    "label": "E-Juniorinnen",    "short_prefix": "Ew",        "long_prefix": "E-Juniorinnen"},
+    {"key": "f_junnin",    "label": "F-Juniorinnen",    "short_prefix": "Fw",        "long_prefix": "F-Juniorinnen"},
+    {"key": "g_junnin",    "label": "G-Juniorinnen",    "short_prefix": "Gw",        "long_prefix": "G-Juniorinnen"},
+]
+
+_ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"]
+
+
+def _roman(n: int) -> str:
+    return _ROMAN_NUMERALS[n - 1] if 1 <= n <= 9 else str(n)
+
+
+def _teams_from_counts(form) -> list[dict]:
+    teams = []
+    for ag in _ALTERSKLASSEN:
+        try:
+            count = int(form.get(f"count_{ag['key']}", 0) or 0)
+        except (ValueError, TypeError):
+            count = 0
+        for i in range(1, count + 1):
+            teams.append({
+                "longname":  f"{ag['long_prefix']} {_roman(i)}",
+                "shortname": f"{ag['short_prefix']}-{i}",
+                "label":     ag["label"],
+            })
+    return teams
+
+
+# ── bestehende Hilfsfunktionen ───────────────────────────────────────────────
+
 def _roman_to_int(s: str):
     values = {'I': 1, 'V': 5, 'X': 10}
     total = 0
@@ -125,6 +177,33 @@ def _derive_shortname(name: str) -> str:
     if words:
         return "".join(w[0].upper() for w in words if w)[:5]
     return "?"
+
+def _fussball_de_longname(full_name: str) -> str:
+    """'A-Junioren - TuS Cremlingen II' → 'A-Junioren II'"""
+    import re
+    parts = full_name.split(" - ", 1)
+    altersklasse = parts[0].strip()
+    if len(parts) < 2:
+        return altersklasse
+    m = re.search(r"\s+([IVX]+)\s*$", parts[1])
+    if m:
+        return f"{altersklasse} {m.group(1)}"
+    return altersklasse
+
+
+def _fetch_fd_teams(fussball_de_url: str) -> list[dict]:
+    """Holt Mannschaften von fussball.de; gibt [] bei Fehler zurück."""
+    import sys
+    try:
+        sys.path.insert(0, str(PROJECT_ROOT / "tools"))
+        from fussball_de import _club_id_from_url, fetch_teams  # type: ignore
+        club_id = _club_id_from_url(fussball_de_url)
+        if not club_id:
+            return []
+        return fetch_teams(club_id)
+    except Exception:
+        return []
+
 
 def _config_dir() -> Path:
     return PROJECT_ROOT / os.environ.get("CONFIG_DIR", "config")
@@ -256,29 +335,6 @@ def _check_settings(settings) -> list[dict]:
         "ok": bool(fuss),
         "required": False,
         "hint": "URL der Vereinsseite auf fussball.de (z. B. https://www.fussball.de/verein/-/verein-id/00ES8GN…)",
-    })
-
-    # api-fussball.de Token
-    token = getattr(settings, "apifussball_token", None) or ""
-    checks.append({
-        "key": "APIFUSSBALL_TOKEN",
-        "label": "APIFUSSBALL_TOKEN",
-        "value": _mask(token) if token else "(nicht gesetzt)",
-        "secret": True,
-        "ok": bool(token),
-        "required": False,
-        "hint": "API-Token von api-fussball.de (für automatischen Spielplan-Import)",
-    })
-
-    club = getattr(settings, "apifussball_club_id", None) or ""
-    checks.append({
-        "key": "APIFUSSBALL_CLUB_ID",
-        "label": "APIFUSSBALL_CLUB_ID",
-        "value": club or "(nicht gesetzt)",
-        "secret": False,
-        "ok": bool(club),
-        "required": False,
-        "hint": "Vereins-ID auf fussball.de (z. B. 00ES8GN76C000016VV0AG08LVUPGND5I)",
     })
 
     # SMTP
@@ -552,45 +608,20 @@ async def step_spielorte(request: Request):
     vc_path.write_text(json.dumps(vc, ensure_ascii=False, indent=2), encoding="utf-8")
     vc_load.cache_clear()
 
-    # Fetch teams from api-fussball.de
-    settings = get_settings()
-    token = getattr(settings, "apifussball_token", None) or ""
-    club_id_api = getattr(settings, "apifussball_club_id", None) or ""
-
-    teams: list[dict] = []
-    fetch_error: Optional[str] = None
-
-    if token and club_id_api:
-        import asyncio as _asyncio
-        import urllib.request as _urlreq
-        import json as _json2
-
-        def _fetch_teams():
-            req = _urlreq.Request(
-                f"https://api-fussball.de/api/club/{club_id_api}",
-                headers={"x-auth-token": token},
-            )
-            with _urlreq.urlopen(req, timeout=15) as r:
-                return _json2.loads(r.read()).get("data", [])
-
-        try:
-            loop = _asyncio.get_event_loop()
-            raw = await loop.run_in_executor(None, _fetch_teams)
-            teams = [
-                {**t, "shortname": _derive_shortname(t.get("name", ""))}
-                for t in raw
-            ]
-        except Exception as e:
-            fetch_error = str(e)
-
     return templates.TemplateResponse(
         "onboarding/_step_mannschaften.html",
-        {
-            "request": request,
-            "teams": teams,
-            "fetch_error": fetch_error,
-            "api_missing": not (token and club_id_api),
-        },
+        {"request": request, "altersklassen": _ALTERSKLASSEN},
+    )
+
+
+@router.post("/step/mannschaften/names", response_class=HTMLResponse)
+async def step_mannschaften_names(request: Request):
+    """Schritt 6b: Zählt aus dem Count-Formular die Teams und zeigt das Namens-Formular."""
+    form = await request.form()
+    teams = _teams_from_counts(form)
+    return templates.TemplateResponse(
+        "onboarding/_step_mannschaften_names.html",
+        {"request": request, "teams": teams},
     )
 
 
@@ -599,27 +630,75 @@ async def step_mannschaften(request: Request):
     form = await request.form()
     repo = request.app.state.repo
     count = 0
-    for idx_str in form.getlist("team_selected"):
-        try:
-            i = int(idx_str)
-        except (ValueError, TypeError):
-            continue
-        team_id = (form.get(f"team_id_{i}") or "").strip()
-        team_name = (form.get(f"team_name_{i}") or "").strip()
-        shortname = (form.get(f"shortname_{i}") or "").strip()
-        if not team_name and not shortname:
+    try:
+        total = int(form.get("team_count", 0) or 0)
+    except (ValueError, TypeError):
+        total = 0
+    for i in range(total):
+        longname  = (form.get(f"name_{i}") or "").strip()
+        shortname = (form.get(f"short_{i}") or "").strip()
+        if not longname and not shortname:
             continue
         repo.create_mannschaft(
-            name=team_name or shortname,
+            name=longname or shortname,
             shortname=shortname or None,
             trainer_id=None,
             trainer_name=None,
-            fussball_de_team_id=team_id or None,
+            fussball_de_team_id=None,
             cc_emails=[],
             aktiv=True,
         )
         count += 1
+
+    # Wenn fussball.de konfiguriert: Zuordnungs-Schritt anzeigen
+    settings = get_settings()
+    fussball_de_url = getattr(settings, "fussball_de_vereinsseite", None) or ""
+    if fussball_de_url and count > 0:
+        fd_teams = _fetch_fd_teams(fussball_de_url)
+        if fd_teams:
+            mannschaften = repo.get_all_mannschaften(only_active=True)
+            return templates.TemplateResponse(
+                "onboarding/_step_mannschaften_fussballde.html",
+                {"request": request, "mannschaften": mannschaften, "fd_teams": fd_teams},
+            )
+
     return templates.TemplateResponse(
         "onboarding/_step_done.html",
         {"request": request, "count": count},
+    )
+
+
+@router.post("/step/mannschaften/fussballde", response_class=HTMLResponse)
+async def step_mannschaften_fussballde(request: Request):
+    """Speichert die fussball.de Team-IDs und überschreibt die Langnamen."""
+    form = await request.form()
+    repo = request.app.state.repo
+
+    for key in form.keys():
+        if not key.startswith("fdteam_"):
+            continue
+        mannschaft_id = key[len("fdteam_"):]
+        team_id = (form.get(key) or "").strip()
+        if not team_id:
+            continue
+        fd_name = (form.get(f"fdname_{mannschaft_id}") or "").strip()
+        mannschaft = repo.get_mannschaft_by_id(mannschaft_id)
+        if not mannschaft:
+            continue
+        new_name = _fussball_de_longname(fd_name) if fd_name else mannschaft.name
+        repo.update_mannschaft(
+            mannschaft_id=mannschaft_id,
+            name=new_name,
+            trainer_id=mannschaft.trainer_id if hasattr(mannschaft, "trainer_id") else None,
+            trainer_name=mannschaft.trainer_name if hasattr(mannschaft, "trainer_name") else None,
+            fussball_de_team_id=team_id,
+            cc_emails=getattr(mannschaft, "cc_emails", []) or [],
+            aktiv=getattr(mannschaft, "aktiv", True),
+            shortname=getattr(mannschaft, "shortname", None),
+        )
+
+    mannschaften = repo.get_all_mannschaften(only_active=True)
+    return templates.TemplateResponse(
+        "onboarding/_step_done.html",
+        {"request": request, "count": len(mannschaften)},
     )

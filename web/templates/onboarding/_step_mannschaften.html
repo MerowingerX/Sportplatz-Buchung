@@ -1,70 +1,84 @@
 <div class="step-card">
   <div class="step-title">Schritt 6 — Mannschaften einrichten</div>
-
-  {% if api_missing %}
-  <div class="alert alert--warning" style="margin-bottom:1rem;">
-    <strong>APIFUSSBALL_TOKEN</strong> oder <strong>APIFUSSBALL_CLUB_ID</strong> nicht konfiguriert —
-    Mannschaften können nicht automatisch ermittelt werden.
-    Du kannst sie später unter <strong>Admin → Mannschaften</strong> anlegen.
-  </div>
-  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML">
-    <div class="form-actions">
-      <button type="submit" class="btn btn--primary">Überspringen →</button>
-    </div>
-  </form>
-
-  {% elif fetch_error %}
-  <div class="alert alert--error" style="margin-bottom:1rem;">
-    api-fussball.de konnte nicht abgerufen werden:<br>
-    <small>{{ fetch_error }}</small>
-  </div>
-  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML">
-    <div class="form-actions">
-      <button type="submit" class="btn btn--primary">Überspringen →</button>
-    </div>
-  </form>
-
-  {% elif not teams %}
-  <p style="color:var(--color-text-muted,#6b7280); margin-bottom:1rem;">
-    Keine Mannschaften auf api-fussball.de gefunden. Du kannst sie später unter <strong>Admin → Mannschaften</strong> anlegen.
+  <p class="check-hint" style="margin-bottom:1.25rem;">
+    Wie viele Mannschaften gibt es pro Altersklasse?
+    Trage <strong>0</strong> ein, wenn die Altersklasse im Verein nicht gespielt wird.
+    Kurz- und Langnamen werden im nächsten Schritt vorgeschlagen und können angepasst werden.
   </p>
-  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML">
+
+  <form hx-post="/onboarding/step/mannschaften/names"
+        hx-target="#onboarding-content" hx-swap="innerHTML">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem;">
+
+      <!-- Herren + Ü-Klassen -->
+      <div>
+        <div style="font-weight:600; font-size:0.82rem; color:var(--color-text-muted,#6b7280);
+                    text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Herren</div>
+        {% for ag in altersklassen if ag.key in ["herren","ue70","ue60","ue50","ue40","ue32"] %}
+        <div style="display:flex; align-items:center; justify-content:space-between;
+                    padding:.3rem 0; border-bottom:1px solid var(--color-border,#e5e7eb);">
+          <label style="font-size:.9rem;">{{ ag.label }}</label>
+          <input type="number" name="count_{{ ag.key }}" value="0" min="0" max="9"
+                 style="width:3.5rem; text-align:center;" class="input--small">
+        </div>
+        {% endfor %}
+
+        <div style="font-weight:600; font-size:0.82rem; color:var(--color-text-muted,#6b7280);
+                    text-transform:uppercase; letter-spacing:.05em; margin:1rem 0 .5rem;">Frauen</div>
+        {% for ag in altersklassen if ag.key in ["frauen","frauen_ue32"] %}
+        <div style="display:flex; align-items:center; justify-content:space-between;
+                    padding:.3rem 0; border-bottom:1px solid var(--color-border,#e5e7eb);">
+          <label style="font-size:.9rem;">{{ ag.label }}</label>
+          <input type="number" name="count_{{ ag.key }}" value="0" min="0" max="9"
+                 style="width:3.5rem; text-align:center;" class="input--small">
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Junioren / Juniorinnen -->
+      <div>
+        <div style="font-weight:600; font-size:0.82rem; color:var(--color-text-muted,#6b7280);
+                    text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Junioren / Juniorinnen</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 .75rem;">
+          <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;">Junioren</div>
+          <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;">Juniorinnen</div>
+
+          {% set letters = ["a","b","c","d","e","f","g"] %}
+          {% for l in letters %}
+          {% set jun_key = l ~ "_jun" %}
+          {% set nin_key = l ~ "_junnin" %}
+          {% set jun_ag  = altersklassen | selectattr("key","eq",jun_key) | first %}
+          {% set nin_ag  = altersklassen | selectattr("key","eq",nin_key) | first %}
+
+          <div style="display:flex; align-items:center; justify-content:space-between;
+                      padding:.3rem 0; border-bottom:1px solid var(--color-border,#e5e7eb);">
+            <label style="font-size:.9rem;">{{ jun_ag.label }}</label>
+            <input type="number" name="count_{{ jun_ag.key }}" value="0" min="0" max="9"
+                   style="width:3.5rem; text-align:center;" class="input--small">
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between;
+                      padding:.3rem 0; border-bottom:1px solid var(--color-border,#e5e7eb);">
+            <label style="font-size:.9rem;">{{ nin_ag.label }}</label>
+            <input type="number" name="count_{{ nin_ag.key }}" value="0" min="0" max="9"
+                   style="width:3.5rem; text-align:center;" class="input--small">
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
     <div class="form-actions">
-      <button type="submit" class="btn btn--primary">Überspringen →</button>
+      <button type="submit" class="btn btn--primary">Weiter →</button>
     </div>
   </form>
 
-  {% else %}
-  <p style="margin-bottom:0.5rem;">
-    Folgende Mannschaften wurden von api-fussball.de geladen. Wähle aus, welche angelegt werden sollen,
-    und vergib einen <strong>Kurznamen</strong> (wird im System verwendet, kann vom fussball.de-Namen abweichen).
-  </p>
-  <p class="check-hint" style="margin-bottom:1rem;">
-    Trainer und CC-Mails kannst du später unter <strong>Admin → Mannschaften</strong> ergänzen.
-  </p>
-  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML">
-    <div style="display:grid; grid-template-columns: auto 1fr 1fr; gap:0.4rem 0.75rem; align-items:center; margin-bottom:1.5rem;">
-      <div style="font-size:0.78rem; color:var(--color-text-muted,#6b7280); padding-bottom:0.25rem;">Anlegen</div>
-      <div style="font-size:0.78rem; color:var(--color-text-muted,#6b7280); padding-bottom:0.25rem;">fussball.de Name</div>
-      <div style="font-size:0.78rem; color:var(--color-text-muted,#6b7280); padding-bottom:0.25rem;">Kurzname (im System)</div>
-      {% for t in teams %}
-      {% set i = loop.index0 %}
-      <input type="hidden" name="team_id_{{ i }}" value="{{ t.id }}">
-      <input type="hidden" name="team_name_{{ i }}" value="{{ t.name }}">
-      <label style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
-        <input type="checkbox" name="team_selected" value="{{ i }}" checked>
-      </label>
-      <span style="font-size:0.9rem;">{{ t.name }}</span>
-      <input type="text" name="shortname_{{ i }}"
-             value="{{ t.shortname }}"
-             class="input--small"
-             style="width:100%;"
-             placeholder="{{ t.name }}">
-      {% endfor %}
-    </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn--primary">Mannschaften anlegen →</button>
-    </div>
+  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML"
+        style="margin-top:.5rem;">
+    <input type="hidden" name="team_count" value="0">
+    <button type="submit" class="btn btn--ghost" style="font-size:.85rem;">
+      Überspringen (Mannschaften später anlegen)
+    </button>
   </form>
-  {% endif %}
 </div>

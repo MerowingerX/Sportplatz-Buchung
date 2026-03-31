@@ -1,0 +1,59 @@
+<div class="step-card">
+  <div class="step-title">Schritt 6 — Mannschaftsnamen</div>
+
+  {% if not teams %}
+  <p style="color:var(--color-text-muted,#6b7280); margin-bottom:1rem;">
+    Keine Mannschaften ausgewählt.
+  </p>
+  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML">
+    <input type="hidden" name="team_count" value="0">
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Weiter →</button>
+    </div>
+  </form>
+
+  {% else %}
+  <p class="check-hint" style="margin-bottom:1rem;">
+    Vorgeschlagene Namen können angepasst werden.
+    <strong>Kurzname</strong> wird im System verwendet (Buchungen, Trainer-Auswahl).
+    <strong>Langname</strong> ist der vollständige Anzeigename.
+  </p>
+
+  <form hx-post="/onboarding/step/mannschaften" hx-target="#onboarding-content" hx-swap="innerHTML">
+    <input type="hidden" name="team_count" value="{{ teams | length }}">
+
+    <div style="display:grid; grid-template-columns:auto 1fr 1fr; gap:.35rem .75rem;
+                align-items:center; margin-bottom:1.5rem;">
+      <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;"></div>
+      <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;">Langname</div>
+      <div style="font-size:.75rem; color:var(--color-text-muted,#6b7280); padding-bottom:.25rem;">Kurzname</div>
+
+      {% set ns = namespace(last_label="") %}
+      {% for t in teams %}
+      {% if t.label != ns.last_label %}
+      <div style="grid-column:1/-1; font-size:.78rem; font-weight:600;
+                  color:var(--color-text-muted,#6b7280); padding-top:.6rem;
+                  border-top:1px solid var(--color-border,#e5e7eb); margin-top:.25rem;">
+        {{ t.label }}
+      </div>
+      {% set ns.last_label = t.label %}
+      {% endif %}
+
+      <span style="font-size:.82rem; color:var(--color-text-muted,#6b7280); white-space:nowrap;">
+        #{{ loop.index }}
+      </span>
+      <input type="text" name="name_{{ loop.index0 }}"
+             value="{{ t.longname }}"
+             class="input--small" style="width:100%;">
+      <input type="text" name="short_{{ loop.index0 }}"
+             value="{{ t.shortname }}"
+             class="input--small" style="width:100%;">
+      {% endfor %}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Mannschaften anlegen →</button>
+    </div>
+  </form>
+  {% endif %}
+</div>

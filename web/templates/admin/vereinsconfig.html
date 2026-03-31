@@ -112,22 +112,6 @@
                value="{{ env.FUSSBALL_DE_VEREINSSEITE }}"
                placeholder="https://www.fussball.de/verein/…/-/verein-id/…">
       </label>
-      <label class="vc-field">
-        <span>Vereins-ID (api-fussball.de)</span>
-        <input type="text" name="APIFUSSBALL_CLUB_ID"
-               value="{{ env.APIFUSSBALL_CLUB_ID }}"
-               placeholder="00ES8GN76C000016VV0AG08LVUPGND5I">
-      </label>
-      <label class="vc-field">
-        <span>API-Token (api-fussball.de) <small class="vc-secret-badge">geheim</small></span>
-        <div class="secret-input-row">
-          <input type="password" name="APIFUSSBALL_TOKEN" id="apifussball-token"
-                 autocomplete="new-password"
-                 placeholder="{% if env_set.APIFUSSBALL_TOKEN %}••••••••  (gesetzt, leer lassen zum Behalten){% else %}(nicht gesetzt){% endif %}">
-          <button type="button" class="btn btn--ghost btn--small secret-toggle"
-                  data-target="apifussball-token" title="Token anzeigen/verbergen">👁</button>
-        </div>
-      </label>
     </div>
   </section>
 
