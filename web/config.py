@@ -3,9 +3,10 @@ from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# ENV_FILE und CONFIG_DIR werden direkt aus der Systemumgebung gelesen –
-# sie können nicht selbst in der .env-Datei stehen, da sie steuern, welche
-# Datei geladen wird. Für den Demo-Server: ENV_FILE=.env.demo CONFIG_DIR=config/demo
+# ENV_FILE muss als Systemumgebungsvariable gesetzt werden – sie steuert, welche
+# .env-Datei geladen wird und kann daher nicht selbst darin stehen.
+# CONFIG_DIR kann dagegen in der .env-Datei stehen (kein Henne-Ei-Problem).
+# Für den Demo-Server: ENV_FILE=.env.demo (systemweit); CONFIG_DIR=config/demo (in .env.demo)
 _ENV_FILE = os.environ.get("ENV_FILE", ".env")
 
 
@@ -58,6 +59,10 @@ class Settings(BaseSettings):
     # Datenbank-Backend — "notion" (Standard) oder "sqlite"
     db_backend: str = "notion"
     sqlite_db_path: str = "data/sportplatz.db"
+
+    # Konfigurations-Verzeichnis (wird auch in booking/vereinsconfig.py + field_config.py genutzt)
+    # Kann in der .env-Datei gesetzt werden; docker-compose setzt es als Systemvariable.
+    config_dir: str = "config"
 
 
 _settings: Settings | None = None

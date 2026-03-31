@@ -20,6 +20,12 @@ async def lifespan(app: FastAPI):
 
     settings = get_settings()
 
+    # CONFIG_DIR in os.environ exportieren, damit booking/vereinsconfig.py,
+    # booking/field_config.py und onboarding.py alle denselben Pfad verwenden.
+    # Systemvariable (z. B. aus docker-compose) hat Vorrang; .env-Wert greift als Fallback.
+    if "CONFIG_DIR" not in os.environ:
+        os.environ["CONFIG_DIR"] = settings.config_dir
+
     # Ensure config files exist (copy from example if missing)
     project_root = Path(__file__).parent.parent
     config_dir = project_root / os.environ.get("CONFIG_DIR", "config")
@@ -35,6 +41,13 @@ async def lifespan(app: FastAPI):
         if example.exists():
             fc_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(example, fc_path)
+
+    # Jinja2-Globals wurden beim Import von templates_instance mit dem damals
+    # gültigen CONFIG_DIR gesetzt (evtl. noch ohne .env-Wert). Jetzt neu einlesen.
+    from booking.vereinsconfig import load as _vc_load
+    _vc_load.cache_clear()
+    from web.templates_instance import refresh_globals
+    refresh_globals()
 
     if settings.db_backend == "sqlite":
         from db.sqlite_repository import SQLiteRepository

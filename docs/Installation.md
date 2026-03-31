@@ -1,5 +1,5 @@
 
-# Sportplatz-Buchung TSV Hotzenplotz - Complete Installation
+# Sportplatz-Buchung — Installationsanleitung
 
 ## Server: 46.224.96.208
 ## Domain: book-tsv-hotzenplotz.dns.army (dns.army)
@@ -8,8 +8,8 @@
 Virtualmin → Create Virtual Server:
 - Domain: `book-tsv-hotzenplotz.dns.army`
 - DNS: **OFF** (extern dns.army)
-- PHP: **ON**
-- MariaDB: **ON** [web:115]
+- PHP: **OFF** (Python-App, kein PHP)
+- MariaDB: **OFF** (SQLite-Backend, keine externe Datenbank nötig)
 
 DNS Records (dns.army):
 ```
@@ -32,7 +32,7 @@ apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
 usermod -aG docker landlord
-newgrp docker [web:78]
+newgrp docker
 ```
 
 ## 4. Projekt klonen
@@ -47,102 +47,122 @@ ls web/main.py  # Prüfen!
 
 ## 5. Konfiguration
 
-**data/ Verzeichnisse**:
+**Verzeichnisse anlegen**:
 ```bash
 mkdir -p ~/booking/sportplatz-buchung/{data,logs,backup}
-chown -R landlord:docker ~/booking/sportplatz-buchung/{data,logs,backup}
 ```
 
-**Minimum .env**:
+**.env erstellen**:
 ```bash
-cp .env.demo .env
+cp .env.example .env
 nano .env
 ```
+
+Mindestens diese Felder müssen gesetzt werden:
 ```
+# JWT-Signaturschlüssel (mind. 32 Zeichen, zufällig generieren)
+JWT_SECRET=<openssl rand -hex 32>
+
+# E-Mail (Pflicht für Buchungsbenachrichtigungen)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=booking@tsv-hotzenplotz.de
+SMTP_PASSWORD=app-password
+SMTP_FROM=booking@tsv-hotzenplotz.de
+
+# Öffentliche URL (wird in E-Mails verlinkt)
 BOOKING_URL=https://book-tsv-hotzenplotz.dns.army
+
+# Standort für Sonnenuntergangsberechnung
+LOCATION_LAT=52.25
+LOCATION_LON=9.90
+
+# Datenbank-Backend
 DB_BACKEND=sqlite
 SQLITE_DB_PATH=data/sportplatz.db
 ```
 
-**Erweitert**:
-```
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=booking@tsv-hotzenplotz.de
-SMTP_PASS=app-password
-LOCATION_LAT=52.25
-LOCATION_LNG=9.90
-```
-```
-SECRET_KEY=$(openssl rand -hex 32)
-```
+> **Hinweis**: Für den SQLite-Betrieb müssen die `NOTION_*`-Felder trotzdem gesetzt sein
+> (leere Strings oder Platzhalter genügen), da pydantic-settings sie als Pflichtfelder behandelt.
+> Der einfachste Weg: `.env.example` vollständig kopieren und dann bearbeiten.
 
-**JSONs**:
+**Konfigurations-JSONs anlegen**:
 ```bash
-cp field_config.json.example field_config.json
-cp vereinsconfig.json.example vereinsconfig.json
-nano field_config.json
-nano vereinsconfig.json
+cp config/vereinsconfig.example.json config/vereinsconfig.json
+cp config/field_config.example.json config/field_config.json
+nano config/vereinsconfig.json
+nano config/field_config.json
 ```
 
-**field_config.json**:
+**config/field_config.json** (Beispiel mit zwei Plätzen):
 ```json
 {
   "display_names": {
     "A": "Rasen",
     "AA": "Rasen A",
-    "B": "Kura",
-    "BA": "Kura A"
+    "AB": "Rasen B",
+    "B": "Kunstrasen",
+    "BA": "Kunstrasen A",
+    "BB": "Kunstrasen B"
   },
   "field_groups": [
     {
-      "id": "rasen",
-      "name": "Rasenplätze",
-      "fields": ["A", "AA"],
+      "id": "a",
+      "name": "Rasenplatz",
+      "fields": ["A", "AA", "AB"],
       "lit": false,
-      "visible_to": ["Trainer", "Administrator"]
+      "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
+    },
+    {
+      "id": "b",
+      "name": "Kunstrasen",
+      "fields": ["B", "BA", "BB"],
+      "lit": true,
+      "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
     }
   ]
 }
 ```
 
-**vereinsconfig.json**:
+**config/vereinsconfig.json** (Beispiel):
 ```json
 {
   "vereinsname": "TSV Hotzenplotz",
+  "vereinsname_lang": "Turn- und Sportverein Hotzenplotz e. V.",
+  "primary_color": "#1e4fa3",
   "heim_keywords": ["hotzenplotz"],
-  "spielorte": [...]
+  "spielorte": []
 }
 ```
 
+> Alternativ können diese Werte direkt im Onboarding-Assistenten eingegeben werden
+> (Schritt 3 und 4), nachdem der erste Admin-Nutzer angelegt wurde.
+
 ## 6. Docker Files
 
-**Dockerfile**:
-```
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 1946
-CMD ["uvicorn", "web.main:app", "--host", "0.0.0.0", "--port", "1946", "--proxy-headers", "--forwarded-allow-ips=*"]
-```
+Das Projekt enthält fertige Docker-Dateien. **Dockerfile** und **docker-compose.yml** müssen
+nicht manuell erstellt werden — sie liegen bereits im Repo.
 
-**docker-compose.yml**:
-```
-version: '3.8'
+Relevante Abschnitte aus `docker-compose.yml`:
+```yaml
 services:
   app:
     build: .
+    container_name: sportplatz-buchung
+    restart: unless-stopped
     ports:
       - "127.0.0.1:1946:1946"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      ENV_FILE: ".env"
+      CONFIG_DIR: "config"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./backup:/app/backup
       - ./.env:/app/.env:ro
-    env_file: [.env]
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:1946/login')"]
       interval: 30s
@@ -150,6 +170,9 @@ services:
       retries: 3
       start_period: 15s
 ```
+
+> `ENV_FILE` und `CONFIG_DIR` müssen im `environment:`-Abschnitt stehen, nicht nur in `env_file:`,
+> da sie steuern, welche Konfigurationsdateien geladen werden.
 
 **Start**:
 ```bash
@@ -186,7 +209,7 @@ usermod -aG docker landlord; newgrp docker
 CMD `["uvicorn", "web.main:app", ...]`
 
 **Proxy 503**:
-- Destination `http://127.0.0.1:1946/` (http + /!)
+- Destination `http://127.0.0.1:1946/` (http + trailing slash!)
 - `curl http://127.0.0.1:1946/` testen
 
 **SSL self-signed**:
@@ -197,14 +220,23 @@ curl -k https://book-tsv-hotzenplotz.dns.army/
 **Let's Encrypt**:
 Server Config → SSL Certificate → Request
 
+**Container-Logs**:
+```bash
+docker compose logs -f
+```
+
 ## 9. Onboarding
 
-https://book-tsv-hotzenplotz.dns.army
-1. Admin User
-2. JWT Secrets  
-3. Sportplatz-Serien
+Nach dem ersten Start unter https://book-tsv-hotzenplotz.dns.army den Assistenten durchlaufen:
 
-**Fertig!** 🚀
+1. **Systemprüfung** — .env-Werte und Konfigurationsdateien werden geprüft
+2. **Admin-Nutzer anlegen** — erster Administrator + `dfbnet`-Systemnutzer werden erstellt
+3. **Vereinskonfiguration** — Name, Farbe, Logo, Heim-Keywords
+4. **Platzkonfiguration** — Anzahl Plätze, Anzeigenamen, Flutlicht-Status
+5. **Spielort-Zuordnung** — fussball.de-Strings den Plätzen zuordnen (optional)
+6. **Mannschaften** — Teams von api-fussball.de importieren (optional)
+
+**Fertig!**
 
 ---
-TSV Hotzenplotz | 31.03.2026 | [code_file:92]
+TSV Hotzenplotz | 31.03.2026

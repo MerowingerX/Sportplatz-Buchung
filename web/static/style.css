@@ -422,6 +422,21 @@ body::before {
   letter-spacing: 0.02em;
 }
 
+/* Navigations-Buttons im Kalender: auf dunklem Hintergrund weiß statt grau */
+.week-nav .btn--ghost,
+.day-nav .btn--ghost {
+  color: rgba(255, 255, 255, 0.85);
+}
+.week-nav .btn--ghost:hover,
+.day-nav .btn--ghost:hover {
+  color: #fff;
+}
+.week-nav .btn--ghost:disabled,
+.day-nav .btn--ghost:disabled {
+  color: rgba(255, 255, 255, 0.3);
+  cursor: default;
+}
+
 .field-section {
   margin-bottom: 2rem;
 }
