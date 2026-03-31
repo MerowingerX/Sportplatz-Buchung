@@ -1,0 +1,64 @@
+// Kopiere diese Datei nach vereinsconfig.json und passe die Werte an.
+// JSONC-Format: // Kommentare sind nur in der .example erlaubt, nicht in der echten .json
+{
+  // Kurzname des Vereins – erscheint im Browser-Tab, Navbar und E-Mails
+  "vereinsname": "TSV Hotzenplotz",
+
+  // Vollständiger offizieller Name – erscheint im Impressum und im <title>-Tag der Homepage
+  "vereinsname_lang": "Turn- und Sportverein Hotzenplotz 2026 e. V.",
+
+  // Pfad zum Vereinslogo (relativ zur App).
+  // "/static/logo.svg" = web/static/logo.svg (Buchungssystem)
+  // "/userdata/logo.svg" = homepage/userdata/logo.svg (Homepage)
+  "logo_url": "/static/logo.svg",
+
+  // Schlüsselwörter im Heimteam-Namen auf fussball.de (Kleinschreibung, Liste).
+  // Wird genutzt, um Heim- von Auswärtsspielen zu unterscheiden.
+  // Mehrere Einträge für Spielgemeinschaften (SG/JSG), bei denen Teams unter
+  // verschiedenen Namen auf fussball.de geführt werden.
+  // Beispiel: ["musterstadt", "sg musterstadt"] erkennt beide Varianten als Heimspiel.
+  "heim_keywords": ["cremlingen"],
+
+  // Vereinsfarben für CSS-Variablen in Navbar, Buttons und Akzenten.
+  // primary       = Hauptfarbe (Navbar-Hintergrund, primäre Buttons)
+  // primary_dark  = dunklere Variante (Hover-Zustand, aktive Links)
+  // primary_darker= noch dunkler (Footer, tiefe Schatten)
+  // gold_color    = Akzentfarbe (Highlights, Abzeichen)
+  "primary_color": "#1e4fa3",
+  "primary_color_dark": "#0d2f6b",
+  "primary_color_darker": "#071c44",
+  "gold_color": "#e8c04a",
+
+  // Standard-Datumsgrenzen je Saison (MM-DD).
+  // Werden als Vorauswahl im Formular "Neue Serie" verwendet.
+  "saison_defaults": {
+    "ganzjaehrig":    { "start": "08-01", "ende": "06-30" },
+    "sommerhalbjahr": { "start": "08-01", "ende": "10-30" },
+    "winterhalbjahr": { "start": "10-30", "ende": "03-01" }
+  },
+
+  // Automatischer Spielplan-Sync (Cron-Job).
+  // Kann auch im Admin-Dashboard geändert werden – Änderungen greifen sofort.
+  "spielplan_sync_enabled": true,
+  "spielplan_sync_uhrzeit": "06:00",
+
+  // Spielorte: Zuordnung von fussball.de-Ortsbezeichnungen zu internen Platz-IDs.
+  // Wird von scripts/fetch_spielplan.py genutzt, um automatisch den richtigen
+  // Platz für ein Heimspiel einzutragen.
+  //
+  // fussball_de_string: Teilstring des Spielort-Felds auf fussball.de (Kleinschreibung)
+  // feld:               Interne Platz-ID (A, AA, AB, B, BA, BB, C, CA, CB)
+  // platz_praefix:      Liste von Platz-ID-Präfixen, die bei Konflikten gesperrt werden
+  "spielorte": [
+    {
+      "fussball_de_string": "cremlingen a-platz",
+      "feld": "A",
+      "platz_praefix": ["A"]
+    },
+    {
+      "fussball_de_string": "cremlingen b-platz",
+      "feld": "B",
+      "platz_praefix": ["B"]
+    }
+  ]
+}

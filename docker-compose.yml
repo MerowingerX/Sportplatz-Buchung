@@ -1,17 +1,21 @@
 services:
-  buchung:
+  app:
     build: .
-    container_name: buchung
+    container_name: sportplatz-buchung
     restart: unless-stopped
     ports:
-      - "1946:1946"
+      - "127.0.0.1:1946:1946"
     env_file:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
+      ENV_FILE: ".env"
+      CONFIG_DIR: "config"
     volumes:
-      - ./logs:/app/logs       # Audit- und Fehler-Logs persistent auf Host
-      - ./backup:/app/backup   # Notion-Backups persistent auf Host
+      - /home/landlord/booking/sportplatz-buchung/data:/app/data
+      - /home/landlord/booking/sportplatz-buchung/logs:/app/logs       # Audit- und Fehler-Logs persistent auf Host
+      - /home/landlord/booking/sportplatz-buchung/backup:/app/backup   # Notion-Backups persistent auf Host
+      - ./.env:/app/.env:ro  # ← Live Changes!
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:1946/login')"]
