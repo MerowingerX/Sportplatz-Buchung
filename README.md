@@ -3,7 +3,7 @@
 Buchungs- und Verwaltungssystem für Sportvereine — vereinsunabhängig konfigurierbar.
 
 → **[Kurzübersicht & Einrichtungsanforderungen für Vereine](docs/PITCH.md)**
-
+→ **[Beschreibung Onboarding Procedure](docs/installation.md)**
 ---
 
 ## Funktionsumfang
@@ -86,7 +86,7 @@ Alle Zugangsdaten und Tokens werden in `.env` gespeichert (ebenfalls nicht im Re
 
 | Dokument | Inhalt |
 |---|---|
-| [docs/INSTALLATION.md](docs/INSTALLATION.md) | Notion-Setup, `.env`-Konfiguration, Docker, Nginx, erster Admin-Nutzer |
+| [docs/INSTALLATION.md](docs/Installation.md) | Setup |
 | [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md) | Systemübersicht, Datenmodelle, Ablaufdiagramme, API-Routen |
 | [docs/manual.md](docs/manual.md) | Betriebshandbuch: Saisonplanung, Sommer/Winterbetrieb, Nutzerverwaltung |
 | [docs/naming_constraints.md](docs/naming_constraints.md) | String-Kopplungen zwischen Code, Notion, CSS und Templates |
