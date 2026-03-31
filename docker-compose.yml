@@ -12,11 +12,11 @@ services:
       ENV_FILE: ".env"
       CONFIG_DIR: "config"
     volumes:
-      - /home/landlord/booking/sportplatz-buchung/config:/app/config   # Config persistent (Onboarding schreibt hierher)
-      - /home/landlord/booking/sportplatz-buchung/data:/app/data
-      - /home/landlord/booking/sportplatz-buchung/logs:/app/logs       # Audit- und Fehler-Logs persistent auf Host
-      - /home/landlord/booking/sportplatz-buchung/backup:/app/backup   # Notion-Backups persistent auf Host
-      - ./.env:/app/.env:ro  # ← Live Changes!
+      - ./config:/app/config         # Config persistent – Onboarding schreibt hierher, überlebt Rebuilds
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./backup:/app/backup
+      - ./.env:/app/.env:ro          # ← Live Changes!
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:1946/login')"]
