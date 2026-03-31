@@ -1,37 +1,21 @@
-// Kopiere diese Datei nach field_config.json und passe die Werte an.
-// Kann auch über /admin/field-config im Browser bearbeitet werden.
-// JSONC-Format: // Kommentare sind nur in der .example erlaubt, nicht in der echten .json
 {
-  // Anzeigenamen der einzelnen Platz-IDs.
-  // Schlüssel = interne ID (unveränderlich, steht so in der Notion-DB)
-  // Wert      = lesbarer Name im Kalender, Buchungsformular und auf der Homepage
   "display_names": {
-    "A":  "Rasen",      
-    "AA": "Rasen A",     
-    "AB": "Rasen B",     
-    "B":  "Kura",   
-    "BA": "Kura A",    
-    "BB": "Kura B",    
-    "C":  "Halle 3/3", 
-    "CA": "Halle 2/3",  
-    "CB": "Halle 1/3"   
+    "A":  "Rasen",
+    "AA": "Rasen A",
+    "AB": "Rasen B",
+    "B":  "Kura",
+    "BA": "Kura A",
+    "BB": "Kura B",
+    "C":  "Halle 3/3",
+    "CA": "Halle 2/3",
+    "CB": "Halle 1/3"
   },
-
-  // Platzgruppen: steuern, welche Plätze in welchem Reiter (kura/rasen/halle)
-  // auf der Homepage und im Buchungskalender erscheinen.
-  //
-  // id         : interner Schlüssel – muss mit VENUES in homepage/main.py übereinstimmen
-  // name       : Anzeigename des Reiters
-  // fields     : Platz-IDs, die zu dieser Gruppe gehören (Reihenfolge = Spaltenreihenfolge)
-  // lit        : true = Flutlicht vorhanden → kein Sonnenuntergangs-Hinweis nötig
-  // visible_to : Rollen, die diese Gruppe im Buchungssystem sehen dürfen
-  //              Mögliche Werte: "Trainer", "Platzwart", "DFBnet", "Administrator"
   "field_groups": [
     {
       "id": "rasen",
       "name": "Rasen (Naturrasen)",
       "fields": ["A", "AA", "AB"],
-      "lit": false,           // kein Flutlicht → Sonnenuntergangs-Hinweis wird angezeigt
+      "lit": false,
       "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
     },
     {
@@ -46,7 +30,7 @@
       "name": "Turnhalle",
       "fields": ["C", "CA", "CB"],
       "lit": true,
-      "visible_to": ["Administrator"]   // nur für Admins sichtbar
+      "visible_to": ["Administrator"]
     }
   ]
 }
