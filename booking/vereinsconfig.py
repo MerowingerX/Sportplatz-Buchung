@@ -41,8 +41,14 @@ def load() -> dict:
     p = _config_file()
     if not p.exists():
         return dict(_DEFAULTS)
-    with open(p, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("not a dict")
+        return data
+    except Exception:
+        return dict(_DEFAULTS)
 
 
 def get_vereinsname() -> str:

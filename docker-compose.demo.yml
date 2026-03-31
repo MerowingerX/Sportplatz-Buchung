@@ -12,6 +12,7 @@ services:
       ENV_FILE: ".env.demo"
       CONFIG_DIR: "config/demo"
     volumes:
+      - ./config/demo:/app/config/demo
       - ./logs:/app/logs
       - ./backup:/app/backup
     healthcheck:

@@ -31,12 +31,12 @@ async def lifespan(app: FastAPI):
     config_dir = project_root / os.environ.get("CONFIG_DIR", "config")
     vc_path = config_dir / "vereinsconfig.json"
     fc_path = config_dir / "field_config.json"
-    if not vc_path.exists():
+    if not vc_path.exists() or vc_path.stat().st_size == 0:
         example = project_root / "config" / "vereinsconfig.example.json"
         if example.exists():
             vc_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(example, vc_path)
-    if not fc_path.exists():
+    if not fc_path.exists() or fc_path.stat().st_size == 0:
         example = project_root / "config" / "field_config.example.json"
         if example.exists():
             fc_path.parent.mkdir(parents=True, exist_ok=True)
