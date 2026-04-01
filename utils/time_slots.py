@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta
 
 BOOKING_START = time(16, 0)
 BOOKING_END = time(22, 0)
-SLOT_MINUTES = 30
+SLOT_MINUTES = 15
 VALID_DURATIONS = [60, 90, 180]
 
 
