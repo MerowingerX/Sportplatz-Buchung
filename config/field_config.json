@@ -1,36 +1,60 @@
 {
   "display_names": {
-    "A":  "Rasen",
+    "A": "Rasen",
     "AA": "Rasen A",
     "AB": "Rasen B",
-    "B":  "Kura",
+    "B": "Kura",
     "BA": "Kura A",
     "BB": "Kura B",
-    "C":  "Halle 3/3",
+    "C": "Halle 3/3",
     "CA": "Halle 2/3",
     "CB": "Halle 1/3"
   },
   "field_groups": [
     {
-      "id": "rasen",
+      "id": "a",
       "name": "Rasen (Naturrasen)",
-      "fields": ["A", "AA", "AB"],
+      "fields": [
+        "A",
+        "AA",
+        "AB"
+      ],
       "lit": false,
-      "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
+      "visible_to": [
+        "Trainer",
+        "Platzwart",
+        "DFBnet",
+        "Administrator"
+      ]
     },
     {
-      "id": "kura",
+      "id": "b",
       "name": "Kura (Kunstrasen)",
-      "fields": ["B", "BA", "BB"],
+      "fields": [
+        "B",
+        "BA",
+        "BB"
+      ],
       "lit": true,
-      "visible_to": ["Trainer", "Platzwart", "DFBnet", "Administrator"]
+      "visible_to": [
+        "Trainer",
+        "Platzwart",
+        "DFBnet",
+        "Administrator"
+      ]
     },
     {
-      "id": "halle",
+      "id": "c",
       "name": "Turnhalle",
-      "fields": ["C", "CA", "CB"],
+      "fields": [
+        "C",
+        "CA",
+        "CB"
+      ],
       "lit": true,
-      "visible_to": ["Administrator"]
+      "visible_to": [
+        "Administrator"
+      ]
     }
   ]
 }

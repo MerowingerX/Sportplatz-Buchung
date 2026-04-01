@@ -1,29 +1,44 @@
 {
-  "vereinsname": "TSV Hotzenplotz",
-  "vereinsname_lang": "Turn- und Sportverein Hotzenplotz 2026 e. V.",
+  "vereinsname": "TuS Cremlingen 1946 e.V",
+  "vereinsname_lang": "Turn- und Sportverein Cremlingen 1946 e. V.",
   "logo_url": "/static/logo.svg",
-  "heim_keywords": ["cremlingen"],
+  "heim_keywords": [
+    "cremlingen"
+  ],
   "primary_color": "#1e4fa3",
-  "primary_color_dark": "#0d2f6b",
-  "primary_color_darker": "#071c44",
+  "primary_color_dark": "#1e4fa3",
+  "primary_color_darker": "#1e4fa3",
   "gold_color": "#e8c04a",
   "saison_defaults": {
-    "ganzjaehrig":    { "start": "08-01", "ende": "06-30" },
-    "sommerhalbjahr": { "start": "08-01", "ende": "10-30" },
-    "winterhalbjahr": { "start": "10-30", "ende": "03-01" }
+    "ganzjaehrig": {
+      "start": "08-01",
+      "ende": "06-30"
+    },
+    "sommerhalbjahr": {
+      "start": "08-01",
+      "ende": "10-30"
+    },
+    "winterhalbjahr": {
+      "start": "10-30",
+      "ende": "03-01"
+    }
   },
   "spielplan_sync_enabled": true,
   "spielplan_sync_uhrzeit": "06:00",
   "spielorte": [
     {
-      "fussball_de_string": "cremlingen a-platz",
       "feld": "A",
-      "platz_praefix": ["A"]
+      "fussball_de_string": "cremlingen a-platz",
+      "platz_praefix": [
+        "A"
+      ]
     },
     {
-      "fussball_de_string": "cremlingen b-platz",
       "feld": "B",
-      "platz_praefix": ["B"]
+      "fussball_de_string": "cremlingen b-platz",
+      "platz_praefix": [
+        "B"
+      ]
     }
   ]
 }
