@@ -8,7 +8,8 @@
       "Bash(docker ps:*)",
       "Bash(curl -s http://localhost:1946/login)",
       "Bash(curl -s -b session=dummy http://localhost:1946/calendar)",
-      "Bash(grep Modify ps -p 9290 -o lstart=)"
+      "Bash(grep Modify ps -p 9290 -o lstart=)",
+      "Bash(chmod +x /home/frank/Sportplatz-Buchung/deploy.sh)"
     ]
   }
 }

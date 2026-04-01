@@ -9,6 +9,7 @@ from icalendar import Calendar, Event as IcalEvent
 
 from auth.dependencies import CurrentUser
 import booking.field_config as fc
+from utils.time_slots import SLOT_MINUTES
 
 router = APIRouter()
 templates.env.globals["time_module"] = time
@@ -113,14 +114,15 @@ async def calendar_week(
     prev_start_hour = max(0, start_hour - 2)
     next_start_hour = min(18, start_hour + 2)
 
-    # 12 half-hour slots starting at start_hour
+    # 6-hour window of slots starting at start_hour, using configured SLOT_MINUTES
+    num_slots = 360 // SLOT_MINUTES
     slots: list[str] = []
     h, m = start_hour, 0
-    for _ in range(12):
+    for _ in range(num_slots):
         slots.append(f"{h:02d}:{m:02d}")
-        m += 30
+        m += SLOT_MINUTES
         if m >= 60:
-            m = 0
+            m -= 60
             h += 1
         if h >= 24:
             break
