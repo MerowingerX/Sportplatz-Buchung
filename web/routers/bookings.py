@@ -264,7 +264,7 @@ async def bookings_list(
         "sel_wochentag": wochentag_int,
         "field_display_names": fc.get_display_names(),
     }
-    if request.headers.get("HX-Request"):
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
         return templates.TemplateResponse("partials/_booking_list_tbody.html", ctx)
     return templates.TemplateResponse("bookings/list.html", ctx)
 

@@ -33,6 +33,7 @@
           <a href="/admin">Admin</a>
           {# <a href="/admin/dfbnet">DFBnet-Buchung</a> – ausgeblendet, Spielplan läuft automatisch #}
           <button class="btn btn--ghost btn--small"
+                  style="color:rgba(255,255,255,0.82);"
                   hx-post="/admin/spielplan-sync"
                   hx-target="#toast"
                   hx-swap="outerHTML"
@@ -54,9 +55,10 @@
           <a href="/profile">Mein Team</a>
         {% endif %}
         <span class="navbar__user">{{ current_user.username }} ({{ current_user.role.value }})</span>
-        <a href="/change-password" class="btn btn--ghost">Passwort</a>
+        <a href="/change-password" class="btn btn--ghost" style="color:rgba(255,255,255,0.82);">Passwort</a>
+        <a href="/about" class="btn btn--ghost" style="color:rgba(255,255,255,0.82);">Info</a>
         <form method="post" action="/logout">
-          <button type="submit" class="btn btn--ghost">Abmelden</button>
+          <button type="submit" class="btn btn--ghost" style="color:rgba(255,255,255,0.82);">Abmelden</button>
         </form>
       {% endif %}
     </div>

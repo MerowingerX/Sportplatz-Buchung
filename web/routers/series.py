@@ -65,7 +65,7 @@ async def series_list(
         "sel_wochentag": wochentag_int,
         "sel_status": status,
     }
-    if request.headers.get("HX-Request"):
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
         return templates.TemplateResponse("partials/_series_table_body.html", ctx)
     return templates.TemplateResponse("series/index.html", ctx)
 

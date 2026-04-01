@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Über – Sportplatz-Buchung{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Über dieses System</h1>
+</div>
+
+<div class="card" style="max-width: 680px;">
+
+  <h2 style="margin-bottom: 1.25rem;">Sportplatz-Buchungssystem</h2>
+  <p style="margin-bottom: 1.5rem; color: var(--color-text-muted, #6b7280);">
+    Verwaltung von Platzbuchungen, Trainingsserien und Spielplänen
+    für <strong>{{ vereinsname }}</strong>.
+  </p>
+
+  <table class="table" style="margin-bottom: 1.5rem;">
+    <tbody>
+      <tr>
+        <td style="width:40%; font-weight:600;">Version (Commit)</td>
+        <td>
+          <code>{{ git.commit }}</code>
+          <span class="text-muted text-sm"> · {{ git.date }}</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;">Branch</td>
+        <td><code>{{ git.branch }}</code></td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;">Quellcode</td>
+        <td>
+          {% if git.repo_url %}
+          <a href="{{ git.repo_url }}" target="_blank" rel="noopener" hx-boost="false">
+            {{ git.repo_url }}
+          </a>
+          {% else %}
+          <span class="text-muted">–</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;">Datenbank-Backend</td>
+        <td><code>{{ db_backend }}</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-bottom: .75rem;">Tech-Stack</h3>
+  <table class="table" style="margin-bottom: 1.5rem;">
+    <tbody>
+      <tr><td style="width:40%; font-weight:600;">Backend</td><td>Python · FastAPI · Pydantic</td></tr>
+      <tr><td style="font-weight:600;">Frontend</td><td>Jinja2 · HTMX · CSS (kein JS-Framework)</td></tr>
+      <tr><td style="font-weight:600;">Datenbank</td><td>SQLite <em>oder</em> Notion API</td></tr>
+      <tr><td style="font-weight:600;">Auth</td><td>JWT · httponly Cookie</td></tr>
+      <tr><td style="font-weight:600;">Deployment</td><td>Docker · Uvicorn (Port 1946)</td></tr>
+      <tr><td style="font-weight:600;">Externe Daten</td><td>fussball.de (HTML-Crawler)</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-bottom: .75rem;">Lizenz</h3>
+  <p class="text-muted text-sm">
+    MIT License — freie Nutzung, Änderung und Weitergabe unter Namensnennung.
+  </p>
+
+</div>
+{% endblock %}

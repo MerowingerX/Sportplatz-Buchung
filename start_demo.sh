@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export ENV_FILE=.env.demo
-export CONFIG_DIR=config/demo
+export ENV_FILE=.env
+export CONFIG_DIR=config
 
-exec .venv/bin/uvicorn web.main:app --reload --port 1946
+exec .venv/bin/uvicorn web.main:app --reload --reload-include "*.html" --reload-include "*.css" --reload-include "*.json" --port 1947

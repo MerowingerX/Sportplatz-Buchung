@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from auth.auth import decode_jwt
 from web.config import get_settings
-from web.routers import auth, bookings, calendar, series, admin, tasks, events
+from web.routers import auth, bookings, calendar, series, admin, tasks, events, about 
 
 
 @asynccontextmanager
@@ -107,6 +107,7 @@ app.include_router(series.router)
 app.include_router(admin.router)
 app.include_router(tasks.router)
 app.include_router(events.router)
+app.include_router(about.router)
 
 from web.templates_instance import templates  # noqa: E402
 
