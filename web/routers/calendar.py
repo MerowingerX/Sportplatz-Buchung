@@ -165,6 +165,18 @@ async def overview_page(request: Request, current_user: CurrentUser):
     )
 
 
+def _build_slots(start_hour: int, end_hour: int, slot_min: int) -> list[str]:
+    slots: list[str] = []
+    h, m = start_hour, 0
+    while h < end_hour:
+        slots.append(f"{h:02d}:{m:02d}")
+        m += slot_min
+        if m >= 60:
+            m -= 60
+            h += 1
+    return slots
+
+
 @router.get("/overview/week", response_class=HTMLResponse)
 async def overview_week(
     request: Request,
@@ -172,6 +184,8 @@ async def overview_week(
     year: int,
     week: int,
     slot_min: int = 30,
+    start_hour_wd: int = 14,   # Werktage: Standard 14 Uhr
+    start_hour_we: int = 10,   # Wochenende: Standard 10 Uhr
 ):
     repo = request.app.state.repo
     cache_key = f"week:{year}:{week}"
@@ -182,27 +196,12 @@ async def overview_week(
         bookings = _cache[cache_key]
 
     slot_min = max(15, min(120, slot_min))
+    # 8-Stunden-Fenster, Start scrollbar (Werktag 0–16, Wochenende 0–16)
+    start_hour_wd = max(0, min(16, start_hour_wd))
+    start_hour_we = max(0, min(16, start_hour_we))
 
-    # Slots von 10:00 bis 22:00 (deckt beide Tagestypen ab)
-    slots: list[str] = []
-    h, m = 10, 0
-    while h < 22:
-        slots.append(f"{h:02d}:{m:02d}")
-        m += slot_min
-        if m >= 60:
-            m -= 60
-            h += 1
-
-    # Aktive Stunden je Wochentag (0=Mo … 6=So)
-    active_hours = [
-        (15, 22),  # Mo
-        (15, 22),  # Di
-        (15, 22),  # Mi
-        (15, 22),  # Do
-        (15, 22),  # Fr
-        (10, 18),  # Sa
-        (10, 18),  # So
-    ]
+    weekday_slots = _build_slots(start_hour_wd, start_hour_wd + 8, slot_min)
+    weekend_slots = _build_slots(start_hour_we, start_hour_we + 8, slot_min)
 
     # Visible field groups + leaf fields per group
     field_groups = fc.get_visible_groups(current_user.role.value)
@@ -219,6 +218,8 @@ async def overview_week(
     }
 
     ctx = _get_week_context(year, week)
+    days_weekday = ctx["days"][:5]   # Mo–Fr
+    days_weekend = ctx["days"][5:]   # Sa–So
     return templates.TemplateResponse(
         "partials/_overview_week.html",
         {
@@ -226,9 +227,17 @@ async def overview_week(
             "current_user": current_user,
             "bookings": bookings,
             "today": Date.today().isoformat(),
-            "time_slots": slots,
+            "weekday_slots": weekday_slots,
+            "weekend_slots": weekend_slots,
+            "days_weekday": days_weekday,
+            "days_weekend": days_weekend,
             "slot_min": slot_min,
-            "active_hours": active_hours,
+            "start_hour_wd": start_hour_wd,
+            "start_hour_we": start_hour_we,
+            "prev_hour_wd": max(0, start_hour_wd - 2),
+            "next_hour_wd": min(16, start_hour_wd + 2),
+            "prev_hour_we": max(0, start_hour_we - 2),
+            "next_hour_we": min(16, start_hour_we + 2),
             "groups_with_leaves": groups_with_leaves,
             "display_names": display_names,
             "mannschaft_colors": mannschaft_colors,
