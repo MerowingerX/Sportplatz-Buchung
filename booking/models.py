@@ -128,6 +128,7 @@ class MannschaftConfig(BaseModel):
     fussball_de_team_id: Optional[str] = None
     aktiv: bool = True
     cc_emails: list[str] = []
+    color: Optional[str] = None   # Hex-Farbe für Kalender-Übersicht, z.B. "#e74c3c"
 
 
 # --- Booking ---

@@ -287,6 +287,7 @@ class NotionRepository(AbstractRepository):
             fussball_de_team_id=_get_rich_text(props, "FussballDeTeamId") or None,
             aktiv=_get_checkbox(props, "Aktiv"),
             cc_emails=[e.strip() for e in raw_cc.split(",") if e.strip()],
+            color=_get_rich_text(props, "Farbe") or None,
         )
 
     def get_all_mannschaften(self, only_active: bool = False) -> list[MannschaftConfig]:
@@ -318,6 +319,7 @@ class NotionRepository(AbstractRepository):
         cc_emails: list[str],
         aktiv: bool = True,
         shortname: Optional[str] = None,
+        color: Optional[str] = None,
     ) -> MannschaftConfig:
         db_id = self._settings.notion_mannschaften_db_id
         props: dict = {
@@ -334,6 +336,8 @@ class NotionRepository(AbstractRepository):
             props["FussballDeTeamId"] = _rich_text(fussball_de_team_id)
         if cc_emails:
             props["CC-Mails"] = _rich_text(",".join(cc_emails))
+        if color:
+            props["Farbe"] = _rich_text(color)
         page = self._client.pages.create(
             parent={"database_id": db_id},
             properties=props,
@@ -350,6 +354,7 @@ class NotionRepository(AbstractRepository):
         cc_emails: list[str],
         aktiv: bool,
         shortname: Optional[str] = None,
+        color: Optional[str] = None,
     ) -> MannschaftConfig:
         props: dict = {
             "Name": _title(name),
@@ -359,6 +364,7 @@ class NotionRepository(AbstractRepository):
             "Trainer ID": _rich_text(trainer_id or ""),
             "FussballDeTeamId": _rich_text(fussball_de_team_id or ""),
             "CC-Mails": _rich_text(",".join(cc_emails)),
+            "Farbe": _rich_text(color or ""),
         }
         page = self._update_page(mannschaft_id, props)
         return self._page_to_mannschaft(page)

@@ -695,6 +695,7 @@ async def step_mannschaften_fussballde(request: Request):
             cc_emails=getattr(mannschaft, "cc_emails", []) or [],
             aktiv=getattr(mannschaft, "aktiv", True),
             shortname=getattr(mannschaft, "shortname", None),
+            color=getattr(mannschaft, "color", None),
         )
 
     mannschaften = repo.get_all_mannschaften(only_active=True)

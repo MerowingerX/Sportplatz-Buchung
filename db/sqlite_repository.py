@@ -88,6 +88,12 @@ class SQLiteRepository(AbstractRepository):
             conn.commit()
         except Exception:
             pass  # column already exists
+        # Migration: color column
+        try:
+            conn.execute("ALTER TABLE mannschaften ADD COLUMN color TEXT")
+            conn.commit()
+        except Exception:
+            pass  # column already exists
 
     def _get_conn(self) -> sqlite3.Connection:
         """Gibt eine thread-lokale Datenbankverbindung zurück."""
@@ -765,6 +771,7 @@ class SQLiteRepository(AbstractRepository):
     # ------------------------------------------------------------------ mannschaften
 
     def _row_to_mannschaft(self, row: sqlite3.Row) -> MannschaftConfig:
+        keys = row.keys()
         return MannschaftConfig(
             notion_id=row["id"],
             name=row["name"],
@@ -774,6 +781,7 @@ class SQLiteRepository(AbstractRepository):
             fussball_de_team_id=row["fussball_de_team_id"] or None,
             aktiv=bool(row["aktiv"]),
             cc_emails=[e.strip() for e in (row["cc_emails"] or "").split(",") if e.strip()],
+            color=row["color"] if "color" in keys else None,
         )
 
     def get_all_mannschaften(self, only_active: bool = False) -> list[MannschaftConfig]:
@@ -804,12 +812,13 @@ class SQLiteRepository(AbstractRepository):
         cc_emails: list[str],
         aktiv: bool = True,
         shortname: Optional[str] = None,
+        color: Optional[str] = None,
     ) -> MannschaftConfig:
         mid = str(uuid.uuid4())
         conn = self._get_conn()
         conn.execute(
-            "INSERT INTO mannschaften (id, name, shortname, trainer_name, trainer_id, fussball_de_team_id, aktiv, cc_emails) VALUES (?,?,?,?,?,?,?,?)",
-            (mid, name, shortname, trainer_name, trainer_id, fussball_de_team_id, 1 if aktiv else 0, ",".join(cc_emails)),
+            "INSERT INTO mannschaften (id, name, shortname, trainer_name, trainer_id, fussball_de_team_id, aktiv, cc_emails, color) VALUES (?,?,?,?,?,?,?,?,?)",
+            (mid, name, shortname, trainer_name, trainer_id, fussball_de_team_id, 1 if aktiv else 0, ",".join(cc_emails), color),
         )
         conn.commit()
         return self.get_mannschaft_by_id(mid)  # type: ignore[return-value]
@@ -824,11 +833,12 @@ class SQLiteRepository(AbstractRepository):
         cc_emails: list[str],
         aktiv: bool,
         shortname: Optional[str] = None,
+        color: Optional[str] = None,
     ) -> MannschaftConfig:
         conn = self._get_conn()
         conn.execute(
-            "UPDATE mannschaften SET name=?, shortname=?, trainer_name=?, trainer_id=?, fussball_de_team_id=?, aktiv=?, cc_emails=? WHERE id=?",
-            (name, shortname, trainer_name, trainer_id, fussball_de_team_id, 1 if aktiv else 0, ",".join(cc_emails), mannschaft_id),
+            "UPDATE mannschaften SET name=?, shortname=?, trainer_name=?, trainer_id=?, fussball_de_team_id=?, aktiv=?, cc_emails=?, color=? WHERE id=?",
+            (name, shortname, trainer_name, trainer_id, fussball_de_team_id, 1 if aktiv else 0, ",".join(cc_emails), color, mannschaft_id),
         )
         conn.commit()
         return self.get_mannschaft_by_id(mannschaft_id)  # type: ignore[return-value]

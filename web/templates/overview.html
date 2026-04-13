@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Belegungsübersicht{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Belegungsübersicht</h1>
+</div>
+
+<div id="overview-week"
+     hx-get="/overview/week?year={{ year }}&week={{ week }}"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+  <div class="loading-spinner">Lade Übersicht …</div>
+</div>
+
+<!-- Buchungs-Detailmodal (geteilt mit Kalender) -->
+<dialog id="booking-modal" style="border:none;border-radius:8px;padding:0;max-width:480px;width:95%;">
+  <div id="booking-modal-content"></div>
+</dialog>
+{% endblock %}

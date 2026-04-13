@@ -303,3 +303,20 @@ async def sunset_info(
     return HTMLResponse("")
 
 
+@router.get("/{booking_id}/detail", response_class=HTMLResponse)
+async def booking_detail(request: Request, booking_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    b = repo.get_booking_by_id(booking_id)
+    if not b:
+        return HTMLResponse('<div style="padding:1.5rem;">Buchung nicht gefunden.</div>')
+    display = get_display_name(b.field.value)
+    can_cancel = (
+        has_permission(current_user.role, Permission.DELETE_ALL_BOOKINGS)
+        or b.booked_by_id == current_user.sub
+    )
+    return templates.TemplateResponse(
+        "partials/_booking_detail.html",
+        {"request": request, "b": b, "display": display, "can_cancel": can_cancel},
+    )
+
+
