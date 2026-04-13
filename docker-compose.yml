@@ -9,7 +9,7 @@ services:
     container_name: sportplatz-buchung
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1946:1946"
+      - "1946:1946"
     env_file:
       - .env
     environment:
