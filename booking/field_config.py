@@ -122,6 +122,19 @@ def get_visible_groups(role_value: str) -> list[tuple[str, list[str]]]:
     ]
 
 
+def get_leaf_fields(group_fields: list[str]) -> list[str]:
+    """
+    Gibt die 'Blatt-Felder' einer Gruppe zurück — die kleinsten Einheiten.
+    Ein Feld ist ein Blatt, wenn kein anderes Feld in der Gruppe mit ihm als Präfix beginnt.
+    Beispiel: ["A", "AA", "AB"] → ["AA", "AB"]  (A ist Präfix von AA/AB, also kein Blatt)
+              ["B"] → ["B"]  (kein Sub-Feld vorhanden)
+    """
+    return [
+        f for f in group_fields
+        if not any(g != f and g.startswith(f) for g in group_fields)
+    ]
+
+
 def get_visible_fields(role_value: str) -> list[FieldName]:
     """Gibt alle für diese Rolle sichtbaren FieldName-Werte zurück."""
     visible_ids: set[str] = set()

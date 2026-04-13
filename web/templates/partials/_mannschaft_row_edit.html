@@ -20,6 +20,9 @@
     <input type="text" name="cc_emails" value="{{ m.cc_emails | join(', ') }}" class="input--small" style="width:180px;" placeholder="kommagetrennt">
   </td>
   <td>
+    <input type="color" name="color" value="{{ m.color or '#888888' }}" style="width:40px;height:28px;padding:1px;border:1px solid #ccc;border-radius:3px;cursor:pointer;">
+  </td>
+  <td>
     <input type="checkbox" name="aktiv" value="1" {{ 'checked' if m.aktiv }}>
   </td>
   <td class="text-right nowrap">

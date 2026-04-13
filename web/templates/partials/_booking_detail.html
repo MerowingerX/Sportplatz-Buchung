@@ -1,0 +1,61 @@
+<div style="padding:1.5rem;min-width:280px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 style="margin:0;">{{ display }}</h3>
+    <button onclick="document.getElementById('booking-modal').close()"
+            style="background:none;border:none;font-size:1.4rem;cursor:pointer;line-height:1;">&times;</button>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;font-size:.9rem;">
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Datum</td>
+      <td style="padding:4px 0;"><b>{{ b.date.strftime('%d.%m.%Y') }}</b></td>
+    </tr>
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Zeit</td>
+      <td style="padding:4px 0;"><b>{{ b.start_time.strftime('%H:%M') }} – {{ b.end_time.strftime('%H:%M') }}</b> ({{ b.duration_min }} min)</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Typ</td>
+      <td style="padding:4px 0;">{{ b.booking_type.value }}</td>
+    </tr>
+    {% if b.mannschaft %}
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Mannschaft</td>
+      <td style="padding:4px 0;">{{ b.mannschaft }}</td>
+    </tr>
+    {% endif %}
+    {% if b.zweck %}
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Zweck</td>
+      <td style="padding:4px 0;">{{ b.zweck }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Gebucht von</td>
+      <td style="padding:4px 0;">{{ b.booked_by_name }}</td>
+    </tr>
+    {% if b.kontakt %}
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Kontakt</td>
+      <td style="padding:4px 0;">{{ b.kontakt }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Status</td>
+      <td style="padding:4px 0;">{{ b.status.value }}</td>
+    </tr>
+  </table>
+
+  {% if can_cancel %}
+  <div style="margin-top:1.2rem;text-align:right;">
+    <button class="btn btn--danger btn--small"
+            hx-delete="/bookings/{{ b.notion_id }}"
+            hx-target="closest dialog"
+            hx-swap="none"
+            hx-confirm="Buchung stornieren?"
+            onclick="document.getElementById('booking-modal').close()">
+      Stornieren
+    </button>
+  </div>
+  {% endif %}
+</div>

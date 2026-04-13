@@ -4,6 +4,12 @@
   <td>{{ m.trainer_name or '–' }}</td>
   <td>{{ m.fussball_de_team_id or '–' }}</td>
   <td>{{ m.cc_emails | join(', ') or '–' }}</td>
+  <td>
+    {% if m.color %}
+      <span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:{{ m.color }};border:1px solid rgba(0,0,0,.2);vertical-align:middle;"></span>
+      <code style="font-size:.75rem;">{{ m.color }}</code>
+    {% else %}–{% endif %}
+  </td>
   <td>{{ 'Ja' if m.aktiv else 'Nein' }}</td>
   <td class="text-right nowrap">
     <button class="btn btn--secondary btn--small"

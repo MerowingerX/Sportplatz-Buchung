@@ -10,6 +10,7 @@ from icalendar import Calendar, Event as IcalEvent
 from auth.dependencies import CurrentUser
 import booking.field_config as fc
 from utils.time_slots import SLOT_MINUTES
+from booking.field_config import get_leaf_fields
 
 router = APIRouter()
 templates.env.globals["time_module"] = time
@@ -148,6 +149,89 @@ async def calendar_week(
             "time_range": time_range,
             "mannschaft_shortnames": mannschaft_shortnames,
             **_field_context(current_user.role.value),
+            **ctx,
+        },
+    )
+
+
+@router.get("/overview", response_class=HTMLResponse)
+async def overview_page(request: Request, current_user: CurrentUser):
+    today = Date.today()
+    iso = today.isocalendar()
+    ctx = _get_week_context(iso[0], iso[1])
+    return templates.TemplateResponse(
+        "overview.html",
+        {"request": request, "current_user": current_user, "today": today.isoformat(), **ctx},
+    )
+
+
+@router.get("/overview/week", response_class=HTMLResponse)
+async def overview_week(
+    request: Request,
+    current_user: CurrentUser,
+    year: int,
+    week: int,
+    start_hour: int = 16,
+    slot_min: int = 30,
+):
+    repo = request.app.state.repo
+    cache_key = f"week:{year}:{week}"
+    if cache_key not in _cache:
+        bookings = repo.get_bookings_for_week(year, week)
+        _cache[cache_key] = bookings
+    else:
+        bookings = _cache[cache_key]
+
+    # Clamp params
+    start_hour = max(0, min(22, start_hour))
+    slot_min = max(15, min(120, slot_min))
+    prev_start_hour = max(0, start_hour - 2)
+    next_start_hour = min(22, start_hour + 2)
+
+    # Build slots for a 6-hour window
+    num_slots = 360 // slot_min
+    slots: list[str] = []
+    h, m = start_hour, 0
+    for _ in range(num_slots):
+        slots.append(f"{h:02d}:{m:02d}")
+        m += slot_min
+        if m >= 60:
+            m -= 60
+            h += 1
+        if h >= 24:
+            break
+
+    # Visible field groups + leaf fields per group
+    field_groups = fc.get_visible_groups(current_user.role.value)
+    display_names = fc.get_display_names()
+    groups_with_leaves = [
+        (name, fields, get_leaf_fields(fields))
+        for name, fields in field_groups
+    ]
+
+    # Mannschaft color map  name → hex color
+    mannschaften = repo.get_all_mannschaften()
+    mannschaft_colors: dict[str, str] = {
+        m.name: m.color for m in mannschaften if m.color
+    }
+
+    ctx = _get_week_context(year, week)
+    return templates.TemplateResponse(
+        "partials/_overview_week.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "bookings": bookings,
+            "today": Date.today().isoformat(),
+            "time_slots": slots,
+            "start_hour": start_hour,
+            "slot_min": slot_min,
+            "prev_start_hour": prev_start_hour,
+            "next_start_hour": next_start_hour,
+            "time_range": f"{slots[0]} – {slots[-1]}",
+            "groups_with_leaves": groups_with_leaves,
+            "display_names": display_names,
+            "mannschaft_colors": mannschaft_colors,
             **ctx,
         },
     )

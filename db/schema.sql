@@ -146,7 +146,8 @@ CREATE TABLE IF NOT EXISTS mannschaften (
     trainer_id            TEXT,
     fussball_de_team_id   TEXT,
     aktiv                 INTEGER NOT NULL DEFAULT 1,
-    cc_emails             TEXT NOT NULL DEFAULT ''   -- kommagetrennte E-Mail-Adressen
+    cc_emails             TEXT NOT NULL DEFAULT '',  -- kommagetrennte E-Mail-Adressen
+    color                 TEXT                       -- Hex-Farbe z.B. "#e74c3c"
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mannschaften_name ON mannschaften(name);

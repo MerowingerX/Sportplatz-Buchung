@@ -1,0 +1,140 @@
+{% set day_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}
+
+<!-- Wochennavigation -->
+<div class="week-nav">
+  <button class="btn btn--ghost"
+          hx-get="/overview/week?year={{ prev_year }}&week={{ prev_week }}&start_hour={{ start_hour }}&slot_min={{ slot_min }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML">
+    &larr; Vorwoche
+  </button>
+  <span class="week-nav__title">
+    KW {{ week }} &nbsp;|&nbsp; {{ monday.strftime('%d.%m.%Y') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
+  </span>
+  <button class="btn btn--ghost"
+          hx-get="/overview/week?year={{ next_year }}&week={{ next_week }}&start_hour={{ start_hour }}&slot_min={{ slot_min }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML">
+    N&auml;chste Woche &rarr;
+  </button>
+</div>
+
+<!-- Zeitraster-Navigation + Intervall-Auswahl -->
+<div class="week-nav week-nav--time">
+  <button class="btn btn--ghost btn--small"
+          hx-get="/overview/week?year={{ year }}&week={{ week }}&start_hour={{ prev_start_hour }}&slot_min={{ slot_min }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML"
+          {% if start_hour == 0 %}disabled{% endif %}>
+    &uarr; Fr&uuml;her
+  </button>
+  <span class="week-nav__time-label">{{ time_range }}</span>
+  <button class="btn btn--ghost btn--small"
+          hx-get="/overview/week?year={{ year }}&week={{ week }}&start_hour={{ next_start_hour }}&slot_min={{ slot_min }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML"
+          {% if start_hour >= 22 %}disabled{% endif %}>
+    &darr; Sp&auml;ter
+  </button>
+  <span style="margin-left:1rem;">
+    <label style="font-size:.85rem;color:#666;">Raster:
+      {% for opt in [15, 30, 60] %}
+        <button class="btn btn--ghost btn--small {% if slot_min == opt %}btn--active{% endif %}"
+                hx-get="/overview/week?year={{ year }}&week={{ week }}&start_hour={{ start_hour }}&slot_min={{ opt }}"
+                hx-target="#overview-week"
+                hx-swap="innerHTML">
+          {{ opt }}&thinsp;min
+        </button>
+      {% endfor %}
+    </label>
+  </span>
+</div>
+
+<!-- Übersichtstabelle -->
+<div class="table-scroll" style="margin-top:1rem;">
+  <table class="overview-table">
+    <thead>
+      <tr>
+        <th class="overview-table__time-col"></th>
+        {% for i in range(7) %}
+          <th class="overview-table__day {% if days[i].isoformat() == today %}overview-table__day--today{% endif %}">
+            {{ day_names[i] }}<br>
+            <span style="font-weight:400;font-size:.8rem;">{{ days[i].strftime('%d.%m.') }}</span>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for slot in time_slots %}
+        {% set slot_parts = slot.split(':') %}
+        {% set slot_h = slot_parts[0] | int %}
+        {% set slot_m = slot_parts[1] | int %}
+        {% set slot_time = time_module(slot_h, slot_m) %}
+        {% set next_h = slot_h + ((slot_m + slot_min) // 60) %}
+        {% set next_m = (slot_m + slot_min) % 60 %}
+        {% set next_time = time_module(next_h if next_h < 24 else 23, next_m if next_h < 24 else 59) %}
+        <tr>
+          <td class="overview-table__time">{{ slot }}</td>
+          {% for i in range(7) %}
+            {% set day = days[i] %}
+            {% set day_iso = day.isoformat() %}
+            <td class="overview-table__cell {% if day_iso == today %}overview-table__cell--today{% endif %}">
+              <div class="ov-pills">
+                {% for group_name, group_fields, leaf_fields in groups_with_leaves %}
+                  {% for field_id in leaf_fields %}
+                    {# Buchungen für diesen Slot: exaktes Feld ODER übergeordnetes Feld (z.B. "A" deckt "AA"+"AB") #}
+                    {% set booked = [] %}
+                    {% for b in bookings
+                          if (b.field.value == field_id or field_id.startswith(b.field.value))
+                          and b.date.isoformat() == day_iso
+                          and b.start_time < next_time
+                          and b.end_time > slot_time %}
+                      {% set _ = booked.append(b) %}
+                    {% endfor %}
+                    {% if booked %}
+                      {% set b = booked[0] %}
+                      {% if b.mannschaft %}
+                        {% set bg = mannschaft_colors.get(b.mannschaft, '#888888') %}
+                        {% set label = b.mannschaft[:3] %}
+                      {% else %}
+                        {% set bg = '#555555' %}
+                        {% set label = 'Ext' %}
+                      {% endif %}
+                      <button class="ov-pill ov-pill--booked"
+                              style="background:{{ bg }};"
+                              title="{{ display_names.get(field_id, field_id) }} | {{ b.mannschaft or b.zweck or 'Extern' }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}"
+                              hx-get="/bookings/{{ b.notion_id }}/detail"
+                              hx-target="#booking-modal-content"
+                              hx-swap="innerHTML"
+                              onclick="document.getElementById('booking-modal').showModal()">
+                        {{ field_id }}
+                      </button>
+                    {% else %}
+                      <span class="ov-pill ov-pill--free" title="{{ display_names.get(field_id, field_id) }} frei">{{ field_id }}</span>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Legende -->
+<div class="ov-legend" style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;">
+  <span style="font-size:.8rem;color:#666;margin-right:.5rem;">Legende:</span>
+  {% for group_name, group_fields, leaf_fields in groups_with_leaves %}
+    {% for field_id in leaf_fields %}
+      <span style="font-size:.8rem;background:#f0f0f0;border-radius:3px;padding:2px 6px;">
+        <b>{{ field_id }}</b> = {{ display_names.get(field_id, field_id) }}
+      </span>
+    {% endfor %}
+  {% endfor %}
+  <span class="ov-pill ov-pill--booked" style="background:#888888;pointer-events:none;">XX</span>
+  <span style="font-size:.8rem;color:#666;">kein Team</span>
+  <span class="ov-pill ov-pill--free" style="pointer-events:none;">XX</span>
+  <span style="font-size:.8rem;color:#666;">frei</span>
+</div>

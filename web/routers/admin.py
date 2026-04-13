@@ -252,13 +252,13 @@ def _sync_user_mannschaft_change(repo, user_id: str, user_name: str,
             if m.name == old_mannschaft and m.trainer_id == user_id:
                 repo.update_mannschaft(m.notion_id, m.name, None, None,
                                        m.fussball_de_team_id, m.cc_emails, m.aktiv,
-                                       shortname=m.shortname)
+                                       shortname=m.shortname, color=m.color)
     if new_mannschaft:
         for m in all_teams:
             if m.name == new_mannschaft and m.trainer_id != user_id:
                 repo.update_mannschaft(m.notion_id, m.name, user_id, user_name,
                                        m.fussball_de_team_id, m.cc_emails, m.aktiv,
-                                       shortname=m.shortname)
+                                       shortname=m.shortname, color=m.color)
 
 
 @router.get("/mannschaften", response_class=HTMLResponse, dependencies=[_manage_users])
@@ -287,6 +287,7 @@ async def create_mannschaft(
     fussball_de_team_id: Optional[str] = Form(None),
     cc_emails: Optional[str] = Form(None),
     aktiv: Optional[str] = Form(None),
+    color: Optional[str] = Form(None),
 ):
     repo = request.app.state.repo
     trainer_name: Optional[str] = None
@@ -302,6 +303,7 @@ async def create_mannschaft(
         fussball_de_team_id=fussball_de_team_id.strip() if fussball_de_team_id else None,
         cc_emails=cc_list,
         aktiv=aktiv is not None,
+        color=color.strip() if color else None,
     )
     return HTMLResponse(_toast(f"Mannschaft '{name}' angelegt."))
 
@@ -469,6 +471,7 @@ async def mannschaft_save_fussball_de_ids(request: Request, current_user: Curren
             cc_emails=getattr(mannschaft, "cc_emails", []) or [],
             aktiv=getattr(mannschaft, "aktiv", True),
             shortname=getattr(mannschaft, "shortname", None),
+            color=getattr(mannschaft, "color", None),
         )
         updated += 1
 
@@ -524,6 +527,7 @@ async def update_mannschaft(
     fussball_de_team_id: Optional[str] = Form(None),
     cc_emails: Optional[str] = Form(None),
     aktiv: Optional[str] = Form(None),
+    color: Optional[str] = Form(None),
 ):
     repo = request.app.state.repo
     old_m = repo.get_mannschaft_by_id(mid)
@@ -542,6 +546,7 @@ async def update_mannschaft(
         fussball_de_team_id=fussball_de_team_id.strip() if fussball_de_team_id else None,
         cc_emails=cc_list,
         aktiv=aktiv is not None,
+        color=color.strip() if color else None,
     )
     if old_m:
         _sync_trainer_change(repo, old_m.trainer_id, new_trainer_id, m.name)
@@ -576,6 +581,80 @@ async def delete_mannschaft(request: Request, mid: str, current_user: CurrentUse
     return HTMLResponse(
         f'<tr id="mannschaft-{mid}"></tr>'
         + _toast(msg, "warning" if cancelled else "success")
+    )
+
+
+# ------------------------------------------------------------------ Auto-Farben
+
+# Palette: 32 gut unterscheidbare Farben, gleichmäßig über den Farbkreis verteilt.
+# Alle dunkel genug für weiße Schrift, kein Grau (reserviert für externe Buchungen).
+# Pass 1 (16 Haupthues) + Pass 2 (16 versetzte Zwischenhues, dunklere Töne).
+_AUTO_COLORS: list[str] = [
+    # Pass 1 – Hauptfarben
+    "#c0392b",  # rot           hue≈5°
+    "#e65100",  # tieforange    hue≈22°
+    "#f57f17",  # bernstein     hue≈38°
+    "#827717",  # ocker         hue≈53°
+    "#558b2f",  # olivgrün      hue≈88°
+    "#2e7d32",  # dunkelgrün    hue≈123°
+    "#16a085",  # türkis        hue≈168°
+    "#00838f",  # cyan          hue≈183°
+    "#1565c0",  # dunkelblau    hue≈215°
+    "#283593",  # indigo        hue≈231°
+    "#4a148c",  # tief-violett  hue≈269°
+    "#8e44ad",  # violett       hue≈287°
+    "#c2185b",  # pink          hue≈330°
+    "#880e4f",  # dunkel-pink   hue≈322°
+    "#4e342e",  # braun         hue≈12° (erdton)
+    "#1a237e",  # nachtblau     hue≈234°
+    # Pass 2 – versetzte Zwischenhues
+    "#b71c1c",  # dunkelrot     hue≈0°
+    "#bf360c",  # orange-rot    hue≈16°
+    "#e67e22",  # orange        hue≈28°
+    "#ad4e00",  # dunkelorange  hue≈27° dunkler
+    "#33691e",  # dunkel-lime   hue≈99°
+    "#27ae60",  # grün          hue≈145°
+    "#00695c",  # dunkel-türkis hue≈172°
+    "#006064",  # dunkel-cyan   hue≈183° dunkler
+    "#2980b9",  # blau          hue≈207°
+    "#0d47a1",  # tiefblau      hue≈220°
+    "#6a1fa2",  # dunkelviolett hue≈275°
+    "#5e35b1",  # mittel-lila   hue≈258°
+    "#d81b60",  # pink-rot      hue≈336°
+    "#ad1457",  # tief-pink     hue≈330° dunkler
+    "#6d4c41",  # hellbraun     hue≈16° heller
+    "#0277bd",  # hellblau      hue≈200°
+]
+
+
+@router.post("/mannschaften/auto-colors", response_class=HTMLResponse, dependencies=[_manage_users])
+async def auto_assign_colors(request: Request, current_user: CurrentUser):
+    repo = request.app.state.repo
+    mannschaften = repo.get_all_mannschaften()
+    for i, m in enumerate(mannschaften):
+        color = _AUTO_COLORS[i % len(_AUTO_COLORS)]
+        repo.update_mannschaft(
+            mannschaft_id=m.notion_id,
+            name=m.name,
+            trainer_id=m.trainer_id,
+            trainer_name=m.trainer_name,
+            fussball_de_team_id=m.fussball_de_team_id,
+            cc_emails=m.cc_emails,
+            aktiv=m.aktiv,
+            shortname=m.shortname,
+            color=color,
+        )
+    # Alle Rows neu rendern
+    mannschaften = repo.get_all_mannschaften()
+    rows_html = "".join(
+        templates.get_template("partials/_mannschaft_row.html").render(
+            _mannschaft_row_ctx(m, current_user, repo)
+        )
+        for m in mannschaften
+    )
+    return HTMLResponse(
+        f'<tbody id="mannschaft-tbody">{rows_html}</tbody>'
+        + _toast(f"{len(mannschaften)} Mannschaft(en) mit Farben versehen.")
     )
 
 

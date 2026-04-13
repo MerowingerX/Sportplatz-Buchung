@@ -228,6 +228,7 @@ class AbstractRepository(ABC):
         cc_emails: list[str],
         aktiv: bool = True,
         shortname: Optional[str] = None,
+        color: Optional[str] = None,
     ) -> MannschaftConfig: ...
 
     @abstractmethod
@@ -241,6 +242,7 @@ class AbstractRepository(ABC):
         cc_emails: list[str],
         aktiv: bool,
         shortname: Optional[str] = None,
+        color: Optional[str] = None,
     ) -> MannschaftConfig: ...
 
     @abstractmethod
