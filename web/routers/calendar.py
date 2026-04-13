@@ -199,7 +199,6 @@ async def overview_week(
     start_hour_wd = max(0, min(16, start_hour_wd))
     start_hour_we = max(0, min(16, start_hour_we))
 
-    # 8-Stunden-Fenster je Sektion (scrollbar per Früher/Später)
     weekday_slots = _build_slots(start_hour_wd, start_hour_wd + 8, slot_min)
     weekend_slots = _build_slots(start_hour_we, start_hour_we + 8, slot_min)
 
