@@ -3,7 +3,7 @@
 <!-- Wochennavigation -->
 <div class="week-nav">
   <button class="btn btn--ghost"
-          hx-get="/overview/week?year={{ prev_year }}&week={{ prev_week }}&slot_min={{ slot_min }}"
+          hx-get="/overview/week?year={{ prev_year }}&week={{ prev_week }}&slot_min={{ slot_min }}&start_hour_wd={{ start_hour_wd }}&start_hour_we={{ start_hour_we }}"
           hx-target="#overview-week"
           hx-swap="innerHTML">
     &larr; Vorwoche
@@ -12,7 +12,7 @@
     KW {{ week }} &nbsp;|&nbsp; {{ monday.strftime('%d.%m.%Y') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
   </span>
   <button class="btn btn--ghost"
-          hx-get="/overview/week?year={{ next_year }}&week={{ next_week }}&slot_min={{ slot_min }}"
+          hx-get="/overview/week?year={{ next_year }}&week={{ next_week }}&slot_min={{ slot_min }}&start_hour_wd={{ start_hour_wd }}&start_hour_we={{ start_hour_we }}"
           hx-target="#overview-week"
           hx-swap="innerHTML">
     N&auml;chste Woche &rarr;
@@ -24,7 +24,7 @@
   <label style="font-size:.85rem;color:#666;">Raster:
     {% for opt in [15, 30, 60] %}
       <button class="btn btn--ghost btn--small {% if slot_min == opt %}btn--active{% endif %}"
-              hx-get="/overview/week?year={{ year }}&week={{ week }}&slot_min={{ opt }}"
+              hx-get="/overview/week?year={{ year }}&week={{ week }}&slot_min={{ opt }}&start_hour_wd={{ start_hour_wd }}&start_hour_we={{ start_hour_we }}"
               hx-target="#overview-week"
               hx-swap="innerHTML">
         {{ opt }}&thinsp;min
@@ -33,15 +33,31 @@
   </label>
 </div>
 
-{# Makro: eine Übersichtstabelle für eine Auswahl von Tagen + Slots #}
-{% macro overview_table(label, day_list, day_offset, slots) %}
-<h3 style="margin:1.2rem 0 .4rem;font-size:1rem;color:#555;">{{ label }}</h3>
+<!-- ===== WERKTAGE Mo–Fr ===== -->
+<h3 style="margin:1.4rem 0 .3rem;font-size:1rem;color:#555;">Montag – Freitag</h3>
+<div class="week-nav week-nav--time" style="margin-bottom:.4rem;">
+  <button class="btn btn--ghost btn--small"
+          hx-get="/overview/week?year={{ year }}&week={{ week }}&slot_min={{ slot_min }}&start_hour_wd={{ prev_hour_wd }}&start_hour_we={{ start_hour_we }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML"
+          {% if start_hour_wd == 0 %}disabled{% endif %}>
+    &uarr; Fr&uuml;her
+  </button>
+  <span class="week-nav__time-label">{{ weekday_slots[0] }} – {{ weekday_slots[-1] }}</span>
+  <button class="btn btn--ghost btn--small"
+          hx-get="/overview/week?year={{ year }}&week={{ week }}&slot_min={{ slot_min }}&start_hour_wd={{ next_hour_wd }}&start_hour_we={{ start_hour_we }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML"
+          {% if start_hour_wd >= 16 %}disabled{% endif %}>
+    &darr; Sp&auml;ter
+  </button>
+</div>
 <div class="table-scroll">
   <table class="overview-table">
     <thead>
       <tr>
         <th class="overview-table__time-col"></th>
-        {% for day in day_list %}
+        {% for day in days_weekday %}
           <th class="overview-table__day {% if day.isoformat() == today %}overview-table__day--today{% endif %}">
             {{ day_names[day.weekday()] }}<br>
             <span style="font-weight:400;font-size:.8rem;">{{ day.strftime('%d.%m.') }}</span>
@@ -50,7 +66,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for slot in slots %}
+      {% for slot in weekday_slots %}
         {% set slot_parts = slot.split(':') %}
         {% set slot_h = slot_parts[0] | int %}
         {% set slot_m = slot_parts[1] | int %}
@@ -60,7 +76,7 @@
         {% set next_time = time_module(next_h if next_h < 24 else 23, next_m if next_h < 24 else 59) %}
         <tr>
           <td class="overview-table__time">{{ slot }}</td>
-          {% for day in day_list %}
+          {% for day in days_weekday %}
             {% set day_iso = day.isoformat() %}
             <td class="overview-table__cell {% if day_iso == today %}overview-table__cell--today{% endif %}">
               <div class="ov-pills">
@@ -78,10 +94,8 @@
                       {% set b = booked[0] %}
                       {% if b.mannschaft %}
                         {% set bg = mannschaft_colors.get(b.mannschaft, '#888888') %}
-                        {% set label = b.mannschaft[:3] %}
                       {% else %}
                         {% set bg = '#555555' %}
-                        {% set label = 'Ext' %}
                       {% endif %}
                       <button class="ov-pill ov-pill--booked"
                               style="background:{{ bg }};"
@@ -105,16 +119,96 @@
     </tbody>
   </table>
 </div>
-{% endmacro %}
 
-<!-- Werktage Mo–Fr (15–22 Uhr) -->
-{{ overview_table("Montag – Freitag · 15:00 – 22:00 Uhr", days_weekday, 0, weekday_slots) }}
-
-<!-- Wochenende Sa–So (10–22 Uhr) -->
-{{ overview_table("Samstag – Sonntag · 10:00 – 22:00 Uhr", days_weekend, 5, weekend_slots) }}
+<!-- ===== WOCHENENDE Sa–So ===== -->
+<h3 style="margin:1.8rem 0 .3rem;font-size:1rem;color:#555;">Samstag – Sonntag</h3>
+<div class="week-nav week-nav--time" style="margin-bottom:.4rem;">
+  <button class="btn btn--ghost btn--small"
+          hx-get="/overview/week?year={{ year }}&week={{ week }}&slot_min={{ slot_min }}&start_hour_wd={{ start_hour_wd }}&start_hour_we={{ prev_hour_we }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML"
+          {% if start_hour_we == 0 %}disabled{% endif %}>
+    &uarr; Fr&uuml;her
+  </button>
+  <span class="week-nav__time-label">{{ weekend_slots[0] }} – {{ weekend_slots[-1] }}</span>
+  <button class="btn btn--ghost btn--small"
+          hx-get="/overview/week?year={{ year }}&week={{ week }}&slot_min={{ slot_min }}&start_hour_wd={{ start_hour_wd }}&start_hour_we={{ next_hour_we }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML"
+          {% if start_hour_we >= 16 %}disabled{% endif %}>
+    &darr; Sp&auml;ter
+  </button>
+</div>
+<div class="table-scroll">
+  <table class="overview-table">
+    <thead>
+      <tr>
+        <th class="overview-table__time-col"></th>
+        {% for day in days_weekend %}
+          <th class="overview-table__day {% if day.isoformat() == today %}overview-table__day--today{% endif %}">
+            {{ day_names[day.weekday()] }}<br>
+            <span style="font-weight:400;font-size:.8rem;">{{ day.strftime('%d.%m.') }}</span>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for slot in weekend_slots %}
+        {% set slot_parts = slot.split(':') %}
+        {% set slot_h = slot_parts[0] | int %}
+        {% set slot_m = slot_parts[1] | int %}
+        {% set slot_time = time_module(slot_h, slot_m) %}
+        {% set next_h = slot_h + ((slot_m + slot_min) // 60) %}
+        {% set next_m = (slot_m + slot_min) % 60 %}
+        {% set next_time = time_module(next_h if next_h < 24 else 23, next_m if next_h < 24 else 59) %}
+        <tr>
+          <td class="overview-table__time">{{ slot }}</td>
+          {% for day in days_weekend %}
+            {% set day_iso = day.isoformat() %}
+            <td class="overview-table__cell {% if day_iso == today %}overview-table__cell--today{% endif %}">
+              <div class="ov-pills">
+                {% for group_name, group_fields, leaf_fields in groups_with_leaves %}
+                  {% for field_id in leaf_fields %}
+                    {% set booked = [] %}
+                    {% for b in bookings
+                          if (b.field.value == field_id or field_id.startswith(b.field.value))
+                          and b.date.isoformat() == day_iso
+                          and b.start_time < next_time
+                          and b.end_time > slot_time %}
+                      {% set _ = booked.append(b) %}
+                    {% endfor %}
+                    {% if booked %}
+                      {% set b = booked[0] %}
+                      {% if b.mannschaft %}
+                        {% set bg = mannschaft_colors.get(b.mannschaft, '#888888') %}
+                      {% else %}
+                        {% set bg = '#555555' %}
+                      {% endif %}
+                      <button class="ov-pill ov-pill--booked"
+                              style="background:{{ bg }};"
+                              title="{{ display_names.get(field_id, field_id) }} | {{ b.mannschaft or b.zweck or 'Extern' }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}"
+                              hx-get="/bookings/{{ b.notion_id }}/detail"
+                              hx-target="#booking-modal-content"
+                              hx-swap="innerHTML"
+                              onclick="document.getElementById('booking-modal').showModal()">
+                        {{ field_id }}
+                      </button>
+                    {% else %}
+                      <span class="ov-pill ov-pill--free" title="{{ display_names.get(field_id, field_id) }} frei">{{ field_id }}</span>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
 <!-- Legende -->
-<div class="ov-legend" style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;">
+<div class="ov-legend" style="margin-top:1.2rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;">
   <span style="font-size:.8rem;color:#666;margin-right:.5rem;">Legende:</span>
   {% for group_name, group_fields, leaf_fields in groups_with_leaves %}
     {% for field_id in leaf_fields %}

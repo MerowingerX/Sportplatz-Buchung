@@ -184,6 +184,8 @@ async def overview_week(
     year: int,
     week: int,
     slot_min: int = 30,
+    start_hour_wd: int = 14,   # Werktage: Standard 14 Uhr
+    start_hour_we: int = 10,   # Wochenende: Standard 10 Uhr
 ):
     repo = request.app.state.repo
     cache_key = f"week:{year}:{week}"
@@ -194,10 +196,12 @@ async def overview_week(
         bookings = _cache[cache_key]
 
     slot_min = max(15, min(120, slot_min))
+    # 8-Stunden-Fenster, Start scrollbar (Werktag 0–16, Wochenende 0–16)
+    start_hour_wd = max(0, min(16, start_hour_wd))
+    start_hour_we = max(0, min(16, start_hour_we))
 
-    # Feste Zeitfenster: Werktage 15–22 Uhr, Wochenende 10–22 Uhr
-    weekday_slots = _build_slots(15, 22, slot_min)
-    weekend_slots = _build_slots(10, 22, slot_min)
+    weekday_slots = _build_slots(start_hour_wd, start_hour_wd + 8, slot_min)
+    weekend_slots = _build_slots(start_hour_we, start_hour_we + 8, slot_min)
 
     # Visible field groups + leaf fields per group
     field_groups = fc.get_visible_groups(current_user.role.value)
@@ -228,6 +232,12 @@ async def overview_week(
             "days_weekday": days_weekday,
             "days_weekend": days_weekend,
             "slot_min": slot_min,
+            "start_hour_wd": start_hour_wd,
+            "start_hour_we": start_hour_we,
+            "prev_hour_wd": max(0, start_hour_wd - 2),
+            "next_hour_wd": min(16, start_hour_wd + 2),
+            "prev_hour_we": max(0, start_hour_we - 2),
+            "next_hour_we": min(16, start_hour_we + 2),
             "groups_with_leaves": groups_with_leaves,
             "display_names": display_names,
             "mannschaft_colors": mannschaft_colors,
