@@ -1252,6 +1252,10 @@ body::before {
 .overview-table__cell--today {
   background: color-mix(in srgb, var(--color-primary) 5%, white);
 }
+.overview-table__cell--inactive {
+  background: #f4f4f4;
+  border: 1px solid #e8e8e8;
+}
 
 /* Pill-Buttons */
 .ov-pills {
