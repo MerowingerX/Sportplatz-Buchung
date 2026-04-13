@@ -49,7 +49,8 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
         except ValueError:
             sync_status["timestamp_fmt"] = sync_status["timestamp"]
 
-    dist_files = sorted(p.name for p in pathlib.Path("web/dist").iterdir() if p.is_file())
+    dist_dir = pathlib.Path("web/dist")
+    dist_files = sorted(p.name for p in dist_dir.iterdir() if p.is_file()) if dist_dir.is_dir() else []
 
     return templates.TemplateResponse(
         "admin/dashboard.html",

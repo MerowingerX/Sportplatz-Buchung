@@ -106,7 +106,9 @@ app.add_middleware(NoCacheDistMiddleware)
 app.add_middleware(OnboardingMiddleware)
 
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
-app.mount("/dist", StaticFiles(directory="web/dist"), name="dist")
+_dist_dir = Path("web/dist")
+_dist_dir.mkdir(exist_ok=True)
+app.mount("/dist", StaticFiles(directory=str(_dist_dir)), name="dist")
 
 from web.routers import onboarding  # noqa: E402
 app.include_router(onboarding.router)

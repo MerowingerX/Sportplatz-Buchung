@@ -6,8 +6,8 @@
     "cremlingen"
   ],
   "primary_color": "#1e4fa3",
-  "primary_color_dark": "#1e4fa3",
-  "primary_color_darker": "#1e4fa3",
+  "primary_color_dark": "#163d80",
+  "primary_color_darker": "#0e2a5a",
   "gold_color": "#e8c04a",
   "saison_defaults": {
     "ganzjaehrig": {
