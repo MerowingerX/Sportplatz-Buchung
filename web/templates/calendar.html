@@ -13,12 +13,11 @@
   </button>
 </div>
 
-<!-- Übersicht (Desktop) / Tagesansicht (Mobil) -->
+<!-- Kalender-Navigation & Wochenansicht -->
 <div id="calendar-container">
-  <div id="overview-week" hx-swap="innerHTML">
-    <div class="loading">Lade Übersicht…</div>
+  <div id="calendar-week" hx-swap="innerHTML">
+    <div class="loading">Lade Kalender…</div>
   </div>
-  <div id="calendar-week" hx-swap="innerHTML" style="display:none;"></div>
 </div>
 
 <!-- Buchungsformular Modal -->
@@ -37,16 +36,13 @@
     document.getElementById('booking-modal').close();
   });
 
-  // Desktop: Übersicht; Mobil: Tagesansicht
+  // Ansicht je nach Bildschirmbreite wählen
   (function () {
     const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      document.getElementById('overview-week').style.display = 'none';
-      document.getElementById('calendar-week').style.display = '';
-      htmx.ajax('GET', '/calendar/day?d={{ today }}', { target: '#calendar-week', swap: 'innerHTML' });
-    } else {
-      htmx.ajax('GET', '/overview/week?year={{ year }}&week={{ week }}', { target: '#overview-week', swap: 'innerHTML' });
-    }
+    const url = isMobile
+      ? '/calendar/day?d={{ today }}'
+      : '/calendar/week?year={{ year }}&week={{ week }}';
+    htmx.ajax('GET', url, { target: '#calendar-week', swap: 'innerHTML' });
   })();
 
   // Touch-Wischen zum Blättern (nur Tagesansicht)
