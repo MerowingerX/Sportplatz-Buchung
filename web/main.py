@@ -94,9 +94,19 @@ class OnboardingMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class NoCacheDistMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/dist/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.add_middleware(NoCacheDistMiddleware)
 app.add_middleware(OnboardingMiddleware)
 
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
+app.mount("/dist", StaticFiles(directory="web/dist"), name="dist")
 
 from web.routers import onboarding  # noqa: E402
 app.include_router(onboarding.router)

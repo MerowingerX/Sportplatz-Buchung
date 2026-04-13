@@ -34,6 +34,7 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
     from booking.spielplan_sync import read_sync_status
     from booking.scheduler_config import load as load_scheduler_cfg
     from datetime import datetime as _dt
+    import pathlib
 
     repo = request.app.state.repo
     users = repo.get_all_users()
@@ -48,6 +49,8 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
         except ValueError:
             sync_status["timestamp_fmt"] = sync_status["timestamp"]
 
+    dist_files = sorted(p.name for p in pathlib.Path("web/dist").iterdir() if p.is_file())
+
     return templates.TemplateResponse(
         "admin/dashboard.html",
         {
@@ -57,6 +60,7 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
             "sync_status": sync_status,
             "scheduler_cfg": scheduler_cfg,
             "server_time": _dt.now().strftime("%d.%m.%Y %H:%M:%S"),
+            "dist_files": dist_files,
         },
     )
 

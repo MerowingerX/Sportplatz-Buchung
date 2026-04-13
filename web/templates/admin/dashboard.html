@@ -158,6 +158,35 @@
     </button>
   </div>
   <div class="card">
+    <h2>Vereinspaket &amp; App</h2>
+    <p>Ressourcen und Downloads für Vereinsmitglieder</p>
+    {% if dist_files %}
+      {% for fname in dist_files %}
+        {% set ext = fname.rsplit('.', 1)[-1].lower() %}
+        {% if ext == 'png' or ext == 'jpg' or ext == 'jpeg' %}
+          <div style="margin:0.5rem 0;">
+            <img src="/dist/{{ fname }}" alt="{{ fname }}" style="max-width:100%;border-radius:6px;">
+          </div>
+        {% elif ext == 'mp3' or ext == 'ogg' or ext == 'wav' %}
+          <div style="margin:0.75rem 0;">
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.25rem;">{{ fname }}</div>
+            <audio controls style="width:100%;">
+              <source src="/dist/{{ fname }}">
+            </audio>
+          </div>
+        {% else %}
+          <div style="margin:0.4rem 0;">
+            <a href="/dist/{{ fname }}" download class="btn btn--ghost btn--small" style="width:100%;text-align:left;">
+              ⬇ {{ fname }}
+            </a>
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <p style="color:var(--text-muted)">Keine Dateien vorhanden</p>
+    {% endif %}
+  </div>
+  <div class="card">
     <h2>Datenbereinigung</h2>
     <p>Verwaiste und vergangene Buchungen dauerhaft aus Notion entfernen</p>
     <button class="btn btn--secondary"
