@@ -171,7 +171,6 @@ async def overview_week(
     current_user: CurrentUser,
     year: int,
     week: int,
-    start_hour: int = 16,
     slot_min: int = 30,
 ):
     repo = request.app.state.repo
@@ -182,24 +181,28 @@ async def overview_week(
     else:
         bookings = _cache[cache_key]
 
-    # Clamp params
-    start_hour = max(0, min(22, start_hour))
     slot_min = max(15, min(120, slot_min))
-    prev_start_hour = max(0, start_hour - 2)
-    next_start_hour = min(22, start_hour + 2)
 
-    # Build slots for a 6-hour window
-    num_slots = 360 // slot_min
+    # Slots von 10:00 bis 22:00 (deckt beide Tagestypen ab)
     slots: list[str] = []
-    h, m = start_hour, 0
-    for _ in range(num_slots):
+    h, m = 10, 0
+    while h < 22:
         slots.append(f"{h:02d}:{m:02d}")
         m += slot_min
         if m >= 60:
             m -= 60
             h += 1
-        if h >= 24:
-            break
+
+    # Aktive Stunden je Wochentag (0=Mo … 6=So)
+    active_hours = [
+        (15, 22),  # Mo
+        (15, 22),  # Di
+        (15, 22),  # Mi
+        (15, 22),  # Do
+        (15, 22),  # Fr
+        (10, 18),  # Sa
+        (10, 18),  # So
+    ]
 
     # Visible field groups + leaf fields per group
     field_groups = fc.get_visible_groups(current_user.role.value)
@@ -224,11 +227,8 @@ async def overview_week(
             "bookings": bookings,
             "today": Date.today().isoformat(),
             "time_slots": slots,
-            "start_hour": start_hour,
             "slot_min": slot_min,
-            "prev_start_hour": prev_start_hour,
-            "next_start_hour": next_start_hour,
-            "time_range": f"{slots[0]} – {slots[-1]}",
+            "active_hours": active_hours,
             "groups_with_leaves": groups_with_leaves,
             "display_names": display_names,
             "mannschaft_colors": mannschaft_colors,
