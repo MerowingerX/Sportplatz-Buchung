@@ -165,13 +165,24 @@ async def overview_page(request: Request, current_user: CurrentUser):
     )
 
 
+def _build_slots(start_hour: int, end_hour: int, slot_min: int) -> list[str]:
+    slots: list[str] = []
+    h, m = start_hour, 0
+    while h < end_hour:
+        slots.append(f"{h:02d}:{m:02d}")
+        m += slot_min
+        if m >= 60:
+            m -= 60
+            h += 1
+    return slots
+
+
 @router.get("/overview/week", response_class=HTMLResponse)
 async def overview_week(
     request: Request,
     current_user: CurrentUser,
     year: int,
     week: int,
-    start_hour: int = 16,
     slot_min: int = 30,
 ):
     repo = request.app.state.repo
@@ -182,24 +193,11 @@ async def overview_week(
     else:
         bookings = _cache[cache_key]
 
-    # Clamp params
-    start_hour = max(0, min(22, start_hour))
     slot_min = max(15, min(120, slot_min))
-    prev_start_hour = max(0, start_hour - 2)
-    next_start_hour = min(22, start_hour + 2)
 
-    # Build slots for a 6-hour window
-    num_slots = 360 // slot_min
-    slots: list[str] = []
-    h, m = start_hour, 0
-    for _ in range(num_slots):
-        slots.append(f"{h:02d}:{m:02d}")
-        m += slot_min
-        if m >= 60:
-            m -= 60
-            h += 1
-        if h >= 24:
-            break
+    # Feste Zeitfenster: Werktage 15–22 Uhr, Wochenende 10–22 Uhr
+    weekday_slots = _build_slots(15, 22, slot_min)
+    weekend_slots = _build_slots(10, 22, slot_min)
 
     # Visible field groups + leaf fields per group
     field_groups = fc.get_visible_groups(current_user.role.value)
@@ -216,6 +214,8 @@ async def overview_week(
     }
 
     ctx = _get_week_context(year, week)
+    days_weekday = ctx["days"][:5]   # Mo–Fr
+    days_weekend = ctx["days"][5:]   # Sa–So
     return templates.TemplateResponse(
         "partials/_overview_week.html",
         {
@@ -223,12 +223,11 @@ async def overview_week(
             "current_user": current_user,
             "bookings": bookings,
             "today": Date.today().isoformat(),
-            "time_slots": slots,
-            "start_hour": start_hour,
+            "weekday_slots": weekday_slots,
+            "weekend_slots": weekend_slots,
+            "days_weekday": days_weekday,
+            "days_weekend": days_weekend,
             "slot_min": slot_min,
-            "prev_start_hour": prev_start_hour,
-            "next_start_hour": next_start_hour,
-            "time_range": f"{slots[0]} – {slots[-1]}",
             "groups_with_leaves": groups_with_leaves,
             "display_names": display_names,
             "mannschaft_colors": mannschaft_colors,
