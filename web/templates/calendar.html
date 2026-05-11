@@ -13,6 +13,28 @@
   </button>
 </div>
 
+<details class="help-box">
+  <summary>ℹ️ Wie funktioniert der Kalender?</summary>
+  <div class="help-box__body">
+    <p>Der Kalender zeigt auf einen Blick, welcher Platz wann belegt oder frei ist.</p>
+
+    <p><strong>Farben:</strong></p>
+    <div class="help-box__legend">
+      <span class="help-box__legend-item"><span class="help-slot help-slot--free"></span> Frei – klickbar zum Buchen</span>
+      <span class="help-box__legend-item"><span class="help-slot help-slot--training"></span> Training</span>
+      <span class="help-box__legend-item"><span class="help-slot help-slot--spiel"></span> Spiel</span>
+      <span class="help-box__legend-item"><span class="help-slot help-slot--turnier"></span> Turnier</span>
+      <span class="help-box__legend-item"><span class="help-slot help-slot--blocked"></span> Gesperrt</span>
+    </div>
+
+    <p><strong>Buchung erstellen:</strong> Einfach auf einen freien (hellen) Slot klicken – das Buchungsformular öffnet sich automatisch. Alternativ oben rechts auf „+ Neue Buchung" klicken.</p>
+
+    <p><strong>Buchung stornieren:</strong> Auf eine bestehende Buchung klicken → Details öffnen → „Stornieren" wählen. Nur eigene Buchungen können storniert werden (Admins können alle stornieren).</p>
+
+    <p><strong>Navigation:</strong> Mit den Pfeilschaltflächen ◀ ▶ zwischen den Wochen blättern. Auf dem Handy erscheint die Tagesansicht – durch Wischen nach links/rechts zwischen den Tagen wechseln.</p>
+  </div>
+</details>
+
 <!-- Kalender-Navigation & Wochenansicht -->
 <div id="calendar-container">
   <div id="calendar-week" hx-swap="innerHTML">
