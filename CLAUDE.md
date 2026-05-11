@@ -13,9 +13,9 @@ Projektspezifische Anweisungen für Claude Code. Immer lesen, bevor Code geände
 | `Sportplatz-Buchung/` (dieses Repo) | Buchungssystem (auth-geschützt) | 1946 | `web.main:app` |
 | `TuS_Cremlingen-Homepage/` | Öffentliche Homepage | 8046 | `web.main:app` |
 
-**Stack:** FastAPI · Pydantic-Settings · Jinja2 + HTMX · Notion API als Datenbank · JWT-Cookie-Auth
+**Stack:** FastAPI · Pydantic-Settings · Jinja2 + HTMX · SQLite · JWT-Cookie-Auth
 
-**Datenbank:** Notion (Standard) **oder** SQLite — wählbar über `DB_BACKEND=notion|sqlite` in `.env`. Alle Router greifen ausschließlich über `request.app.state.repo` auf das Repository zu. Interface: `db/repository.py → AbstractRepository`. Implementierungen: `notion/client.py → NotionRepository` und `db/sqlite_repository.py → SQLiteRepository`.
+**Datenbank:** SQLite (aktiv, `DB_BACKEND=sqlite`). Die Migration von Notion wurde abgeschlossen. Notion-Code verbleibt als Legacy-Fallback in `notion/client.py`, wird aber nicht mehr aktiv genutzt. Alle Router greifen ausschließlich über `request.app.state.repo` auf das Repository zu. Interface: `db/repository.py → AbstractRepository`. Aktive Implementierung: `db/sqlite_repository.py → SQLiteRepository`.
 
 ---
 
@@ -48,14 +48,9 @@ Niemals `Jinja2Templates(directory=...)` neu instanziieren. Jinja2-Globals (`ver
 `style.css` wird mit `?v=N` geladen (in `base.html` und `login.html`).
 Bei CSS-Änderungen die Versionsnummer in **beiden** Templates hochzählen.
 
-### 4. Notion-Property-Namen sind exakte Strings
+### 4. SQLite-Schema bei neuen Feldern erweitern
 
-Alle Notion-Property-Namen müssen exakt mit den Bezeichnungen in der Notion-Datenbank übereinstimmen. Die **Quelle der Wahrheit** ist `notion/client.py`.
-Vollständige Tabellen aller Properties → `docs/naming_constraints.md`.
-
-### 5. Setup-Script
-
-`notion/setup.py` ist veraltet. **Ausschließlich** `scripts/setup_notion.py` verwenden.
+Neue Felder oder Tabellen immer in `db/schema.sql` eintragen (`CREATE TABLE IF NOT EXISTS` / `ALTER TABLE`). Das Schema wird bei jedem Start automatisch ausgeführt.
 
 ---
 
@@ -80,14 +75,14 @@ Sportplatz-Buchung/
 │   ├── sqlite_repository.py     # SQLiteRepository — stdlib sqlite3, WAL-Modus
 │   └── schema.sql               # DDL: Tabellen, Indizes (wird beim Start automatisch ausgeführt)
 ├── notion/
-│   └── client.py                # NotionRepository — alle DB-Methoden (implementiert AbstractRepository)
+│   └── client.py                # NotionRepository — Legacy-Backend (nicht aktiv genutzt)
 ├── auth/
 │   ├── auth.py                  # JWT encode/decode
 │   └── dependencies.py          # CurrentUser FastAPI-Dependency
 ├── config/
 │   ├── vereinsconfig.json       # Club: Name, Farben, heim_keyword, spielorte
 │   └── field_config.json        # Plätze: Anzeigenamen, Gruppen, Sichtbarkeit
-├── data/                        # SQLite-Datenbankdatei (gitignored, nur bei DB_BACKEND=sqlite)
+├── data/                        # SQLite-Datenbankdatei (gitignored)
 ├── scripts/                     # Standalone-Scripts (backup, restore, fetch_spielplan …)
 ├── docs/                        # Architekturdokumentation
 └── Dockerfile / docker-compose.yml
@@ -99,17 +94,17 @@ Sportplatz-Buchung/
 
 ### `booking/models.py`
 Zentrale Pydantic-Modelle und Enums. Änderungen hier haben Kaskadeneffekte:
-- `FieldName` → Notion-Select-Optionen, CSS-Klassen, `field_config.json`
+- `FieldName` → CSS-Klassen, `field_config.json`, SQLite-Spaltenwerte
 - `BookingType` → CSS-Klassen via `{{ b.booking_type.value | lower }}`
 - `UserRole` → Template-Hardcodes, `field_config.json` → `"visible_to"`
 
 **Enum-Werte nie umbenennen ohne `docs/naming_constraints.md` zu prüfen.**
 
-### `notion/client.py`
-Einziger Weg zur Datenbank. Methoden-Muster:
-- `_page_to_*()` — Notion-Page → Pydantic-Modell
-- `_query_all()` — paginierte Abfrage (immer nutzen, nie direkt `.query()`)
-- Schreiben: `_update_page()`, `pages.create()`
+### `db/sqlite_repository.py`
+Aktiver Datenbankzugang. Methoden-Muster:
+- `_row_to_*()` — sqlite3-Row → Pydantic-Modell
+- Alle Methoden nutzen Thread-lokale Connections via `threading.local()`
+- Schema-DDL liegt in `db/schema.sql`
 
 ### `config/vereinsconfig.json`
 Quelle der Wahrheit für vereinsspezifische Werte. Wird beim Start geladen und als Jinja2-Globals gesetzt:
@@ -136,19 +131,6 @@ Quelle der Wahrheit für vereinsspezifische Werte. Wird beim Start geladen und a
 
 ---
 
-## Notion-Datenbanken
-
-| `.env`-Variable | Inhalt |
-|-----------------|--------|
-| `NOTION_BUCHUNGEN_DB_ID` | Buchungen (Haupttabelle) |
-| `NOTION_SERIEN_DB_ID` | Trainingsserien |
-| `NOTION_NUTZER_DB_ID` | Nutzer + Passwort-Hashes |
-| `NOTION_AUFGABEN_DB_ID` | Platzwart-Aufgaben |
-| `NOTION_EVENTS_DB_ID` | Externe Termine (optional) |
-| `NOTION_MANNSCHAFTEN_DB_ID` | Mannschaften-Config (optional) |
-
----
-
 ## HTMX-Muster
 
 Die UI ist HTMX-getrieben. Partials in `web/templates/partials/` werden per `hx-get`/`hx-post` nachgeladen.
@@ -159,7 +141,7 @@ Kein JavaScript außer HTMX (und minimal inline für Dialoge).
 
 ## Mannschaften
 
-Das `Mannschaft`-Enum wurde **entfernt**. Mannschaften kommen dynamisch aus der Notion Mannschaften-DB:
+Das `Mannschaft`-Enum wurde **entfernt**. Mannschaften kommen dynamisch aus der `mannschaften`-Tabelle (SQLite):
 
 ```python
 mannschaften = await repo.get_all_mannschaften(only_active=True)
@@ -182,16 +164,14 @@ Das Feld `mannschaft` in allen Modellen ist `str`, nicht Enum.
 - [ ] In `web/main.py` → `app.include_router(...)` einbinden
 - [ ] `from web.templates_instance import templates` (nie neu instanziieren)
 
-**Neue DB-Methode (beide Backends):**
+**Neue DB-Methode:**
 - [ ] Signatur in `db/repository.py` → `AbstractRepository` als `@abstractmethod` ergänzen
-- [ ] In `notion/client.py` → `NotionRepository` implementieren (Property-Namen exakt, `_query_all()` nutzen)
 - [ ] In `db/sqlite_repository.py` → `SQLiteRepository` implementieren
 - [ ] ggf. `db/schema.sql` um neue Spalte / Tabelle erweitern
 
 **Neue Platz-ID (FieldName):**
 - [ ] `booking/models.py` → `FieldName`-Enum
 - [ ] `config/field_config.json` → `display_names` + `field_groups` + `visible_to` + `lit`
-- [ ] `scripts/setup_notion.py` → Notion Select-Option anlegen
 - [ ] `booking/field_config.py` → `_DEFAULT` prüfen
 - [ ] `config/vereinsconfig.json` → `spielorte` prüfen
 
@@ -203,13 +183,13 @@ Alle Scripts sind standalone (kein `sys.path`-Hack nötig, direkt ausführbar):
 
 | Script | Zweck |
 |--------|-------|
-| `backup_notion.py` | Alle 6 Notion-DBs als JSON sichern (Cron: täglich 03:00) |
-| `restore_notion.py` | Nutzer + Serien aus Backup wiederherstellen (`--dry-run`) |
-| `fetch_spielplan.py` | Spiele von fussball.de importieren |
-| `setup_notion.py` | Notion-DBs initial anlegen / Properties prüfen |
 | `setup_sqlite.py` | SQLite-DB einrichten: Schema erstellen, Admin + dfbnet-Nutzer anlegen |
+| `fetch_spielplan.py` | Spiele von fussball.de importieren |
 | `instagram_matchday.py` | Matchday-Karussell-Bilder generieren (braucht Playwright) |
 | `onboarding.sh` | Interaktives Ersteinrichtungs-Script |
+| `backup_notion.py` | **(Legacy)** Notion-DBs als JSON sichern — nur noch relevant wenn Notion-Backend aktiv |
+| `restore_notion.py` | **(Legacy)** Nutzer + Serien aus Notion-Backup wiederherstellen |
+| `setup_notion.py` | **(Legacy)** Notion-DBs initial anlegen / Properties prüfen |
 
 ---
 
@@ -221,8 +201,8 @@ Das Repository-Interface ist hinter `db/repository.py → AbstractRepository` ab
 
 | Variable | Wert | Beschreibung |
 |----------|------|--------------|
-| `DB_BACKEND` | `notion` (Standard) | Notion-API als Datenbank |
-| `DB_BACKEND` | `sqlite` | Lokale SQLite-Datei |
+| `DB_BACKEND` | `sqlite` (Standard) | Lokale SQLite-Datei |
+| `DB_BACKEND` | `notion` | Notion-API (Legacy) |
 | `SQLITE_DB_PATH` | `data/sportplatz.db` | Pfad zur SQLite-Datei (relativ zum Projekt-Root) |
 
 ### SQLite-Setup (Ersteinrichtung)
@@ -259,7 +239,7 @@ Grafisch: **DB Browser for SQLite** (kostenlos, [sqlitebrowser.org](https://sqli
 - WAL-Modus (`PRAGMA journal_mode=WAL`) — mehrere gleichzeitige Leser, ein Schreiber
 - Foreign-Keys aktiv (`PRAGMA foreign_keys=ON`)
 - Thread-Safety: eigene Connection pro Thread via `threading.local()`
-- `notion_id`-Feld: bei Notion die echte Page-UUID, bei SQLite ein `uuid4()`-String — intern identisch behandelt
+- `notion_id`-Feld in den Pydantic-Modellen: historischer Name, enthält bei SQLite eine `uuid4()`-Zeichenkette — intern identisch behandelt
 - Schema-Datei: `db/schema.sql` (wird bei jedem Start via `CREATE TABLE IF NOT EXISTS` ausgeführt — sicher beim Neustart)
 
 ---
@@ -274,8 +254,8 @@ uvicorn web.main:app --reload --port 1946
 docker compose up -d
 docker compose logs -f buchung
 
-# Cron Backup (auf Server einrichten)
-0 3 * * * cd /opt/sportplatz && .venv/bin/python scripts/backup_notion.py >> logs/backup.log 2>&1
+# Cron Backup — SQLite-Datei sichern
+0 3 * * * sqlite3 /opt/sportplatz/data/sportplatz.db ".backup /opt/sportplatz/backup/sportplatz_$(date +\%Y-\%m-\%d).db"
 ```
 
 Logs: `logs/` (in `.gitignore`). Backups: `backup/` (gemountet in Docker).
@@ -287,8 +267,7 @@ Logs: `logs/` (in `.gitignore`). Backups: `backup/` (gemountet in Docker).
 - **Keine neue `Jinja2Templates`-Instanz** erstellen — immer aus `web.templates_instance` importieren
 - **Keine `.env`-Felder** verwenden ohne sie in `web/config.py` zu deklarieren
 - **Keine Enum-Werte umbenennen** ohne `docs/naming_constraints.md` zu prüfen
-- **Nicht direkt `self._client.databases.query()`** aufrufen — immer `self._query_all()` nutzen
-- **`notion/setup.py` nicht anfassen** — nur `scripts/setup_notion.py` ist aktuell
+- **`notion/` nicht anfassen** — der Legacy-Code bleibt unverändert
 - **Keine Homepage-Logik** in dieses Repo — Homepage ist ein eigenes Repo (`TuS_Cremlingen-Homepage/`)
 
 ---
@@ -298,9 +277,9 @@ Logs: `logs/` (in `.gitignore`). Backups: `backup/` (gemountet in Docker).
 | Datei | Inhalt |
 |-------|--------|
 | `docs/ARCHITEKTUR.md` | Komponentenübersicht, Datenfluss, Klassendiagramme |
-| `docs/naming_constraints.md` | Alle String-Kopplungen zwischen Code, Notion, CSS, Templates |
+| `docs/naming_constraints.md` | Alle String-Kopplungen zwischen Code, CSS, Templates |
 | `docs/INSTALLATION.md` | Setup-Anleitung für neue Instanz |
 | `docs/feldtopologie_aendern.md` | Anleitung Platzstruktur ändern |
-| `docs/db_migration_plan.md` | Plan: Notion → SQLite (AbstractRepository, 6 Phasen) |
+| `docs/db_migration_plan.md` | Abgeschlossener Migrationsplan Notion → SQLite (Referenz) |
 | `docs/secrets.md` | Alle Hardcodes und bekannte Secrets |
 | `docs/instagram_setup.md` | Instagram Business-Konto, Token, ngrok, häufige Fehler |

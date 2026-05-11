@@ -1,4 +1,19 @@
 {% if form_toast %}{{ form_toast | safe }}{% endif %}
+
+<details class="help-box" style="margin-bottom:1rem;">
+  <summary>ℹ️ So funktioniert die Buchung</summary>
+  <div class="help-box__body">
+    <ul>
+      <li><strong>Platz</strong> – welchen Platz (oder welche Hälfte) möchtest du nutzen?</li>
+      <li><strong>Datum &amp; Startzeit</strong> – wähle Tag und Uhrzeit (ab 16:00 in 30-Min-Schritten)</li>
+      <li><strong>Verfügbarkeit</strong> – wird sofort geprüft: grün = frei, rot = bereits belegt</li>
+      <li><strong>Dauer</strong> – 60 Min, 90 Min oder 3 Stunden (max. bis 22:00 Uhr)</li>
+      <li><strong>Art</strong> – Training, Spiel oder Turnier</li>
+    </ul>
+    <p>Nach dem Absenden bekommst du eine Bestätigungs-E-Mail. Die Buchung erscheint sofort im Kalender.</p>
+  </div>
+</details>
+
 <form id="booking-form"
       hx-post="/bookings"
       hx-target="#booking-modal-content"

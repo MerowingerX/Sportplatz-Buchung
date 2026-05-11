@@ -946,6 +946,66 @@ body::before {
 .navbar__links form { display: inline; }
 
 
+/* ===== Help Box ===== */
+.help-box {
+  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface));
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+.help-box summary {
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  user-select: none;
+  list-style: none;
+}
+.help-box summary::-webkit-details-marker { display: none; }
+.help-box[open] summary {
+  border-bottom: 1px solid var(--color-border);
+}
+.help-box__body {
+  padding: 0.85rem 1.1rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--color-text);
+}
+.help-box__body p { margin-bottom: 0.55rem; }
+.help-box__body p:last-child { margin-bottom: 0; }
+.help-box__body ul {
+  margin: 0.35rem 0 0.6rem 1.1rem;
+}
+.help-box__body li { margin-bottom: 0.2rem; }
+.help-box__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+  margin: 0.5rem 0 0.65rem;
+}
+.help-box__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+}
+.help-slot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+.help-slot--training  { background: var(--color-slot-training); }
+.help-slot--spiel     { background: var(--color-slot-spiel); }
+.help-slot--turnier   { background: var(--color-slot-turnier); }
+.help-slot--blocked   { background: var(--color-slot-blocked); }
+.help-slot--free      { background: var(--color-slot-free); border: 1px solid var(--color-border); }
+
 /* ===== Error Page ===== */
 .error-page { text-align: center; padding: 4rem 2rem; }
 .error-page h1 { font-size: 4rem; color: var(--color-text-muted); margin-bottom: 1rem; }

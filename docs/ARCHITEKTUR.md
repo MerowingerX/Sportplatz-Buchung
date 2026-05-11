@@ -24,7 +24,7 @@
 
 ## 1. Systemübersicht
 
-Das System besteht aus **zwei unabhängigen Webdiensten** und **Notion als Datenbank**:
+Das System besteht aus **zwei unabhängigen Webdiensten** mit **SQLite als Datenbank**:
 
 ```mermaid
 flowchart LR
@@ -32,18 +32,17 @@ flowchart LR
     user(["Trainer / Admin"])
     admin(["DFBnet / Admin"])
 
-    subgraph server["Server (46.62.212.248)"]
+    subgraph server["Server"]
         direction TB
         hp["Homepage\n(Port 8046)\nhomepage/main.py"]
         bs["Buchungssystem\n(Port 1946)\nweb/main.py"]
-        notion[("Notion API\n──────────\n6 Datenbanken:\nBuchungen · Serien\nSperrzeiten · Nutzer\nAufgaben · Events")]
+        db[("SQLite\n──────────\nsportplatz.db\nBuchungen · Serien\nSperrzeiten · Nutzer\nAufgaben · Events")]
     end
 
     visitor -->|"öffentliche Platz-Verfügbarkeit"| hp
     user -->|"Login, Buchungen verwalten"| bs
     admin -->|"DFBnet-Import, Serien, Admin"| bs
-    hp -->|"Buchungen / Spiele / Sperrzeiten lesen"| notion
-    bs -->|"CRUD alle Entitäten"| notion
+    bs -->|"CRUD alle Entitäten"| db
     bs -.->|"Link (booking_url)"| hp
 ```
 
@@ -55,21 +54,21 @@ flowchart LR
 |---|---|
 | Backend | Python 3.13, FastAPI, Uvicorn |
 | Frontend | Jinja2-Templates, HTMX 2.0, vanilla CSS |
-| Datenbank | Notion API **oder** SQLite — wählbar via `DB_BACKEND` in `.env` |
+| Datenbank | SQLite (stdlib `sqlite3`, WAL-Modus) |
 | Auth | JWT (HS256), HTTP-only Cookie |
 | E-Mail | smtplib (STARTTLS, Port 587) |
 | Betrieb | systemd, Python venv / Docker Compose |
 | Logging | RotatingFileHandler → `logs/audit.log` |
 
-### Datenbank-Backends
+### Datenbank
 
 Das Repository-Interface `db/repository.py → AbstractRepository` abstrahiert den Datenbankzugriff.
 Alle Router greifen ausschließlich über `request.app.state.repo` auf Daten zu.
 
 | `DB_BACKEND` | Implementierung | Beschreibung |
 |---|---|---|
-| `notion` (Standard) | `notion/client.py → NotionRepository` | Notion API als Cloud-Datenbank |
-| `sqlite` | `db/sqlite_repository.py → SQLiteRepository` | Lokale SQLite-Datei, WAL-Modus, stdlib `sqlite3` |
+| `sqlite` (Standard) | `db/sqlite_repository.py → SQLiteRepository` | Lokale SQLite-Datei, WAL-Modus, stdlib `sqlite3` |
+| `notion` (Legacy) | `notion/client.py → NotionRepository` | Notion API — nicht mehr aktiv genutzt |
 
 ---
 
@@ -290,7 +289,7 @@ Sportplatz-Buchung/
 │   └── schema.sql               # DDL: Tabellen, Indizes
 │
 ├── notion/
-│   └── client.py                # NotionRepository – alle DB-Operationen
+│   └── client.py                # NotionRepository – Legacy-Backend (nicht aktiv genutzt)
 │
 ├── auth/
 │   ├── auth.py                  # JWT erstellen/lesen, Passwort-Hashing
@@ -304,12 +303,12 @@ Sportplatz-Buchung/
 │   └── notify.py                # E-Mail-Benachrichtigungen (Bestätigung, Storno, DFBnet)
 │
 ├── scripts/
-│   ├── backup_notion.py         # Alle 6 Notion-DBs als JSON sichern
-│   ├── restore_notion.py        # Nutzer + Serien aus Backup wiederherstellen
-│   ├── fetch_spielplan.py       # Spielplan von fussball.de importieren
-│   ├── setup_notion.py          # Notion-DBs initial anlegen / Properties prüfen
 │   ├── setup_sqlite.py          # SQLite-Schema + erste Nutzer anlegen
-│   └── instagram_matchday.py    # Matchday-Karussell-Bilder (Playwright)
+│   ├── fetch_spielplan.py       # Spielplan von fussball.de importieren
+│   ├── instagram_matchday.py    # Matchday-Karussell-Bilder (Playwright)
+│   ├── backup_notion.py         # (Legacy) Notion-DBs als JSON sichern
+│   ├── restore_notion.py        # (Legacy) Nutzer + Serien aus Notion-Backup
+│   └── setup_notion.py          # (Legacy) Notion-DBs initial anlegen
 │
 ├── data/                        # SQLite-DB-Datei (gitignored)
 ├── docs/                        # Architekturdokumentation
@@ -349,18 +348,14 @@ sequenceDiagram
     actor Nutzer
     participant B as Browser
     participant AUTH as auth.py /login
-    participant NR as NotionRepository
-    participant N as Notion API
+    participant REPO as SQLiteRepository
 
     Nutzer->>B: Formular absenden (username, password)
     B->>AUTH: POST /login
-    AUTH->>NR: get_user_by_name(username)
-    NR->>N: Query Nutzer-DB (filter: Name = username)
-    N-->>NR: User-Page
-    NR-->>AUTH: User-Objekt (mit password_hash)
+    AUTH->>REPO: get_user_by_name(username)
+    REPO-->>AUTH: User-Objekt (mit password_hash)
 
     alt Nutzer nicht gefunden oder Passwort falsch
-        AUTH->>NR: [kein Nutzer] / verify_password → False
         AUTH-->>B: 401, login.html mit Fehlermeldung
         AUTH->>AUTH: log_login_fail()
     else Passwort korrekt
@@ -386,7 +381,7 @@ sequenceDiagram
     participant B as Browser (HTMX)
     participant BK as bookings.py POST /bookings
     participant LOGIC as booking.py build_booking()
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
     participant MAIL as notify.py
 
     Nutzer->>B: Slot anklicken
@@ -394,12 +389,12 @@ sequenceDiagram
     Nutzer->>B: Formular ausfüllen & absenden
     B->>BK: POST /bookings (field, date, start_time, duration_min, booking_type)
 
-    BK->>NR: get_bookings_for_date(date)
-    NR-->>BK: existing_bookings (nur Status=Bestätigt)
+    BK->>REPO: get_bookings_for_date(date)
+    REPO-->>BK: existing_bookings (nur Status=Bestätigt)
 
     opt Rasen-Platz
-        BK->>NR: get_blackouts_for_date(date)
-        NR-->>BK: blackouts
+        BK->>REPO: get_blackouts_for_date(date)
+        REPO-->>BK: blackouts
     end
 
     BK->>LOGIC: build_booking(data, existing, blackouts)
@@ -420,8 +415,8 @@ sequenceDiagram
         LOGIC-->>BK: (None, [Fehler])
         BK-->>B: 422 + Fehlermeldung
     else Validierung erfolgreich
-        LOGIC->>NR: create_booking(data, ...)
-        NR-->>LOGIC: Booking-Objekt
+        LOGIC->>REPO: create_booking(data, ...)
+        REPO-->>LOGIC: Booking-Objekt
         LOGIC-->>BK: (Booking, [])
         BK->>BK: invalidate_week_cache(date)
         BK->>BK: log_booking()
@@ -439,16 +434,16 @@ sequenceDiagram
     actor Nutzer
     participant B as Browser (HTMX)
     participant BK as bookings.py DELETE /bookings/{id}
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
     participant MAIL as notify.py
 
     Nutzer->>B: ✕-Button klicken (hx-confirm → Bestätigung)
     B->>BK: DELETE /bookings/{booking_id}
-    BK->>NR: update_booking_status(id, STORNIERT)
-    NR-->>BK: Booking (aktualisiert)
+    BK->>REPO: update_booking_status(id, STORNIERT)
+    REPO-->>BK: Booking (aktualisiert)
     BK->>BK: invalidate_week_cache()
     BK->>BK: log_cancel()
-    BK->>MAIL: send_cancellation_notice() – an Buchenden
+    BK->>MAIL: send_cancellation_notice() — an Buchenden
     BK-->>B: Slot wird frei (HTMX outerHTML) + Toast
 
     Note right of BK: Bei Serienbuchungen:<br/>hx-patch → /series/{id}/remove-date<br/>→ Status=Storniert, Serienausnahme=True
@@ -464,7 +459,7 @@ sequenceDiagram
     participant B as Browser (HTMX)
     participant SR as series.py POST /series
     participant LOGIC as series.py create_series_with_bookings()
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
     participant MAIL as notify.py
 
     Admin->>B: Serienbuchungs-Formular (Platz, Zeit, Mannschaft, Trainer, Start, Ende, Rhythmus)
@@ -472,18 +467,18 @@ sequenceDiagram
 
     B->>SR: POST /series
     SR->>SR: Validierung (Enddatum > Startdatum? Saisonende = 30.06. als max)
-    SR->>NR: get_user_by_id(trainer_id)
-    NR-->>SR: Trainer-Objekt
-    SR->>NR: create_series(data, ...)
-    NR-->>SR: Series-Objekt (in Notion angelegt)
+    SR->>REPO: get_user_by_id(trainer_id)
+    REPO-->>SR: Trainer-Objekt
+    SR->>REPO: create_series(data, ...)
+    REPO-->>SR: Series-Objekt
     SR->>LOGIC: create_series_with_bookings()
 
     loop für jedes Datum im Zeitraum (wöchentlich oder 14-tägig)
-        LOGIC->>NR: get_bookings_for_date(d)
-        LOGIC->>NR: get_blackouts_for_date(d) – nur bei Rasen
+        LOGIC->>REPO: get_bookings_for_date(d)
+        LOGIC->>REPO: get_blackouts_for_date(d) – nur bei Rasen
         LOGIC->>LOGIC: build_booking() – Konflikt-Check, Platzsperre-Prüfung
         alt Termin frei
-            LOGIC->>NR: create_booking(..., series_id=series.notion_id)
+            LOGIC->>REPO: create_booking(..., series_id=series.notion_id)
             LOGIC->>LOGIC: created.append(booking)
         else Konflikt
             LOGIC->>LOGIC: skipped.append(date)
@@ -500,7 +495,7 @@ sequenceDiagram
         SR-->>B: Toast + Kalender-Refresh
     end
 
-    Note right of LOGIC: Jeder Serientermin ist eine<br/>eigenständige Buchungsseite<br/>in Notion mit Serie=series_id
+    Note right of LOGIC: Jeder Serientermin ist eine<br/>eigenständige Buchungszeile<br/>in SQLite mit series_id-Referenz
 ```
 
 ---
@@ -512,32 +507,32 @@ sequenceDiagram
     actor Admin as Admin / zugewiesener Trainer
     participant B as Browser (HTMX)
     participant SR as series.py PATCH /series/{booking_id}/remove-date
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
 
     Admin->>B: ✕ auf Serientermin klicken (hx-confirm → Bestätigung)
     B->>SR: PATCH /series/{booking_id}/remove-date
-    SR->>NR: get_booking_by_id(booking_id)
-    NR-->>SR: Booking (mit series_id)
+    SR->>REPO: get_booking_by_id(booking_id)
+    REPO-->>SR: Booking (mit series_id)
 
     alt Admin oder DFBnet
         SR->>SR: is_admin = True
     else Trainer prüfen
-        SR->>NR: get_series_by_id(booking.series_id)
-        NR-->>SR: Series
+        SR->>REPO: get_series_by_id(booking.series_id)
+        REPO-->>SR: Series
         SR->>SR: is_series_trainer = (series.trainer_id == current_user.sub)
     end
 
     alt Keine Berechtigung
         SR-->>B: 403 Forbidden
     else Berechtigt
-        SR->>NR: mark_series_exception(booking_id)
-        Note right of NR: Setzt auf der Buchungsseite:<br/>Status = Storniert<br/>Serienausnahme = True
-        NR-->>SR: Booking (aktualisiert)
+        SR->>REPO: mark_series_exception(booking_id)
+        Note right of REPO: Setzt in der Buchungszeile:<br/>Status = Storniert<br/>Serienausnahme = True
+        REPO-->>SR: Booking (aktualisiert)
         SR->>SR: invalidate_week_cache()
         SR-->>B: Slot wird frei + Toast
     end
 
-    Note over Admin,NR: Die Serie selbst bleibt unverändert.<br/>Der Termin bleibt als Notion-Seite erhalten (Audit-Trail).<br/>get_bookings_for_series() filtert Serienausnahme=True heraus.
+    Note over Admin,REPO: Die Serie selbst bleibt unverändert.<br/>Der Termin bleibt als Zeile erhalten (Audit-Trail).<br/>get_bookings_for_series() filtert Serienausnahme=True heraus.
 ```
 
 ---
@@ -550,23 +545,23 @@ sequenceDiagram
     participant B as Browser
     participant SR as series.py DELETE /series/{series_id}
     participant LOGIC as series.py cancel_series()
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
 
     Admin->>B: "Serie beenden"-Button (hx-confirm → Bestätigung)
     B->>SR: DELETE /series/{series_id}
     SR->>LOGIC: cancel_series(repo, series_id, current_user)
-    LOGIC->>NR: get_bookings_for_series(series_id, only_future=True)
-    Note right of NR: Filter: Serie=series_id, Status=Bestätigt,<br/>Serienausnahme=False, Datum>=heute
+    LOGIC->>REPO: get_bookings_for_series(series_id, only_future=True)
+    Note right of REPO: Filter: series_id, Status=Bestätigt,<br/>Serienausnahme=False, Datum>=heute
 
-    NR-->>LOGIC: future_bookings[]
+    REPO-->>LOGIC: future_bookings[]
 
     loop für jede zukünftige Buchung
-        LOGIC->>NR: update_booking_status(id, STORNIERT)
-        NR-->>LOGIC: Booking (aktualisiert)
+        LOGIC->>REPO: update_booking_status(id, STORNIERT)
+        REPO-->>LOGIC: Booking (aktualisiert)
     end
 
-    LOGIC->>NR: update_series_status(series_id, BEENDET)
-    NR-->>LOGIC: Series (Status=Beendet)
+    LOGIC->>REPO: update_series_status(series_id, BEENDET)
+    REPO-->>LOGIC: Series (Status=Beendet)
     LOGIC-->>SR: (series, cancelled[])
     SR->>SR: invalidate_week_cache() für alle stornierten Termine
     SR-->>B: Zeile aktualisiert (Status → Beendet) + Toast "{N} Termine storniert"
@@ -583,26 +578,26 @@ sequenceDiagram
     actor Admin as Admin / DFBnet
     participant AD as admin.py POST /admin/dfbnet
     participant LOGIC as booking.py dfbnet_displace()
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
     participant MAIL as notify.py
 
     Admin->>AD: DFBnet-Buchungsformular (oder CSV/ICS-Import)
-    AD->>NR: get_bookings_for_date(date)
-    NR-->>AD: existing_bookings
+    AD->>REPO: get_bookings_for_date(date)
+    REPO-->>AD: existing_bookings
     AD->>LOGIC: dfbnet_displace(repo, data, current_user, ...)
     LOGIC->>LOGIC: check_availability() – finde konfligierende Buchungen
 
     loop für jede Konflikt-Buchung
-        LOGIC->>NR: update_booking_status(id, STORNIERT_DFBNET)
-        NR-->>LOGIC: verdrängte Buchung
+        LOGIC->>REPO: update_booking_status(id, STORNIERT_DFBNET)
+        REPO-->>LOGIC: verdrängte Buchung
     end
 
-    LOGIC->>NR: create_booking(..., role=DFBNET)
-    NR-->>LOGIC: neue DFBnet-Buchung
+    LOGIC->>REPO: create_booking(..., role=DFBNET)
+    REPO-->>LOGIC: neue DFBnet-Buchung
     LOGIC-->>AD: (new_booking, displaced[])
 
     loop für jede verdrängte Buchung
-        AD->>NR: get_user_by_id(booking.booked_by_id)
+        AD->>REPO: get_user_by_id(booking.booked_by_id)
         AD->>MAIL: send_dfbnet_displacement_notice() – E-Mail an Verdrängten
     end
 
@@ -621,7 +616,7 @@ sequenceDiagram
     participant PW as Platzwart / Admin
     participant B as Browser (HTMX)
     participant BL as blackouts.py
-    participant NR as NotionRepository
+    participant REPO as SQLiteRepository
     participant CAL as Kalender-Rendering (_calendar_week.html)
 
     Note over PW,CAL: Sperrzeit eintragen
@@ -629,14 +624,14 @@ sequenceDiagram
     PW->>B: Formular: Von, Bis, Art, Grund
     B->>BL: POST /blackouts (start_date, end_date, blackout_type, reason)
     BL->>BL: Prüfung: end_date >= start_date
-    BL->>NR: create_blackout(data, ...) → Notion Datum = Range {start, end}
-    NR-->>BL: BlackoutPeriod
+    BL->>REPO: create_blackout(data, ...)
+    REPO-->>BL: BlackoutPeriod
     BL->>BL: _invalidate_range() – Cache für alle Wochen im Zeitraum
     BL-->>B: Neue Zeile prepend + Toast
 
     Note over PW,CAL: Kalender-Rendering (Woche)
 
-    Note over CAL: get_blackouts_for_week():<br/>1. Notion: Datum.start <= Sonntag<br/>2. Python-Filter: Datum.end >= Montag<br/>→ liefert alle überlappenden Sperrzeiten
+    Note over CAL: get_blackouts_for_week():<br/>SQL: start_date <= Sonntag AND end_date >= Montag<br/>→ liefert alle überlappenden Sperrzeiten
 
     loop für jeden Tag × jeden Rasen-Slot
         CAL->>CAL: prüfe: bl.start_date <= day AND bl.end_date >= day
@@ -652,7 +647,7 @@ sequenceDiagram
 
     PW->>B: ✕-Button
     B->>BL: DELETE /blackouts/{id}
-    BL->>NR: pages.update(archived=True)
+    BL->>REPO: delete_blackout(id)
     BL-->>B: Toast "Sperrzeit gelöscht"
 ```
 

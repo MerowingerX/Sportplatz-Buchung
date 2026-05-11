@@ -1,8 +1,8 @@
 # Datenbankmigrationsplan: Notion → SQLite
 
 **Projekt:** Sportplatz-Buchungssystem
-**Stand:** 2026-02-28
-**Status:** Planungsdokument — noch nicht implementiert
+**Stand:** 2026-02-28 (Plan) · Abgeschlossen: 2026-05-11
+**Status:** ✅ Migration abgeschlossen — SQLite ist aktives Produktiv-Backend
 
 ---
 
