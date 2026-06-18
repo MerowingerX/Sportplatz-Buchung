@@ -37,7 +37,12 @@ async def login(
     repo = request.app.state.repo
 
     user = repo.get_user_by_name(username)
-    if not user or not verify_password(password, user.password_hash):
+    # Alias-Accounts (kein eigenes Passwort) dürfen sich NICHT direkt einloggen.
+    # Beide Checks: leerer Hash UND Alias-Verknüpfung (belt + suspenders).
+    is_alias = bool(user) and (
+        not user.password_hash or repo.get_parent_for_alias(user.notion_id) is not None
+    )
+    if not user or is_alias or not verify_password(password, user.password_hash):
         log_login_fail(request, username)
         return templates.TemplateResponse(
             "login.html",
@@ -45,10 +50,12 @@ async def login(
             status_code=401,
         )
 
+    alias_ids = [a.notion_id for a in repo.get_aliases_for_user(user.notion_id)]
     token = create_jwt(
         user.notion_id, user.name, user.role, settings,
         mannschaft=user.mannschaft if user.mannschaft else None,
         must_change_password=user.must_change_password,
+        alias_ids=alias_ids,
     )
 
     log_login_ok(request, user.name)
@@ -56,6 +63,58 @@ async def login(
     redirect = RedirectResponse(url=target_url, status_code=303)
     _set_session_cookie(redirect, token, settings)
     return redirect
+
+
+@router.post("/auth/switch-alias")
+async def switch_alias(
+    request: Request,
+    current_user: CurrentUser,
+    alias_id: str = Form(...),
+):
+    settings = get_settings()
+    repo = request.app.state.repo
+
+    # Erlaubte Menge gegen den eigenen Hauptaccount auflösen — NICHT bloß
+    # "existiert", sonst horizontale Privilege-Escalation in fremde Aliase.
+    parent_id = current_user.parent_id or current_user.sub
+    aliases = repo.get_aliases_for_user(parent_id)
+    allowed = {parent_id} | {a.notion_id for a in aliases}
+    if alias_id not in allowed:
+        return HTMLResponse("Kein gültiger Alias.", status_code=403)
+
+    target = repo.get_user_by_id(alias_id)
+    if not target:
+        return HTMLResponse("Account nicht gefunden.", status_code=404)
+
+    alias_ids = [a.notion_id for a in aliases]
+    new_parent = None if alias_id == parent_id else parent_id
+    token = create_jwt(
+        target.notion_id, target.name, target.role, settings,
+        mannschaft=target.mannschaft if target.mannschaft else None,
+        must_change_password=target.must_change_password,
+        parent_id=new_parent,
+        alias_ids=alias_ids,
+    )
+    redirect = RedirectResponse(url="/calendar", status_code=303)
+    _set_session_cookie(redirect, token, settings)
+    return redirect
+
+
+@router.get("/auth/alias-switcher", response_class=HTMLResponse)
+async def alias_switcher(request: Request, current_user: CurrentUser):
+    repo = request.app.state.repo
+    parent_id = current_user.parent_id or current_user.sub
+    parent = repo.get_user_by_id(parent_id)
+    aliases = repo.get_aliases_for_user(parent_id)
+    accounts = ([parent] if parent else []) + aliases
+    return templates.TemplateResponse(
+        "partials/_alias_switcher.html",
+        {
+            "request": request,
+            "accounts": accounts,
+            "active_id": current_user.sub,
+        },
+    )
 
 
 @router.get("/change-password", response_class=HTMLResponse)
@@ -106,11 +165,13 @@ async def change_password(
     pw_hash = hash_password(new_password)
     repo.update_user_password(current_user.sub, pw_hash)
 
-    # Neues JWT ohne must_change_password
+    # Neues JWT ohne must_change_password (Alias-Kontext erhalten)
     token = create_jwt(
         current_user.sub, current_user.username, current_user.role, settings,
         mannschaft=current_user.mannschaft,
         must_change_password=False,
+        parent_id=current_user.parent_id,
+        alias_ids=current_user.alias_ids,
     )
 
     if forced:

@@ -14,7 +14,7 @@ from booking.booking import dfbnet_displace
 import booking.field_config as fc
 from booking.field_config import get_display_name
 from booking.models import BookingCreate, BookingType, FieldName, Permission, UserCreate, UserRole
-from utils.time_slots import get_all_start_slots
+from utils.time_slots import get_all_start_slots, get_duration_options, SLOT_MINUTES
 from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
 
@@ -211,6 +211,101 @@ async def delete_user(request: Request, user_id: str, current_user: CurrentUser)
         f'<tr id="user-{user_id}"></tr>'
         + _toast(f"Nutzer '{user.name}' gelöscht.")
     )
+
+
+# ------------------------------------------------------------------ Alias- & Verantwortlichen-Verwaltung
+
+@router.get("/aliases", response_class=HTMLResponse, dependencies=[_manage_users])
+async def aliases_page(request: Request, current_user: CurrentUser):
+    repo = request.app.state.repo
+    all_users = repo.get_all_users()
+    mannschaften = repo.get_all_mannschaften()
+
+    # Aliase je Hauptaccount + Menge aller Alias-IDs (zum Ausblenden aus Hauptliste)
+    aliases_by_parent: dict[str, list] = {}
+    alias_ids: set[str] = set()
+    for u in all_users:
+        al = repo.get_aliases_for_user(u.notion_id)
+        if al:
+            aliases_by_parent[u.notion_id] = al
+            alias_ids.update(a.notion_id for a in al)
+    main_users = [u for u in all_users if u.notion_id not in alias_ids]
+
+    verantwortliche = {
+        m.notion_id: {x.notion_id for x in repo.get_verantwortliche_for_mannschaft(m.name)}
+        for m in mannschaften
+    }
+
+    return templates.TemplateResponse(
+        "admin/aliases.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "main_users": main_users,
+            "aliases_by_parent": aliases_by_parent,
+            "all_users": all_users,
+            "mannschaften": mannschaften,
+            "verantwortliche": verantwortliche,
+            "roles": list(UserRole),
+        },
+    )
+
+
+@router.post("/aliases", response_class=HTMLResponse, dependencies=[_manage_users])
+async def create_alias(
+    request: Request,
+    current_user: CurrentUser,
+    parent_id: str = Form(...),
+    name: str = Form(...),
+    role: str = Form(...),
+    email: str = Form(""),
+    mannschaft: Optional[str] = Form(None),
+):
+    repo = request.app.state.repo
+    parent = repo.get_user_by_id(parent_id)
+    if not parent:
+        return HTMLResponse(_toast("Hauptaccount nicht gefunden.", "error"), status_code=404)
+    # Kein Alias eines Alias (nur eine Ebene).
+    if repo.get_parent_for_alias(parent_id) is not None:
+        return HTMLResponse(_toast("Ein Alias kann keine weiteren Aliase haben.", "error"), status_code=400)
+    repo.create_alias(parent_id, name.strip(), role, email.strip(), mannschaft or None)
+    resp = HTMLResponse("")
+    resp.headers["HX-Refresh"] = "true"
+    return resp
+
+
+@router.post("/aliases/{alias_id}/unlink", response_class=HTMLResponse, dependencies=[_manage_users])
+async def unlink_alias(request: Request, alias_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    repo.remove_alias_link(alias_id)
+    resp = HTMLResponse("")
+    resp.headers["HX-Refresh"] = "true"
+    return resp
+
+
+@router.delete("/aliases/{alias_id}", response_class=HTMLResponse, dependencies=[_manage_users])
+async def delete_alias(request: Request, alias_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    repo.delete_alias(alias_id)
+    resp = HTMLResponse("")
+    resp.headers["HX-Refresh"] = "true"
+    return resp
+
+
+@router.post("/mannschaften/{mannschaft_id}/verantwortliche", response_class=HTMLResponse, dependencies=[_manage_users])
+async def set_verantwortliche(request: Request, mannschaft_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    m = repo.get_mannschaft_by_id(mannschaft_id)
+    if not m:
+        return HTMLResponse(_toast("Mannschaft nicht gefunden.", "error"), status_code=404)
+    form = await request.form()
+    selected = set(form.getlist("user_id"))
+    current = {x.notion_id for x in repo.get_verantwortliche_for_mannschaft(m.name)}
+    for uid in selected - current:
+        repo.add_verantwortlicher(mannschaft_id, uid)
+    for uid in current - selected:
+        repo.remove_verantwortlicher(mannschaft_id, uid)
+    return HTMLResponse(_toast(f"Verantwortliche für '{m.name}' gespeichert."))
 
 
 # ------------------------------------------------------------------ Mannschaftsverwaltung
@@ -672,7 +767,7 @@ async def dfbnet_form(
             "current_user": current_user,
             "fields": list(FieldName),
             "start_slots": get_all_start_slots(),
-            "durations": [60, 90, 180],
+            "durations": get_duration_options(),
         },
     )
 
@@ -741,7 +836,7 @@ async def admin_booking_page(request: Request, current_user: CurrentUser):
             "field_groups": fc.get_visible_groups("Administrator"),
             "field_display_names": fc.get_display_names(),
             "start_slots": get_all_start_slots(),
-            "durations": [30, 60, 90, 120, 180],
+            "durations": get_duration_options(),
             "booking_types": list(BookingType),
         },
     )
@@ -813,13 +908,13 @@ async def admin_create_booking(
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
-_ALLOWED_DURATIONS = [60, 90, 180]
+_ALLOWED_DURATIONS = get_duration_options()
 
 
 def _round_to_slot(t: time) -> time:
-    """Rundet eine Uhrzeit auf den nächsten (früheren) 30-Min-Slot."""
+    """Rundet eine Uhrzeit auf den nächsten (früheren) Slot (15-Min-Raster)."""
     total = t.hour * 60 + t.minute
-    rounded = (total // 30) * 30
+    rounded = (total // SLOT_MINUTES) * SLOT_MINUTES
     return time(rounded // 60, rounded % 60)
 
 

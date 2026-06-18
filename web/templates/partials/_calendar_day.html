@@ -1,4 +1,4 @@
-{% set time_slots = ["16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"] %}
+{# time_slots wird vom Router übergeben (08:00–21:45, 15-Min-Raster) #}
 {% set wochentage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
 {# field_groups, field_display_names, conflict_sources werden vom Router übergeben #}
 {% set day_iso = day.isoformat() %}

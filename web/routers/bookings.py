@@ -12,6 +12,7 @@ import booking.field_config as fc
 from utils.time_slots import (
     compute_end_time,
     get_all_start_slots,
+    get_duration_options,
 )
 from utils.sunset import sunset_warning_text
 from web.audit_log import log_booking, log_cancel
@@ -37,6 +38,19 @@ def _get_cc_emails(repo, mannschaft_name: Optional[str]) -> list[str]:
     return m.cc_emails if m else []
 
 
+def _build_cc(repo, mannschaft_name: Optional[str], to_email: Optional[str]) -> list[str]:
+    """CC-Liste: konfigurierte cc_emails + alle Verantwortlichen der Mannschaft.
+
+    Dedupliziert und der Hauptempfänger (`to_email`) wird ausgeschlossen, damit
+    niemand die E-Mail doppelt erhält.
+    """
+    if not mannschaft_name:
+        return []
+    cc = list(_get_cc_emails(repo, mannschaft_name))
+    cc += [u.email for u in repo.get_verantwortliche_for_mannschaft(mannschaft_name) if u.email]
+    return sorted(set(cc) - {to_email or ""})
+
+
 @router.get("", response_class=HTMLResponse)
 async def bookings_page(
     request: Request,
@@ -57,7 +71,7 @@ async def bookings_page(
             "fields": _visible_fields(current_user),
             "field_display_names": fc.get_display_names(),
             "start_slots": start_slots,
-            "durations": [60, 90, 180],
+            "durations": get_duration_options(),
             "booking_types": list(BookingType),
             "prefill_date": date,
             "prefill_field": field,
@@ -116,7 +130,7 @@ async def create_booking(
                 "fields": _visible_fields(current_user),
                 "field_display_names": fc.get_display_names(),
                 "start_slots": start_slots,
-                "durations": [60, 90, 180],
+                "durations": get_duration_options(),
                 "booking_types": list(BookingType),
                 "prefill_date": booking_date,
                 "prefill_field": field,
@@ -133,7 +147,7 @@ async def create_booking(
 
     owner = repo.get_user_by_id(current_user.sub)
     if owner:
-        cc = _get_cc_emails(repo, booking.mannschaft)
+        cc = _build_cc(repo, booking.mannschaft, owner.email)
         from notifications.notify import send_booking_confirmation
         await send_booking_confirmation(booking, owner, settings, cc=cc)
 
@@ -173,7 +187,7 @@ async def cancel_booking(
 
     owner = repo.get_user_by_id(booking.booked_by_id)
     if owner:
-        cc = _get_cc_emails(repo, booking.mannschaft)
+        cc = _build_cc(repo, booking.mannschaft, owner.email)
         from notifications.notify import send_cancellation_notice
         await send_cancellation_notice(booking, owner, settings, cc=cc)
 

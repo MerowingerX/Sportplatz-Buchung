@@ -16,7 +16,7 @@ from booking.series import (
     create_series_with_bookings,
     remove_date_from_series,
 )
-from utils.time_slots import get_all_start_slots
+from utils.time_slots import get_all_start_slots, get_duration_options
 from web.config import get_settings
 from web.routers.calendar import invalidate_week_cache
 
@@ -79,7 +79,7 @@ def _series_form_ctx(request, repo, current_user, errors=None, toast=None,
         "fields": list(FieldName),
         "field_display_names": fc.get_display_names(),
         "start_slots": get_all_start_slots(),
-        "durations": [60, 90, 180],
+        "durations": get_duration_options(),
         "rhythms": list(SeriesRhythm),
         "mannschaften": repo.get_all_mannschaften(only_active=True),
         "saisons": list(SeriesSaison),
