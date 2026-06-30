@@ -22,3 +22,6 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 web/static/instagram/
+
+# Lokales Docker-Dev-Override (nicht committen)
+docker-compose.override.yml

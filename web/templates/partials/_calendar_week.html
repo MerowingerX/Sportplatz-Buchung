@@ -106,9 +106,10 @@
                   {% include "partials/_booking_pill.html" with context %}
                 {% elif found_cont %}
                   {% set b = found_cont[0] %}
+                  {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
                   <div class="slot slot--booked slot--continuation slot--{{ b.booking_type.value | lower }}"
-                       title="{{ b.zweck or b.mannschaft or b.booked_by_name }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
-                    <span class="slot__name">{{ b.zweck or b.mannschaft or b.booked_by_name }}</span>
+                       title="{{ b.mannschaft or b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
+                    <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
                   </div>
                 {% elif conflicted %}
                   <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
