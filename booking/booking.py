@@ -135,7 +135,7 @@ def build_booking(
         end_time=end_time,
         sunset_note=sunset_note,
         series_id=series_id,
-        mannschaft=mannschaft_override or current_user.mannschaft,
+        mannschaft=mannschaft_override or data.mannschaft or current_user.mannschaft,
         zweck=data.zweck,
         kontakt=data.kontakt,
     )
