@@ -216,12 +216,9 @@ class SQLiteRepository(AbstractRepository):
         return [self._row_to_user(r) for r in rows]
 
     def get_trainers_for_mannschaft(self, mannschaft: str) -> list[User]:
-        conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT * FROM users WHERE mannschaft = ? AND role = ? AND deleted_at IS NULL",
-            (mannschaft, UserRole.TRAINER.value),
-        ).fetchall()
-        return [self._row_to_user(r) for r in rows]
+        # Verantwortliche kommen aus der M:N-Tabelle mannschaft_verantwortliche
+        # (entkoppelt von Rolle Trainer — jeder User kann Verantwortlicher mehrerer Teams sein).
+        return self.get_verantwortliche_for_mannschaft(mannschaft)
 
     # ------------------------------------------------------------------ alias-accounts
 

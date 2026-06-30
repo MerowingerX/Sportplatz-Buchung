@@ -10,7 +10,7 @@
   <summary>ℹ️ Buchungsübersicht</summary>
   <div class="help-box__body">
     <p>Hier siehst du <strong>alle Buchungen</strong> – auch stornierte – auf einen Blick.</p>
-    <p><strong>Filter:</strong> Die Dropdowns oben schränken die Liste nach Mannschaft, Trainer oder Wochentag ein. Mehrere Filter können gleichzeitig aktiv sein.</p>
+    <p><strong>Filter:</strong> Die Dropdowns oben schränken die Liste nach Mannschaft, Verantwortlichem oder Wochentag ein. Mehrere Filter können gleichzeitig aktiv sein.</p>
     <p>Diese Ansicht ist nützlich, um z. B. herauszufinden, welche Mannschaften welche Zeiten regelmäßig nutzen, oder um Überschneidungen zu prüfen.</p>
   </div>
 </details>
@@ -28,7 +28,7 @@
     {% endfor %}
   </select>
   <select name="trainer">
-    <option value="">Alle Trainer</option>
+    <option value="">Alle Verantwortlichen</option>
     {% for t in trainers %}
       <option value="{{ t }}" {{ 'selected' if sel_trainer == t }}>{{ t }}</option>
     {% endfor %}

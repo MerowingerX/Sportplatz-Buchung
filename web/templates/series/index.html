@@ -41,7 +41,7 @@
 
     <p><strong>Serie beenden:</strong> „Serie beenden" storniert alle <em>zukünftigen</em> Termine dieser Serie. Vergangene Termine bleiben als Protokoll erhalten.</p>
 
-    <p><strong>Filter:</strong> Oben nach Mannschaft, Trainer, Wochentag oder Status filtern, um schnell die richtige Serie zu finden.</p>
+    <p><strong>Filter:</strong> Oben nach Mannschaft, Verantwortlichem, Wochentag oder Status filtern, um schnell die richtige Serie zu finden.</p>
   </div>
 </details>
 
@@ -58,7 +58,7 @@
     {% endfor %}
   </select>
   <select name="trainer">
-    <option value="">Alle Trainer</option>
+    <option value="">Alle Verantwortlichen</option>
     {% for t in trainers %}
       <option value="{{ t }}" {{ 'selected' if sel_trainer == t }}>{{ t }}</option>
     {% endfor %}
@@ -85,7 +85,7 @@
         <th>Zeit</th>
         <th>Rhythmus</th>
         <th>Zeitraum</th>
-        <th>Trainer</th>
+        <th>Verantwortlicher</th>
         <th>Saison</th>
         <th>Status</th>
         <th></th>

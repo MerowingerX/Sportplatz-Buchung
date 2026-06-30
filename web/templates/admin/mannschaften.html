@@ -40,7 +40,7 @@
       <tr>
         <th>Name</th>
         <th>Kurzname</th>
-        <th>Trainer</th>
+        <th>Verantwortlicher</th>
         <th>fussball.de Team-ID</th>
         <th>CC-Mails</th>
         <th>Farbe</th>
@@ -75,9 +75,9 @@
         <input type="text" name="shortname" placeholder="z.B. A1, H1, Frauen">
       </div>
       <div class="form-group">
-        <label>Trainer <span class="label-hint">(optional)</span></label>
+        <label>Verantwortlicher <span class="label-hint">(optional)</span></label>
         <select name="trainer_id">
-          <option value="">– kein Trainer –</option>
+          <option value="">– kein Verantwortlicher –</option>
           {% for t in trainers %}
             <option value="{{ t.notion_id }}">{{ t.name }}</option>
           {% endfor %}

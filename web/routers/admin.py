@@ -316,7 +316,8 @@ async def set_verantwortliche(request: Request, mannschaft_id: str, current_user
 # ------------------------------------------------------------------ Mannschaftsverwaltung
 
 def _mannschaft_row_ctx(m, current_user, repo):
-    trainers = [u for u in repo.get_all_users() if u.role == UserRole.TRAINER]
+    # Jeder User kann Mannschaftsverantwortlicher sein (nicht nur Rolle Trainer).
+    trainers = repo.get_all_users()
     return {"m": m, "current_user": current_user, "trainers": trainers}
 
 
@@ -365,7 +366,8 @@ def _sync_user_mannschaft_change(repo, user_id: str, user_name: str,
 async def mannschaften_page(request: Request, current_user: CurrentUser):
     repo = request.app.state.repo
     mannschaften = repo.get_all_mannschaften()
-    trainers = [u for u in repo.get_all_users() if u.role == UserRole.TRAINER]
+    # Jeder User kann Mannschaftsverantwortlicher sein (nicht nur Rolle Trainer).
+    trainers = repo.get_all_users()
     return templates.TemplateResponse(
         "admin/mannschaften.html",
         {
@@ -395,7 +397,7 @@ async def create_mannschaft(
         trainer = repo.get_user_by_id(trainer_id)
         trainer_name = trainer.name if trainer else None
     cc_list = [e.strip() for e in (cc_emails or "").split(",") if e.strip()]
-    repo.create_mannschaft(
+    m = repo.create_mannschaft(
         name=name.strip(),
         shortname=shortname.strip() if shortname else None,
         trainer_id=trainer_id or None,
@@ -405,6 +407,11 @@ async def create_mannschaft(
         aktiv=aktiv is not None,
         color=color.strip() if color else None,
     )
+    # Gewählter Trainer wird zugleich Mannschaftsverantwortlicher (M:N), damit er
+    # in Series/Benachrichtigungen auftaucht. Zusätzliche Verantwortliche über die
+    # "Verantwortliche je Mannschaft"-Verwaltung.
+    if trainer_id:
+        repo.add_verantwortlicher(m.notion_id, trainer_id)
     return HTMLResponse(_toast(f"Mannschaft '{name}' angelegt."))
 
 
@@ -650,6 +657,10 @@ async def update_mannschaft(
     )
     if old_m:
         _sync_trainer_change(repo, old_m.trainer_id, new_trainer_id, m.name)
+    # Gewählter Trainer bleibt/wird Mannschaftsverantwortlicher (M:N). Additiv —
+    # bestehende M:N-Verantwortliche werden nicht entfernt.
+    if new_trainer_id:
+        repo.add_verantwortlicher(mid, new_trainer_id)
     return HTMLResponse(
         templates.get_template("partials/_mannschaft_row.html").render(
             _mannschaft_row_ctx(m, current_user, repo)

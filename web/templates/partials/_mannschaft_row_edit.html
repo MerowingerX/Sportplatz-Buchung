@@ -7,7 +7,7 @@
   </td>
   <td>
     <select name="trainer_id" class="input--small" style="width:130px;">
-      <option value="">– kein Trainer –</option>
+      <option value="">– kein Verantwortlicher –</option>
       {% for t in trainers %}
         <option value="{{ t.notion_id }}" {{ 'selected' if m.trainer_id == t.notion_id }}>{{ t.name }}</option>
       {% endfor %}

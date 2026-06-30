@@ -132,26 +132,26 @@ async def series_form(
 
 @router.get("/trainers", response_class=HTMLResponse, dependencies=[_series_required])
 async def get_trainers(request: Request, mannschaft: str):
-    """Gibt <option>-Tags für alle Trainer einer Mannschaft zurück (HTMX).
-    Wenn kein Trainer eingetragen ist, werden die Administratoren als Fallback angeboten."""
+    """Gibt <option>-Tags für alle Verantwortlichen einer Mannschaft zurück (HTMX).
+    Wenn kein Verantwortlicher eingetragen ist, werden die Administratoren als Fallback angeboten."""
     repo = request.app.state.repo
     trainers = repo.get_trainers_for_mannschaft(mannschaft)
     if trainers:
-        html = '<option value="">– Trainer wählen –</option>'
+        html = '<option value="">– Verantwortlichen wählen –</option>'
         for t in trainers:
             html += f'<option value="{t.notion_id}">{t.name}</option>'
         return HTMLResponse(html)
 
-    # Kein Trainer für diese Mannschaft → Administratoren als Fallback
+    # Kein Verantwortlicher für diese Mannschaft → Administratoren als Fallback
     all_users = repo.get_all_users()
     admins = [u for u in all_users if u.role == UserRole.ADMINISTRATOR]
     if admins:
-        html = '<option value="">– Kein Trainer, bitte Administrator wählen –</option>'
+        html = '<option value="">– Kein Verantwortlicher, bitte Administrator wählen –</option>'
         for a in admins:
             html += f'<option value="{a.notion_id}">{a.name} (Administrator)</option>'
         return HTMLResponse(html)
 
-    return HTMLResponse('<option value="">– Kein Trainer oder Administrator gefunden –</option>')
+    return HTMLResponse('<option value="">– Kein Verantwortlicher oder Administrator gefunden –</option>')
 
 
 @router.post("", response_class=HTMLResponse, dependencies=[_series_required])
@@ -207,7 +207,7 @@ async def create_series(
         return templates.TemplateResponse(
             "partials/_series_form.html",
             _series_form_ctx(request, repo, current_user,
-                             errors=["Ausgewählter Trainer nicht gefunden."],
+                             errors=["Ausgewählter Verantwortlicher nicht gefunden."],
                              toast=_toast("Serie fehlgeschlagen", "error")),
         )
 
