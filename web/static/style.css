@@ -1044,7 +1044,7 @@ body::before {
 /* Cal-table: Tagesansicht braucht kein min-width */
 .cal-table--day { min-width: 0; }
 .cal-table--day .cal-table__field { font-size: 0.75rem; padding: 0.3rem 0.1rem; }
-.cal-table--day .cal-table__cell { height: 38px; }
+.cal-table--day .cal-table__cell { height: 26px; }  /* 56 Zeilen (8–22 Uhr) im Scroll-Container */
 
 /* ===== Hamburger ===== */
 .navbar__hamburger {
@@ -1358,3 +1358,41 @@ body::before {
   background: var(--color-primary);
   color: #fff !important;
 }
+
+/* ===== Alias-Switcher (Navbar) ===== */
+.alias-switcher { position: relative; }
+.alias-switcher > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.alias-switcher > summary::-webkit-details-marker { display: none; }
+.alias-switcher__panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 0.25rem;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 0.25rem;
+  z-index: 50;
+}
+.alias-switcher__list { list-style: none; margin: 0; padding: 0; }
+.alias-switcher__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text, #222);
+  font-size: 0.9rem;
+}
+.alias-switcher__item:hover { background: rgba(0, 0, 0, 0.06); }
+.alias-switcher__item--active { font-weight: 600; cursor: default; }
+.alias-switcher__loading { display: block; padding: 0.5rem; color: #888; }

@@ -5,9 +5,9 @@
   <div class="help-box__body">
     <ul>
       <li><strong>Platz</strong> – welchen Platz (oder welche Hälfte) möchtest du nutzen?</li>
-      <li><strong>Datum &amp; Startzeit</strong> – wähle Tag und Uhrzeit (ab 16:00 in 30-Min-Schritten)</li>
+      <li><strong>Datum &amp; Startzeit</strong> – wähle Tag und Uhrzeit (ab 8:00 in 15-Min-Schritten)</li>
       <li><strong>Verfügbarkeit</strong> – wird sofort geprüft: grün = frei, rot = bereits belegt</li>
-      <li><strong>Dauer</strong> – 60 Min, 90 Min oder 3 Stunden (max. bis 22:00 Uhr)</li>
+      <li><strong>Dauer</strong> – frei wählbar in 15-Min-Schritten (max. bis 22:00 Uhr)</li>
       <li><strong>Art</strong> – Training, Spiel oder Turnier</li>
     </ul>
     <p>Nach dem Absenden bekommst du eine Bestätigungs-E-Mail. Die Buchung erscheint sofort im Kalender.</p>
@@ -78,7 +78,10 @@
             hx-target="#availability-result"
             hx-swap="innerHTML">
       {% for d in durations %}
-        <option value="{{ d }}">{{ d }} Min</option>
+        <option value="{{ d }}" {{ 'selected' if d == 60 }}>
+          {%- set dh = d // 60 %}{% set dm = d % 60 -%}
+          {%- if dh and dm %}{{ dh }} h {{ dm }} Min{% elif dh %}{{ dh }} h{% else %}{{ dm }} Min{% endif -%}
+        </option>
       {% endfor %}
     </select>
   </div>

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Aliase & Verantwortliche{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Aliase &amp; Verantwortliche</h1>
+  <a href="/admin" class="btn btn--ghost">← Admin</a>
+</div>
+
+<section class="card" style="margin-bottom:2rem;">
+  <h2>Alias-Accounts</h2>
+  <p class="help-text">
+    Ein Hauptaccount (mit Passwort) kann mehrere Alias-Accounts haben — etwa für
+    eine zweite Mannschaft. Aliase haben kein eigenes Passwort; nach dem Login
+    wird über den Account-Schalter oben rechts gewechselt.
+  </p>
+
+  {% for user in main_users %}
+  <div class="alias-block" style="border-top:1px solid var(--color-border); padding:0.75rem 0;">
+    <strong>{{ user.name }}</strong> ({{ user.role.value }}{% if user.mannschaft %} · {{ user.mannschaft }}{% endif %})
+
+    {% set aliases = aliases_by_parent.get(user.notion_id, []) %}
+    {% if aliases %}
+    <ul style="margin:0.5rem 0 0.5rem 1rem;">
+      {% for a in aliases %}
+      <li style="margin-bottom:0.25rem;">
+        {{ a.name }} — {{ a.role.value }}{% if a.mannschaft %} → {{ a.mannschaft }}{% endif %}
+        <button class="btn btn--ghost btn--sm"
+                hx-post="/admin/aliases/{{ a.notion_id }}/unlink"
+                title="Verknüpfung lösen (User bleibt bestehen)">Lösen</button>
+        <button class="btn btn--ghost btn--sm"
+                hx-delete="/admin/aliases/{{ a.notion_id }}"
+                hx-confirm="Alias '{{ a.name }}' endgültig löschen?">Löschen</button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form hx-post="/admin/aliases" class="alias-add-form"
+          style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
+      <input type="hidden" name="parent_id" value="{{ user.notion_id }}">
+      <input type="text" name="name" placeholder="Alias-Name" required>
+      <select name="role">
+        {% for r in roles %}<option value="{{ r.value }}" {{ 'selected' if r.value == 'Trainer' }}>{{ r.value }}</option>{% endfor %}
+      </select>
+      <input type="email" name="email" placeholder="E-Mail (optional)">
+      <select name="mannschaft">
+        <option value="">– keine Mannschaft –</option>
+        {% for m in mannschaften %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn--primary btn--sm">+ Alias</button>
+    </form>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Verantwortliche je Mannschaft</h2>
+  <p class="help-text">
+    Alle ausgewählten Personen erhalten Benachrichtigungen zu Buchungen dieser
+    Mannschaft (zusätzlich zum Buchenden und den CC-Adressen).
+  </p>
+
+  {% for m in mannschaften %}
+  {% set checked = verantwortliche[m.notion_id] %}
+  <form hx-post="/admin/mannschaften/{{ m.notion_id }}/verantwortliche"
+        hx-target="#toast" hx-swap="outerHTML"
+        style="border-top:1px solid var(--color-border); padding:0.75rem 0;">
+    <strong>{{ m.name }}</strong>
+    <div style="display:flex; gap:0.75rem 1.25rem; flex-wrap:wrap; margin:0.5rem 0;">
+      {% for u in all_users %}
+      <label style="white-space:nowrap;">
+        <input type="checkbox" name="user_id" value="{{ u.notion_id }}"
+               {{ 'checked' if u.notion_id in checked }}>
+        {{ u.name }}
+      </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn--primary btn--sm">Speichern</button>
+  </form>
+  {% endfor %}
+</section>
+{% endblock %}

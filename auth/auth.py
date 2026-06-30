@@ -23,6 +23,8 @@ def create_jwt(
     settings: Settings,
     mannschaft: Optional[str] = None,
     must_change_password: bool = False,
+    parent_id: Optional[str] = None,
+    alias_ids: Optional[list[str]] = None,
 ) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(hours=settings.jwt_expire_hours)
@@ -37,6 +39,10 @@ def create_jwt(
         payload["mannschaft"] = mannschaft
     if must_change_password:
         payload["must_change_password"] = True
+    if parent_id:
+        payload["parent_id"] = parent_id
+    if alias_ids:
+        payload["alias_ids"] = alias_ids
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -47,6 +53,8 @@ def decode_jwt(token: str, settings: Settings) -> TokenPayload:
         username=data["username"],
         role=UserRole(data["role"]),
         mannschaft=data.get("mannschaft"),
+        parent_id=data.get("parent_id"),
+        alias_ids=data.get("alias_ids", []),
         must_change_password=data.get("must_change_password", False),
         exp=data["exp"],
         iat=data.get("iat", 0),

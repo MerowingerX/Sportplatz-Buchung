@@ -9,7 +9,7 @@ from icalendar import Calendar, Event as IcalEvent
 
 from auth.dependencies import CurrentUser
 import booking.field_config as fc
-from utils.time_slots import SLOT_MINUTES
+from utils.time_slots import SLOT_MINUTES, BOOKING_START, BOOKING_END
 from booking.field_config import get_leaf_fields
 
 router = APIRouter()
@@ -88,6 +88,7 @@ async def calendar_day(request: Request, current_user: CurrentUser, d: str):
             "prev_day": target - timedelta(days=1),
             "next_day": target + timedelta(days=1),
             "mannschaft_shortnames": mannschaft_shortnames,
+            "time_slots": _build_slots(BOOKING_START.hour, BOOKING_END.hour, SLOT_MINUTES),
             **_field_context(current_user.role.value),
         },
     )
@@ -99,7 +100,7 @@ async def calendar_week(
     current_user: CurrentUser,
     year: int,
     week: int,
-    start_hour: int = 16,
+    start_hour: int = 8,
 ):
     repo = request.app.state.repo
     cache_key = f"week:{year}:{week}"
@@ -110,10 +111,11 @@ async def calendar_week(
     else:
         bookings = _cache[cache_key]
 
-    # Clamp and compute time-navigation context
-    start_hour = max(0, min(18, start_hour))
+    # Clamp and compute time-navigation context.
+    # 6h-Fenster, letzter sinnvoller Start = 16 (16+6 = 22:00).
+    start_hour = max(0, min(16, start_hour))
     prev_start_hour = max(0, start_hour - 2)
-    next_start_hour = min(18, start_hour + 2)
+    next_start_hour = min(16, start_hour + 2)
 
     # 6-hour window of slots starting at start_hour, using configured SLOT_MINUTES
     num_slots = 360 // SLOT_MINUTES
@@ -196,11 +198,14 @@ async def overview_week(
         bookings = _cache[cache_key]
 
     slot_min = max(15, min(120, slot_min))
+    # 8-Stunden-Fenster, Start scrollbar (Werktag 0–16, Wochenende 0–16).
+    # Fenster-Ende auf BOOKING_END (22:00) cappen, sonst liefe es bis 24:00.
     start_hour_wd = max(0, min(16, start_hour_wd))
     start_hour_we = max(0, min(16, start_hour_we))
+    end_cap = BOOKING_END.hour
 
-    weekday_slots = _build_slots(start_hour_wd, start_hour_wd + 8, slot_min)
-    weekend_slots = _build_slots(start_hour_we, start_hour_we + 8, slot_min)
+    weekday_slots = _build_slots(start_hour_wd, min(start_hour_wd + 8, end_cap), slot_min)
+    weekend_slots = _build_slots(start_hour_we, min(start_hour_we + 8, end_cap), slot_min)
 
     # Visible field groups + leaf fields per group
     field_groups = fc.get_visible_groups(current_user.role.value)

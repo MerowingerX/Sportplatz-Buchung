@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Sportplatz-Buchung{% endblock %}</title>
   <script src="/static/htmx.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=12">
+  <link rel="stylesheet" href="/static/style.css?v=13">
   <style>
     :root {
       --color-primary: {{ vereinsfarben.primary }};
@@ -49,13 +49,26 @@
         {% if current_user.role.value == "Administrator" %}
           <a href="/admin/users">Nutzer</a>
           <a href="/admin/mannschaften">Mannschaften</a>
+          <a href="/admin/aliases">Aliase</a>
         {% endif %}
         <a href="/tasks">Aufgaben</a>
         <a href="/events">Termine</a>
         {% if current_user.role.value == "Trainer" %}
           <a href="/profile">Mein Team</a>
         {% endif %}
+        {% if current_user.alias_ids %}
+        <details class="alias-switcher">
+          <summary class="navbar__user">{{ current_user.username }} ({{ current_user.role.value }}) ▾</summary>
+          <div class="alias-switcher__panel"
+               hx-get="/auth/alias-switcher"
+               hx-trigger="load"
+               hx-swap="innerHTML">
+            <span class="alias-switcher__loading">…</span>
+          </div>
+        </details>
+        {% else %}
         <span class="navbar__user">{{ current_user.username }} ({{ current_user.role.value }})</span>
+        {% endif %}
         <a href="/change-password" class="btn btn--ghost" style="color:rgba(255,255,255,0.82);">Passwort</a>
         <a href="/about" class="btn btn--ghost" style="color:rgba(255,255,255,0.82);">Info</a>
         <form method="post" action="/logout">

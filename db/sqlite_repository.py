@@ -94,6 +94,24 @@ class SQLiteRepository(AbstractRepository):
             conn.commit()
         except Exception:
             pass  # column already exists
+        # Migration: bestehende trainer_id → mannschaft_verantwortliche seeden.
+        # Nur einmalig (wenn Tabelle leer), sonst würde ein entfernter
+        # Verantwortlicher bei jedem Neustart wieder auftauchen.
+        try:
+            empty = conn.execute(
+                "SELECT COUNT(*) FROM mannschaft_verantwortliche"
+            ).fetchone()[0] == 0
+            if empty:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO mannschaft_verantwortliche (mannschaft_id, user_id)
+                    SELECT id, trainer_id FROM mannschaften
+                    WHERE trainer_id IS NOT NULL AND trainer_id != ''
+                    """
+                )
+                conn.commit()
+        except Exception:
+            pass
 
     def _get_conn(self) -> sqlite3.Connection:
         """Gibt eine thread-lokale Datenbankverbindung zurück."""
@@ -204,6 +222,114 @@ class SQLiteRepository(AbstractRepository):
             (mannschaft, UserRole.TRAINER.value),
         ).fetchall()
         return [self._row_to_user(r) for r in rows]
+
+    # ------------------------------------------------------------------ alias-accounts
+
+    def get_aliases_for_user(self, parent_id: str) -> list[User]:
+        conn = self._get_conn()
+        rows = conn.execute(
+            """
+            SELECT u.* FROM users u
+            JOIN user_aliases a ON u.id = a.alias_id
+            WHERE a.parent_id = ? AND u.deleted_at IS NULL
+            ORDER BY u.name
+            """,
+            (parent_id,),
+        ).fetchall()
+        return [self._row_to_user(r) for r in rows]
+
+    def get_parent_for_alias(self, alias_id: str) -> Optional[User]:
+        conn = self._get_conn()
+        row = conn.execute(
+            """
+            SELECT u.* FROM users u
+            JOIN user_aliases a ON u.id = a.parent_id
+            WHERE a.alias_id = ? AND u.deleted_at IS NULL
+            """,
+            (alias_id,),
+        ).fetchone()
+        return self._row_to_user(row) if row else None
+
+    def create_alias(
+        self, parent_id: str, name: str, role: str, email: str,
+        mannschaft: Optional[str],
+    ) -> User:
+        conn = self._get_conn()
+        new_id = self._new_id()
+        # Alias-User: kein Passwort, kein erzwungener Wechsel.
+        conn.execute(
+            """
+            INSERT INTO users (id, name, role, email, password_hash, mannschaft, must_change_pw)
+            VALUES (?, ?, ?, ?, '', ?, 0)
+            """,
+            (new_id, name, role, email, mannschaft),
+        )
+        conn.execute(
+            "INSERT INTO user_aliases (alias_id, parent_id) VALUES (?, ?)",
+            (new_id, parent_id),
+        )
+        conn.commit()
+        return self.get_user_by_id(new_id)  # type: ignore[return-value]
+
+    def remove_alias_link(self, alias_id: str) -> None:
+        conn = self._get_conn()
+        conn.execute("DELETE FROM user_aliases WHERE alias_id = ?", (alias_id,))
+        conn.commit()
+
+    def delete_alias(self, alias_id: str) -> None:
+        conn = self._get_conn()
+        conn.execute("DELETE FROM user_aliases WHERE alias_id = ?", (alias_id,))
+        conn.execute("DELETE FROM mannschaft_verantwortliche WHERE user_id = ?", (alias_id,))
+        conn.execute(
+            "UPDATE users SET deleted_at = ? WHERE id = ?",
+            (date.today().isoformat(), alias_id),
+        )
+        conn.commit()
+
+    # ------------------------------------------------------------------ mannschaft-verantwortliche
+
+    def get_verantwortliche_for_mannschaft(self, mannschaft_name: str) -> list[User]:
+        conn = self._get_conn()
+        rows = conn.execute(
+            """
+            SELECT u.* FROM users u
+            JOIN mannschaft_verantwortliche mv ON u.id = mv.user_id
+            JOIN mannschaften m ON m.id = mv.mannschaft_id
+            WHERE m.name = ? AND u.deleted_at IS NULL
+            ORDER BY u.name
+            """,
+            (mannschaft_name,),
+        ).fetchall()
+        return [self._row_to_user(r) for r in rows]
+
+    def get_mannschaften_for_user(self, user_id: str) -> list[MannschaftConfig]:
+        conn = self._get_conn()
+        rows = conn.execute(
+            """
+            SELECT m.* FROM mannschaften m
+            JOIN mannschaft_verantwortliche mv ON m.id = mv.mannschaft_id
+            WHERE mv.user_id = ?
+            ORDER BY m.name
+            """,
+            (user_id,),
+        ).fetchall()
+        return [self._row_to_mannschaft(r) for r in rows]
+
+    def add_verantwortlicher(self, mannschaft_id: str, user_id: str) -> None:
+        conn = self._get_conn()
+        conn.execute(
+            "INSERT OR IGNORE INTO mannschaft_verantwortliche (mannschaft_id, user_id) VALUES (?, ?)",
+            (mannschaft_id, user_id),
+        )
+        conn.commit()
+
+    def remove_verantwortlicher(self, mannschaft_id: str, user_id: str) -> None:
+        conn = self._get_conn()
+        conn.execute(
+            "DELETE FROM mannschaft_verantwortliche WHERE mannschaft_id = ? AND user_id = ?",
+            (mannschaft_id, user_id),
+        )
+        conn.commit()
 
     # ------------------------------------------------------------------ booking
 

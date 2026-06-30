@@ -151,3 +151,30 @@ CREATE TABLE IF NOT EXISTS mannschaften (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mannschaften_name ON mannschaften(name);
+
+-- ------------------------------------------------------------------ user_aliases
+-- Alias-Accounts: ein Hauptaccount (parent) kann mehrere Alias-Accounts haben.
+-- Alias-User existieren normal in `users` (eigener name/role/mannschaft/email),
+-- haben aber kein eigenes Passwort (password_hash = '') und loggen sich nicht
+-- direkt ein — Wechsel erfolgt nach Login über den Hauptaccount.
+
+CREATE TABLE IF NOT EXISTS user_aliases (
+    alias_id        TEXT PRIMARY KEY,    -- users.id des Alias-Users
+    parent_id       TEXT NOT NULL,       -- users.id des Hauptaccounts
+    FOREIGN KEY (alias_id) REFERENCES users(id),
+    FOREIGN KEY (parent_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_aliases_parent ON user_aliases(parent_id);
+
+-- ------------------------------------------------------------------ mannschaft_verantwortliche
+-- M:N-Beziehung Mannschaft ↔ verantwortliche User. Ergänzt das alte 1:1-Feld
+-- mannschaften.trainer_id (bleibt für Abwärtskompatibilität bestehen).
+
+CREATE TABLE IF NOT EXISTS mannschaft_verantwortliche (
+    mannschaft_id   TEXT NOT NULL,       -- mannschaften.id
+    user_id         TEXT NOT NULL,       -- users.id
+    PRIMARY KEY (mannschaft_id, user_id),
+    FOREIGN KEY (mannschaft_id) REFERENCES mannschaften(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_mv_user ON mannschaft_verantwortliche(user_id);

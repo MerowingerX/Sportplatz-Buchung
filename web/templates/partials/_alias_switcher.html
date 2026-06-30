@@ -1,0 +1,15 @@
+<ul class="alias-switcher__list">
+  {% for acc in accounts %}
+  <li>
+    <form method="post" action="/auth/switch-alias">
+      <input type="hidden" name="alias_id" value="{{ acc.notion_id }}">
+      <button type="submit"
+              class="alias-switcher__item {% if acc.notion_id == active_id %}alias-switcher__item--active{% endif %}"
+              {% if acc.notion_id == active_id %}disabled{% endif %}>
+        {% if acc.notion_id == active_id %}● {% else %}○ {% endif %}
+        {{ acc.name }}{% if acc.mannschaft %} → {{ acc.mannschaft }}{% endif %}
+      </button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>

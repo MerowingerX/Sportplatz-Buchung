@@ -75,10 +75,10 @@ def validate_booking_input(data: BookingCreate, skip_time_check: bool = False) -
     """Gibt eine Liste von Fehlermeldungen zurück (leer = gültig)."""
     errors = []
     if not is_valid_duration(data.duration_min):
-        errors.append(f"Ungültige Buchungsdauer: {data.duration_min} Min. Erlaubt: 60, 90, 180.")
+        errors.append(f"Ungültige Buchungsdauer: {data.duration_min} Min. Erlaubt: 15–840 Min in 15-Min-Schritten.")
     if not skip_time_check:
         if not is_valid_start_time(data.start_time):
-            errors.append(f"Ungültige Startzeit: {data.start_time}. Buchungen nur in 30-Min-Slots ab 16:00.")
+            errors.append(f"Ungültige Startzeit: {data.start_time}. Buchungen nur in 15-Min-Slots ab 8:00.")
         end_time = compute_end_time(data.start_time, data.duration_min)
         if not is_within_booking_hours(data.start_time, end_time):
             errors.append(f"Buchung endet nach 22:00 Uhr ({end_time.strftime('%H:%M')}).")

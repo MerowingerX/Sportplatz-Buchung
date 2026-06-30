@@ -56,6 +56,40 @@ class AbstractRepository(ABC):
     @abstractmethod
     def get_trainers_for_mannschaft(self, mannschaft: str) -> list[User]: ...
 
+    # --- Alias-Accounts ---
+
+    @abstractmethod
+    def get_aliases_for_user(self, parent_id: str) -> list[User]: ...
+
+    @abstractmethod
+    def get_parent_for_alias(self, alias_id: str) -> Optional[User]: ...
+
+    @abstractmethod
+    def create_alias(
+        self, parent_id: str, name: str, role: str, email: str,
+        mannschaft: Optional[str],
+    ) -> User: ...
+
+    @abstractmethod
+    def remove_alias_link(self, alias_id: str) -> None: ...
+
+    @abstractmethod
+    def delete_alias(self, alias_id: str) -> None: ...
+
+    # --- Mannschaft-Verantwortliche (M:N) ---
+
+    @abstractmethod
+    def get_verantwortliche_for_mannschaft(self, mannschaft_name: str) -> list[User]: ...
+
+    @abstractmethod
+    def get_mannschaften_for_user(self, user_id: str) -> list[MannschaftConfig]: ...
+
+    @abstractmethod
+    def add_verantwortlicher(self, mannschaft_id: str, user_id: str) -> None: ...
+
+    @abstractmethod
+    def remove_verantwortlicher(self, mannschaft_id: str, user_id: str) -> None: ...
+
     # --- Buchungen ---
 
     @abstractmethod

@@ -318,10 +318,12 @@ class BlackoutCreate(BaseModel):
 
 # JWT token payload (kein Pydantic-Model, nur TypedDict-ähnlich)
 class TokenPayload(BaseModel):
-    sub: str        # notion_id des Nutzers
+    sub: str        # notion_id des aktiven Accounts (Haupt oder Alias)
     username: str
     role: UserRole
     mannschaft: Optional[str] = None
+    parent_id: Optional[str] = None   # gesetzt, wenn sub ein Alias ist → parent notion_id
+    alias_ids: list[str] = []         # alle Alias-IDs des Hauptaccounts (für Switcher)
     must_change_password: bool = False
     exp: int
     iat: int = 0    # issued-at (Unix-Timestamp) für Invalidierung
