@@ -100,7 +100,7 @@ async def calendar_week(
     current_user: CurrentUser,
     year: int,
     week: int,
-    start_hour: int = 8,
+    start_hour: int = 16,   # Startansicht 16:00–22:00 (6h-Fenster)
 ):
     repo = request.app.state.repo
     cache_key = f"week:{year}:{week}"

@@ -47,3 +47,12 @@ def test_start_hour_im_erlaubten_bereich(booking_hour):
     """start_hour bleibt im von calendar_week akzeptierten Bereich [0, 16]."""
     sh = calendar_start_hour_for(booking_hour)
     assert 0 <= sh <= 16
+
+
+def test_wochenansicht_default_ist_16():
+    """Startansicht beim Neuladen: 16:00–22:00 → calendar_week-Default start_hour=16."""
+    import inspect
+    from web.routers.calendar import calendar_week
+
+    default = inspect.signature(calendar_week).parameters["start_hour"].default
+    assert default == 16
