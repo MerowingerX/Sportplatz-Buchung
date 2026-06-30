@@ -25,3 +25,6 @@ web/static/instagram/
 
 # Lokales Docker-Dev-Override (nicht committen)
 docker-compose.override.yml
+
+# Versehentlich getrackte DB-Datei
+db/sportplatz.db
