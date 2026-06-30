@@ -27,6 +27,15 @@ def _visible_fields(current_user) -> list[FieldName]:
     return get_visible_fields(current_user.role.value)
 
 
+def calendar_start_hour_for(hour: int) -> int:
+    """start_hour für das 6h-Wochenfenster, sodass eine Buchung zur gegebenen
+    Stunde sichtbar ist (~2h Vorlauf). Geclamped auf [0, 16] — derselbe Bereich
+    wie in calendar_week (web/routers/calendar.py), wo das Fenster start_hour..
+    start_hour+6 rendert.
+    """
+    return max(0, min(16, hour - 2))
+
+
 from web.htmx import toast as _toast
 
 
@@ -153,10 +162,13 @@ async def create_booking(
 
     display = get_display_name(booking.field.value)
     iso = booking_date.isocalendar()
+    # Zeitfenster so wählen, dass die neue Buchung sichtbar ist (6h-Fenster ab
+    # start_hour). ~2h Vorlauf, geclamped auf den vom Router erlaubten Bereich.
+    start_hour = calendar_start_hour_for(booking.start_time.hour)
     html = (
         _toast(f"Buchung für {display} am {booking.date.strftime('%d.%m.%Y')} gespeichert!")
         + f'<div id="calendar-week" hx-swap-oob="innerHTML">'
-        + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}"'
+        + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}&start_hour={start_hour}"'
         + ' hx-trigger="load" hx-swap="innerHTML"></div></div>'
     )
     resp = HTMLResponse(html)
