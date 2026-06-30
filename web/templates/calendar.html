@@ -58,6 +58,12 @@
     document.getElementById('booking-modal').close();
   });
 
+  // Dialog geschlossen (Abbrechen / ✕ / ESC): Lade-Overlay sofort ausblenden,
+  // falls noch ein hx-trigger="load"-Request (Verfügbarkeit/Sonnenuntergang) lief.
+  document.getElementById('booking-modal').addEventListener('close', function() {
+    document.getElementById('loading-overlay').classList.add('loading-overlay--hidden');
+  });
+
   // Ansicht je nach Bildschirmbreite wählen
   (function () {
     const isMobile = window.innerWidth < 768;

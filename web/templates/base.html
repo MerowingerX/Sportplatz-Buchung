@@ -122,11 +122,16 @@
       }
     });
 
-    // Loading-Overlay: erscheint bei jeder HTMX-Anfrage, verschwindet danach
+    // Loading-Overlay: erscheint bei jeder HTMX-Anfrage, verschwindet danach.
+    // Zaehlt laufende Requests, damit parallele Anfragen (z. B. die beiden
+    // hx-trigger="load"-Elemente im Buchungsformular) das Overlay nicht haengen
+    // lassen. Nur ein Timer gleichzeitig; gezeigt wird erst, wenn nach dem Delay
+    // noch etwas laeuft; ausgeblendet, sobald kein Request mehr offen ist.
     (function () {
       const overlay = document.getElementById('loading-overlay');
       const loadingText = document.getElementById('loading-text');
       let showTimer = null;
+      let active = 0;   // Anzahl laufender HTMX-Requests
 
       const LABELS = {
         'POST':   'Wird gespeichert …',
@@ -135,27 +140,41 @@
         'GET':    'Wird geladen …',
       };
 
-      function show(method) {
-        loadingText.textContent = LABELS[method] || 'Bitte warten …';
+      function show(text) {
+        loadingText.textContent = text;
         overlay.classList.remove('loading-overlay--hidden');
       }
 
-      function hide() {
+      function forceHide() {
         clearTimeout(showTimer);
         showTimer = null;
         overlay.classList.add('loading-overlay--hidden');
       }
 
+      function requestDone() {
+        active = Math.max(0, active - 1);
+        if (active === 0) forceHide();
+      }
+
       document.body.addEventListener('htmx:beforeRequest', function (evt) {
+        active++;
         const method = (evt.detail.requestConfig?.verb || 'GET').toUpperCase();
         const customText = evt.detail.elt?.dataset?.loadingText;
-        // Kleiner Delay: verhindert Flackern bei schnellen Antworten
-        showTimer = setTimeout(() => show(customText || LABELS[method] || 'Bitte warten …'), 120);
+        const text = customText || LABELS[method] || 'Bitte warten …';
+        // Kleiner Delay gegen Flackern; nur ein Timer, nicht stapeln
+        if (showTimer === null) {
+          showTimer = setTimeout(function () {
+            showTimer = null;
+            if (active > 0) show(text);   // nur zeigen, wenn noch etwas laeuft
+          }, 120);
+        }
       });
 
-      document.body.addEventListener('htmx:afterRequest', hide);
+      document.body.addEventListener('htmx:afterRequest', requestDone);
       // Fallback: auch bei Netzwerkfehlern ausblenden
-      document.body.addEventListener('htmx:sendError', hide);
+      document.body.addEventListener('htmx:sendError', requestDone);
+      // Sicherheitsnetz: Modal geschlossen -> Overlay sofort weg
+      document.body.addEventListener('closeModal', forceHide);
     })();
   </script>
 </body>
