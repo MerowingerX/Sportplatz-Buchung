@@ -1396,3 +1396,27 @@ body::before {
 .alias-switcher__item:hover { background: rgba(0, 0, 0, 0.06); }
 .alias-switcher__item--active { font-weight: 600; cursor: default; }
 .alias-switcher__loading { display: block; padding: 0.5rem; color: #888; }
+
+/* ===== Kompakte Wochenansicht auf großen Bildschirmen =====
+   Ziel: zwei Plätze (z. B. Platz A + B) ohne Scrollen sichtbar.
+   Greift nur ab 1280px; Mobile/Tablet bleiben unverändert. */
+@media (min-width: 1280px) {
+  .field-section { margin-bottom: 0.85rem; }
+
+  .field-section__title {
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+    padding-top: 0.2rem;
+    padding-bottom: 0.3rem;
+  }
+
+  .cal-table__day   { padding: 0.2rem 0; font-size: 0.75rem; }
+  .cal-table__field { padding: 0.1rem 0; }
+
+  /* Nur die kombinierte Wochentabelle verdichten (Tagesansicht hat eigene Höhe) */
+  .cal-table--combined .cal-table__cell { height: 20px; }
+  .cal-table--combined .cal-table__time { padding: 0.1rem 0.375rem; font-size: 0.65rem; }
+  .cal-table--combined .slot           { min-height: 18px; font-size: 0.62rem; padding: 1px 3px; gap: 0; }
+  .cal-table--combined .slot__time     { font-size: 0.6rem; }
+  .cal-table--combined .slot--continuation .slot__name { font-size: 0.6rem; }
+}
