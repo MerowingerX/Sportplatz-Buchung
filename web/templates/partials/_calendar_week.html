@@ -108,7 +108,7 @@
                   {% set b = found_cont[0] %}
                   {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
                   <div class="slot slot--booked slot--continuation slot--{{ b.booking_type.value | lower }}"
-                       title="{{ b.mannschaft or b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
+                       title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
                     <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
                   </div>
                 {% elif conflicted %}

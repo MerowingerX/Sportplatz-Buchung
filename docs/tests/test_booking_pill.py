@@ -128,6 +128,20 @@ def test_tooltip_enthaelt_zweck(env):
     assert "Torwarttraining" in title
 
 
+def test_tooltip_zeigt_buchungsverantwortlichen(env):
+    """Buchungsverantwortlicher (booked_by_name) ist beim Hover immer sichtbar,
+    auch wenn eine Mannschaft gesetzt ist."""
+    b = make_booking(mannschaft="U17", booked_by_name="Max Mustermann")
+    title = title_attr(render(env, b, {"U17": "U17"}))
+    assert "U17" in title
+    assert "Max Mustermann" in title
+
+
+def test_tooltip_verantwortlicher_ohne_mannschaft(env):
+    b = make_booking(mannschaft=None, booked_by_name="Max Mustermann")
+    assert "Max Mustermann" in title_attr(render(env, b))
+
+
 def test_tooltip_enthaelt_kontakt_und_zeit(env):
     b = make_booking(mannschaft="U17", zweck="Training", kontakt="0151-123")
     title = title_attr(render(env, b, {"U17": "U17"}))

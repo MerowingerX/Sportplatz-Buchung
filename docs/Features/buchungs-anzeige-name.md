@@ -38,6 +38,33 @@ zum Training ist dann nicht mehr erkennbar.
 Der `title`-Tooltip (Hover) zeigt bereits mehr:
 `zweck | mannschaft | booked_by_name | kontakt | Zeit | sunset_note`.
 
+## Umgesetzt (Stand 2026-06-30)
+
+Pill-Name (Tag-/Wochenansicht inkl. continuation-Slots):
+
+```jinja
+{{ m_display or b.zweck or b.booked_by_name }}
+```
+
+Mannschaft (Kurzname) gewinnt vor `zweck`. Buchungsart bleibt über die
+CSS-Farbe (`slot--training/spiel/turnier`) erkennbar.
+
+Tooltip (Hover) — **Buchungsverantwortlicher immer sichtbar**:
+
+```
+<Mannschaft> · <booked_by_name> – <zweck> – <kontakt> | HH:MM–HH:MM | <sunset_note>
+```
+
+`booked_by_name` steht jetzt immer im Tooltip (vorher nur als Fallback ohne
+Mannschaft). `· ` trennt Mannschaft vom Verantwortlichen; `zweck`/`kontakt`
+nur wenn gesetzt.
+
+Backend-Fix dazu: die im Formular gewählte Mannschaft (`data.mannschaft`)
+wird in `build_booking()` jetzt tatsächlich gespeichert (vorher verworfen →
+Buchungen ohne eigene Mannschaft, z. B. von Admins, zeigten den Bucher-Namen).
+
+Tests: `docs/tests/test_booking_pill.py`, `docs/tests/test_build_booking_mannschaft.py`.
+
 ## Datenfelder einer Buchung
 
 Aus [`booking/models.py → Booking`](../../booking/models.py#L136):
