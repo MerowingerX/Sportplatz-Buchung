@@ -1,0 +1,103 @@
+{% set day_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}
+
+<!-- Wochennavigation -->
+<div class="week-nav">
+  <button class="btn btn--ghost"
+          hx-get="/overview/timeline?year={{ prev_year }}&week={{ prev_week }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML">
+    &larr; Vorwoche
+  </button>
+  <span class="week-nav__title">
+    KW {{ week }} &nbsp;|&nbsp; {{ monday.strftime('%d.%m.%Y') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
+  </span>
+  <button class="btn btn--ghost"
+          hx-get="/overview/timeline?year={{ next_year }}&week={{ next_week }}"
+          hx-target="#overview-week"
+          hx-swap="innerHTML">
+    N&auml;chste Woche &rarr;
+  </button>
+</div>
+
+{% for group_name, group_fields, leaf_fields in groups_with_leaves %}
+<section class="tl-section">
+  <h2 class="tl-section__title">{{ group_name }}</h2>
+  <div class="tl-grid">
+    <div class="tl-grid__days">
+      {% for day in days %}
+        <div class="tl-day-header {% if day.isoformat() == today %}tl-day-header--today{% endif %}">
+          {{ day_names[day.weekday()] }}<br>
+          <span class="tl-day-header__date">{{ day.strftime('%d.%m.') }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="tl-grid__body">
+      {% for day in days %}
+        {% set day_iso = day.isoformat() %}
+        <div class="tl-day-col {% if day_iso == today %}tl-day-col--today{% endif %}">
+          {% for h in hour_labels %}
+            {% set pct = ((h * 60 - window_start_min) / window_total_min * 100) %}
+            <div class="tl-gridline" style="top:{{ pct }}%;">
+              <span class="tl-gridline__label">{{ '%02d' | format(h) }}</span>
+            </div>
+          {% endfor %}
+
+          {% for b in bookings
+                if b.field.value in group_fields
+                and b.field.value not in leaf_fields
+                and b.date.isoformat() == day_iso %}
+            {% set start_min = b.start_time.hour * 60 + b.start_time.minute %}
+            {% set end_min = b.end_time.hour * 60 + b.end_time.minute %}
+            {% set top_pct = ((start_min - window_start_min) / window_total_min * 100) %}
+            {% set height_pct = ((end_min - start_min) / window_total_min * 100) %}
+            {% set bg = mannschaft_colors.get(b.mannschaft, '#555555') if b.mannschaft else '#555555' %}
+            <button class="tl-block tl-block--parent"
+                    style="top:{{ top_pct }}%;height:{{ height_pct }}%;background:{{ bg }};"
+                    title="{{ display_names.get(b.field.value, b.field.value) }} | {{ b.mannschaft or b.zweck or 'Extern' }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}"
+                    hx-get="/bookings/{{ b.notion_id }}/detail"
+                    hx-target="#booking-modal-content"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('booking-modal').showModal()">
+              <span class="tl-block__label">{{ b.mannschaft or b.zweck or b.booked_by_name }}</span>
+              <span class="tl-block__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
+            </button>
+          {% endfor %}
+
+          <div class="tl-lanes">
+            {% for field_id in leaf_fields %}
+              <div class="tl-lane" data-field="{{ field_id }}">
+                {% for b in bookings
+                      if b.field.value == field_id
+                      and b.date.isoformat() == day_iso %}
+                  {% set start_min = b.start_time.hour * 60 + b.start_time.minute %}
+                  {% set end_min = b.end_time.hour * 60 + b.end_time.minute %}
+                  {% set top_pct = ((start_min - window_start_min) / window_total_min * 100) %}
+                  {% set height_pct = ((end_min - start_min) / window_total_min * 100) %}
+                  {% set bg = mannschaft_colors.get(b.mannschaft, '#555555') if b.mannschaft else '#555555' %}
+                  <button class="tl-block"
+                          style="top:{{ top_pct }}%;height:{{ height_pct }}%;background:{{ bg }};"
+                          title="{{ display_names.get(field_id, field_id) }} | {{ b.mannschaft or b.zweck or 'Extern' }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}"
+                          hx-get="/bookings/{{ b.notion_id }}/detail"
+                          hx-target="#booking-modal-content"
+                          hx-swap="innerHTML"
+                          onclick="document.getElementById('booking-modal').showModal()">
+                    <span class="tl-block__label">{{ b.mannschaft or b.zweck or b.booked_by_name }}</span>
+                    <span class="tl-block__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
+                  </button>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Legende -->
+  <div class="tl-legend">
+    {% for field_id in leaf_fields %}
+      <span class="tl-legend__item"><b>{{ field_id }}</b> = {{ display_names.get(field_id, field_id) }}</span>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
