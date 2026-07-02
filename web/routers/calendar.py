@@ -9,7 +9,7 @@ from icalendar import Calendar, Event as IcalEvent
 
 from auth.dependencies import CurrentUser
 import booking.field_config as fc
-from utils.time_slots import SLOT_MINUTES, BOOKING_START, BOOKING_END
+from utils.time_slots import SLOT_MINUTES, BOOKING_END
 from booking.field_config import get_leaf_fields
 
 router = APIRouter()
@@ -37,6 +37,35 @@ def _get_week_context(year: int, week: int) -> dict:
     }
 
 
+def _time_window_context(start_hour: int) -> dict:
+    """6h-Fenster von Zeit-Slots ab start_hour, plus Navigations-Kontext (Früher/Später)."""
+    # Clamp: letzter sinnvoller Start = 16 (16+6 = 22:00).
+    start_hour = max(0, min(16, start_hour))
+    prev_start_hour = max(0, start_hour - 2)
+    next_start_hour = min(16, start_hour + 2)
+
+    num_slots = 360 // SLOT_MINUTES
+    slots: list[str] = []
+    h, m = start_hour, 0
+    for _ in range(num_slots):
+        slots.append(f"{h:02d}:{m:02d}")
+        m += SLOT_MINUTES
+        if m >= 60:
+            m -= 60
+            h += 1
+        if h >= 24:
+            break
+
+    time_range = f"{slots[0]} – {slots[-1]}"
+    return {
+        "time_slots": slots,
+        "start_hour": start_hour,
+        "prev_start_hour": prev_start_hour,
+        "next_start_hour": next_start_hour,
+        "time_range": time_range,
+    }
+
+
 def _field_context(role_value: str) -> dict:
     """Baut den Kontext für field_groups, display_names und conflict_sources."""
     field_groups = fc.get_visible_groups(role_value)
@@ -60,7 +89,12 @@ async def calendar_page(request: Request, current_user: CurrentUser):
 
 
 @router.get("/calendar/day", response_class=HTMLResponse)
-async def calendar_day(request: Request, current_user: CurrentUser, d: str):
+async def calendar_day(
+    request: Request,
+    current_user: CurrentUser,
+    d: str,
+    start_hour: int = 16,   # Startansicht 16:00–22:00 (6h-Fenster), analog Wochenansicht
+):
     repo = request.app.state.repo
     target = Date.fromisoformat(d)
     iso = target.isocalendar()
@@ -87,8 +121,10 @@ async def calendar_day(request: Request, current_user: CurrentUser, d: str):
             "today": Date.today().isoformat(),
             "prev_day": target - timedelta(days=1),
             "next_day": target + timedelta(days=1),
+            "prev_week_day": target - timedelta(days=7),
+            "next_week_day": target + timedelta(days=7),
             "mannschaft_shortnames": mannschaft_shortnames,
-            "time_slots": _build_slots(BOOKING_START.hour, BOOKING_END.hour, SLOT_MINUTES),
+            **_time_window_context(start_hour),
             **_field_context(current_user.role.value),
         },
     )
@@ -111,28 +147,6 @@ async def calendar_week(
     else:
         bookings = _cache[cache_key]
 
-    # Clamp and compute time-navigation context.
-    # 6h-Fenster, letzter sinnvoller Start = 16 (16+6 = 22:00).
-    start_hour = max(0, min(16, start_hour))
-    prev_start_hour = max(0, start_hour - 2)
-    next_start_hour = min(16, start_hour + 2)
-
-    # 6-hour window of slots starting at start_hour, using configured SLOT_MINUTES
-    num_slots = 360 // SLOT_MINUTES
-    slots: list[str] = []
-    h, m = start_hour, 0
-    for _ in range(num_slots):
-        slots.append(f"{h:02d}:{m:02d}")
-        m += SLOT_MINUTES
-        if m >= 60:
-            m -= 60
-            h += 1
-        if h >= 24:
-            break
-
-    last_slot = slots[-1]
-    time_range = f"{slots[0]} – {last_slot}"
-
     mannschaft_shortnames = {
         m.name: m.shortname for m in repo.get_all_mannschaften() if m.shortname
     }
@@ -144,12 +158,8 @@ async def calendar_week(
             "current_user": current_user,
             "bookings": bookings,
             "today": Date.today().isoformat(),
-            "time_slots": slots,
-            "start_hour": start_hour,
-            "prev_start_hour": prev_start_hour,
-            "next_start_hour": next_start_hour,
-            "time_range": time_range,
             "mannschaft_shortnames": mannschaft_shortnames,
+            **_time_window_context(start_hour),
             **_field_context(current_user.role.value),
             **ctx,
         },

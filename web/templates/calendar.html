@@ -4,13 +4,19 @@
 {% block content %}
 <div class="page-header">
   <h1>Belegungsplan</h1>
-  <button class="btn btn--primary"
-          hx-get="/bookings"
-          hx-target="#booking-modal-content"
-          hx-swap="innerHTML"
-          onclick="document.getElementById('booking-modal').showModal()">
-    + Neue Buchung
-  </button>
+  <div class="page-header__actions">
+    <div class="view-toggle" id="view-toggle">
+      <button class="view-toggle__btn" data-view="week">Woche</button>
+      <button class="view-toggle__btn" data-view="day">Tag</button>
+    </div>
+    <button class="btn btn--primary"
+            hx-get="/bookings"
+            hx-target="#booking-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('booking-modal').showModal()">
+      + Neue Buchung
+    </button>
+  </div>
 </div>
 
 <details class="help-box">
@@ -64,13 +70,37 @@
     document.getElementById('loading-overlay').classList.add('loading-overlay--hidden');
   });
 
-  // Ansicht je nach Bildschirmbreite wählen
+  // Ansicht wählen: Mobile immer Tagesansicht (unverändert). Desktop: Umschalter
+  // Woche/Tag, Auswahl wird in localStorage gemerkt.
   (function () {
+    const STORAGE_KEY = 'calendarView';
     const isMobile = window.innerWidth < 768;
-    const url = isMobile
-      ? '/calendar/day?d={{ today }}'
-      : '/calendar/week?year={{ year }}&week={{ week }}';
-    htmx.ajax('GET', url, { target: '#calendar-week', swap: 'innerHTML' });
+    const toggle = document.getElementById('view-toggle');
+
+    function loadView(view) {
+      const url = view === 'day'
+        ? '/calendar/day?d={{ today }}'
+        : '/calendar/week?year={{ year }}&week={{ week }}';
+      htmx.ajax('GET', url, { target: '#calendar-week', swap: 'innerHTML' });
+      toggle.querySelectorAll('.view-toggle__btn').forEach(function (btn) {
+        btn.classList.toggle('view-toggle__btn--active', btn.dataset.view === view);
+      });
+    }
+
+    if (isMobile) {
+      loadView('day');
+      return;
+    }
+
+    const initialView = localStorage.getItem(STORAGE_KEY) || 'week';
+    loadView(initialView);
+
+    toggle.querySelectorAll('.view-toggle__btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        localStorage.setItem(STORAGE_KEY, btn.dataset.view);
+        loadView(btn.dataset.view);
+      });
+    });
   })();
 
   // Touch-Wischen zum Blättern (nur Tagesansicht)
