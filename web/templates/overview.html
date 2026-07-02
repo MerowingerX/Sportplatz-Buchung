@@ -4,12 +4,15 @@
 {% block content %}
 <div class="page-header">
   <h1>Belegungsübersicht</h1>
+  <div class="page-header__actions">
+    <div class="view-toggle" id="view-toggle">
+      <button class="view-toggle__btn" data-view="raster">Raster</button>
+      <button class="view-toggle__btn" data-view="zeitstrahl">Zeitstrahl</button>
+    </div>
+  </div>
 </div>
 
-<div id="overview-week"
-     hx-get="/overview/week?year={{ year }}&week={{ week }}"
-     hx-trigger="load"
-     hx-swap="innerHTML">
+<div id="overview-week">
   <div class="loading-spinner">Lade Übersicht …</div>
 </div>
 
@@ -17,4 +20,33 @@
 <dialog id="booking-modal" style="border:none;border-radius:8px;padding:0;max-width:480px;width:95%;">
   <div id="booking-modal-content"></div>
 </dialog>
+
+<script>
+  // Ansicht wählen: Raster (Pill-Grid) oder Zeitstrahl (Gantt). Auswahl wird
+  // in localStorage gemerkt, analog zum Woche/Tag-Umschalter im Kalender.
+  (function () {
+    const STORAGE_KEY = 'overviewView';
+    const toggle = document.getElementById('view-toggle');
+
+    function loadView(view) {
+      const url = view === 'zeitstrahl'
+        ? '/overview/timeline?year={{ year }}&week={{ week }}'
+        : '/overview/week?year={{ year }}&week={{ week }}';
+      htmx.ajax('GET', url, { target: '#overview-week', swap: 'innerHTML' });
+      toggle.querySelectorAll('.view-toggle__btn').forEach(function (btn) {
+        btn.classList.toggle('view-toggle__btn--active', btn.dataset.view === view);
+      });
+    }
+
+    const initialView = localStorage.getItem(STORAGE_KEY) || 'raster';
+    loadView(initialView);
+
+    toggle.querySelectorAll('.view-toggle__btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        localStorage.setItem(STORAGE_KEY, btn.dataset.view);
+        loadView(btn.dataset.view);
+      });
+    });
+  })();
+</script>
 {% endblock %}

@@ -9,7 +9,7 @@ from icalendar import Calendar, Event as IcalEvent
 
 from auth.dependencies import CurrentUser
 import booking.field_config as fc
-from utils.time_slots import SLOT_MINUTES, BOOKING_END
+from utils.time_slots import SLOT_MINUTES, BOOKING_START, BOOKING_END
 from booking.field_config import get_leaf_fields
 
 router = APIRouter()
@@ -255,6 +255,55 @@ async def overview_week(
             "groups_with_leaves": groups_with_leaves,
             "display_names": display_names,
             "mannschaft_colors": mannschaft_colors,
+            **ctx,
+        },
+    )
+
+
+@router.get("/overview/timeline", response_class=HTMLResponse)
+async def overview_timeline(
+    request: Request,
+    current_user: CurrentUser,
+    year: int,
+    week: int,
+):
+    repo = request.app.state.repo
+    cache_key = f"week:{year}:{week}"
+    if cache_key not in _cache:
+        bookings = repo.get_bookings_for_week(year, week)
+        _cache[cache_key] = bookings
+    else:
+        bookings = _cache[cache_key]
+
+    field_groups = fc.get_visible_groups(current_user.role.value)
+    groups_with_leaves = [
+        (name, fields, get_leaf_fields(fields))
+        for name, fields in field_groups
+    ]
+
+    mannschaft_colors: dict[str, str] = {
+        m.name: m.color for m in repo.get_all_mannschaften() if m.color
+    }
+
+    window_start_min = BOOKING_START.hour * 60 + BOOKING_START.minute
+    window_end_min = BOOKING_END.hour * 60 + BOOKING_END.minute
+    window_total_min = window_end_min - window_start_min
+    hour_labels = list(range(BOOKING_START.hour, BOOKING_END.hour + 1, 2))
+
+    ctx = _get_week_context(year, week)
+    return templates.TemplateResponse(
+        "partials/_overview_timeline.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "bookings": bookings,
+            "today": Date.today().isoformat(),
+            "groups_with_leaves": groups_with_leaves,
+            "display_names": fc.get_display_names(),
+            "mannschaft_colors": mannschaft_colors,
+            "window_start_min": window_start_min,
+            "window_total_min": window_total_min,
+            "hour_labels": hour_labels,
             **ctx,
         },
     )
