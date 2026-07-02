@@ -1,40 +1,29 @@
 {% set day_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}
 {# field_groups, field_display_names, conflict_sources werden vom Router übergeben #}
 
+{% set time_nav_prev_url = "/calendar/week?year=" ~ year ~ "&week=" ~ week ~ "&start_hour=" ~ prev_start_hour %}
+{% set time_nav_next_url = "/calendar/week?year=" ~ year ~ "&week=" ~ week ~ "&start_hour=" ~ next_start_hour %}
+
 <!-- Wochennavigation -->
-<div class="week-nav">
-  <button class="btn btn--ghost"
-          hx-get="/calendar/week?year={{ prev_year }}&week={{ prev_week }}&start_hour={{ start_hour }}"
-          hx-target="#calendar-week"
-          hx-swap="innerHTML">
-    &larr; Vorwoche
-  </button>
-  <span class="week-nav__title">
-    KW {{ week }} &nbsp;|&nbsp; {{ monday.strftime('%d.%m.%Y') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
-  </span>
-  <button class="btn btn--ghost"
-          hx-get="/calendar/week?year={{ next_year }}&week={{ next_week }}&start_hour={{ start_hour }}"
-          hx-target="#calendar-week"
-          hx-swap="innerHTML">
-    N&auml;chste Woche &rarr;
-  </button>
-</div>
-<div class="week-nav week-nav--time">
-  <button class="btn btn--ghost btn--small"
-          hx-get="/calendar/week?year={{ year }}&week={{ week }}&start_hour={{ prev_start_hour }}"
-          hx-target="#calendar-week"
-          hx-swap="innerHTML"
-          {% if start_hour == 0 %}disabled{% endif %}>
-    &uarr; Fr&uuml;her
-  </button>
-  <span class="week-nav__time-label">{{ time_range }}</span>
-  <button class="btn btn--ghost btn--small"
-          hx-get="/calendar/week?year={{ year }}&week={{ week }}&start_hour={{ next_start_hour }}"
-          hx-target="#calendar-week"
-          hx-swap="innerHTML"
-          {% if start_hour >= 18 %}disabled{% endif %}>
-    &darr; Sp&auml;ter
-  </button>
+<div class="calendar-nav-row">
+  <div class="week-nav">
+    <button class="btn btn--ghost"
+            hx-get="/calendar/week?year={{ prev_year }}&week={{ prev_week }}&start_hour={{ start_hour }}"
+            hx-target="#calendar-week"
+            hx-swap="innerHTML">
+      &larr; Vorwoche
+    </button>
+    <span class="week-nav__title">
+      KW {{ week }} &nbsp;|&nbsp; {{ monday.strftime('%d.%m.%Y') }} &ndash; {{ sunday.strftime('%d.%m.%Y') }}
+    </span>
+    <button class="btn btn--ghost"
+            hx-get="/calendar/week?year={{ next_year }}&week={{ next_week }}&start_hour={{ start_hour }}"
+            hx-target="#calendar-week"
+            hx-swap="innerHTML">
+      N&auml;chste Woche &rarr;
+    </button>
+  </div>
+  {% include "partials/_time_nav.html" with context %}
 </div>
 
 {% for group_name, group_fields in field_groups %}

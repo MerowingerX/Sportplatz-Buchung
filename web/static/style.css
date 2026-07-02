@@ -422,6 +422,8 @@ body::before {
   letter-spacing: 0.02em;
 }
 
+.week-nav__time-btn-text { display: inline; }
+
 /* Navigations-Buttons im Kalender: auf dunklem Hintergrund weiß statt grau */
 .week-nav .btn--ghost,
 .day-nav .btn--ghost {
@@ -1041,10 +1043,12 @@ body::before {
 }
 .day-nav__btn { white-space: nowrap; font-size: 0.8rem; }
 
-/* Cal-table: Tagesansicht braucht kein min-width */
-.cal-table--day { min-width: 0; }
+/* Cal-table: Tagesansicht kombiniert jetzt alle Feldgruppen in einer Tabelle
+   (bis zu 9 Spalten) — min-width erzwingt horizontales Scrollen statt Quetschen
+   auf schmalen Screens, analog zur Wochentabelle. */
+.cal-table--day { min-width: 560px; }
 .cal-table--day .cal-table__field { font-size: 0.75rem; padding: 0.3rem 0.1rem; }
-.cal-table--day .cal-table__cell { height: 26px; }  /* 56 Zeilen (8–22 Uhr) im Scroll-Container */
+.cal-table--day .cal-table__cell { height: 26px; }  /* 6h-Fenster, 24 Zeilen (wie Wochenansicht) */
 
 /* ===== Hamburger ===== */
 .navbar__hamburger {
@@ -1397,8 +1401,35 @@ body::before {
 .alias-switcher__item--active { font-weight: 600; cursor: default; }
 .alias-switcher__loading { display: block; padding: 0.5rem; color: #888; }
 
-/* ===== Kompakte Wochenansicht auf großen Bildschirmen =====
-   Ziel: zwei Plätze (z. B. Platz A + B) ohne Scrollen sichtbar.
+/* ===== View-Toggle (Woche/Tag) — nur Desktop, Mobile bleibt unverändert ===== */
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.view-toggle {
+  display: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.view-toggle__btn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border: none;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.view-toggle__btn:hover { background: rgba(255, 255, 255, 0.12); }
+.view-toggle__btn--active { background: rgba(255, 255, 255, 0.9); color: var(--color-primary); }
+@media (min-width: 768px) {
+  .view-toggle { display: flex; }
+}
+
+/* ===== Kompakte Wochen-/Tagesansicht auf großen Bildschirmen =====
+   Ziel: mehrere Plätze (z. B. Platz A + B) ohne Scrollen sichtbar.
    Greift nur ab 1280px; Mobile/Tablet bleiben unverändert. */
 @media (min-width: 1280px) {
   .field-section { margin-bottom: 0.85rem; }
@@ -1413,10 +1444,45 @@ body::before {
   .cal-table__day   { padding: 0.2rem 0; font-size: 0.75rem; }
   .cal-table__field { padding: 0.1rem 0; }
 
-  /* Nur die kombinierte Wochentabelle verdichten (Tagesansicht hat eigene Höhe) */
-  .cal-table--combined .cal-table__cell { height: 20px; }
-  .cal-table--combined .cal-table__time { padding: 0.1rem 0.375rem; font-size: 0.65rem; }
-  .cal-table--combined .slot           { min-height: 18px; font-size: 0.62rem; padding: 1px 3px; gap: 0; }
-  .cal-table--combined .slot__time     { font-size: 0.6rem; }
-  .cal-table--combined .slot--continuation .slot__name { font-size: 0.6rem; }
+  /* Kombinierte Wochentabelle UND Tagesansicht (nutzt seit dem Zeitfenster-Umbau
+     dieselbe Zeilenanzahl) gleich verdichten. */
+  .cal-table--combined .cal-table__cell,
+  .cal-table--day .cal-table__cell { height: 20px; }
+  .cal-table--combined .cal-table__time,
+  .cal-table--day .cal-table__time { padding: 0.1rem 0.375rem; font-size: 0.65rem; }
+  .cal-table--combined .slot,
+  .cal-table--day .slot           { min-height: 18px; font-size: 0.62rem; padding: 1px 3px; gap: 0; }
+  .cal-table--combined .slot__time,
+  .cal-table--day .slot__time     { font-size: 0.6rem; }
+  .cal-table--combined .slot--continuation .slot__name,
+  .cal-table--day .slot--continuation .slot__name { font-size: 0.6rem; }
+
+  /* Hilfe-Box eingeklappt lassen, aber weniger Abstand danach */
+  .help-box { margin-bottom: 0.5rem; }
+
+  /* Wochen-/Tagesnav + Zeitnav in eine Zeile zusammenlegen statt zwei */
+  .calendar-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 0.6rem;
+  }
+  .calendar-nav-row .week-nav,
+  .calendar-nav-row .day-nav {
+    margin-bottom: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .calendar-nav-row .week-nav--time {
+    margin: 0;
+    padding-left: 1.25rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+    flex: 0 0 auto;
+  }
+  /* Nur Pfeile zeigen, Text als aria-label für Screenreader erhalten */
+  .calendar-nav-row .week-nav__time-btn-text { display: none; }
+  .calendar-nav-row .week-nav__time-btn { padding-left: 0.5rem; padding-right: 0.5rem; }
 }
+
+/* Wochen-Sprung-Buttons in der Tagesansicht: kleiner als Tag-Buttons, nur Pfeil */
+.day-nav__week-btn { font-size: 0.9rem; padding-left: 0.5rem; padding-right: 0.5rem; }

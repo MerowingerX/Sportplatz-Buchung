@@ -1,38 +1,64 @@
-{# time_slots wird vom Router übergeben (08:00–21:45, 15-Min-Raster) #}
+{# time_slots wird vom Router übergeben (6h-Fenster, 15-Min-Raster) #}
 {% set wochentage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
 {# field_groups, field_display_names, conflict_sources werden vom Router übergeben #}
 {% set day_iso = day.isoformat() %}
+{% set time_nav_prev_url = "/calendar/day?d=" ~ day_iso ~ "&start_hour=" ~ prev_start_hour %}
+{% set time_nav_next_url = "/calendar/day?d=" ~ day_iso ~ "&start_hour=" ~ next_start_hour %}
 
-<!-- Tag-Navigation -->
-<div class="day-nav">
-  <button id="day-nav-prev" class="btn btn--ghost day-nav__btn"
-          hx-get="/calendar/day?d={{ prev_day.isoformat() }}"
-          hx-target="#calendar-week"
-          hx-swap="innerHTML">
-    &larr; {{ prev_day.strftime('%d.%m.') }}
-  </button>
-  <span class="day-nav__title">
-    {{ wochentage[day.weekday()] }}, {{ day.strftime('%d.%m.%Y') }}
-    {% if day_iso == today %}<span class="day-nav__today-badge">Heute</span>{% endif %}
-  </span>
-  <button id="day-nav-next" class="btn btn--ghost day-nav__btn"
-          hx-get="/calendar/day?d={{ next_day.isoformat() }}"
-          hx-target="#calendar-week"
-          hx-swap="innerHTML">
-    {{ next_day.strftime('%d.%m.') }} &rarr;
-  </button>
+<!-- Tag-/Wochen-Navigation -->
+<div class="calendar-nav-row">
+  <div class="day-nav">
+    <button class="btn btn--ghost day-nav__btn day-nav__week-btn"
+            hx-get="/calendar/day?d={{ prev_week_day.isoformat() }}&start_hour={{ start_hour }}"
+            hx-target="#calendar-week"
+            hx-swap="innerHTML"
+            aria-label="Vorwoche">
+      &laquo;
+    </button>
+    <button id="day-nav-prev" class="btn btn--ghost day-nav__btn"
+            hx-get="/calendar/day?d={{ prev_day.isoformat() }}&start_hour={{ start_hour }}"
+            hx-target="#calendar-week"
+            hx-swap="innerHTML">
+      &larr; {{ prev_day.strftime('%d.%m.') }}
+    </button>
+    <span class="day-nav__title">
+      {{ wochentage[day.weekday()] }}, {{ day.strftime('%d.%m.%Y') }}
+      {% if day_iso == today %}<span class="day-nav__today-badge">Heute</span>{% endif %}
+    </span>
+    <button id="day-nav-next" class="btn btn--ghost day-nav__btn"
+            hx-get="/calendar/day?d={{ next_day.isoformat() }}&start_hour={{ start_hour }}"
+            hx-target="#calendar-week"
+            hx-swap="innerHTML">
+      {{ next_day.strftime('%d.%m.') }} &rarr;
+    </button>
+    <button class="btn btn--ghost day-nav__btn day-nav__week-btn"
+            hx-get="/calendar/day?d={{ next_week_day.isoformat() }}&start_hour={{ start_hour }}"
+            hx-target="#calendar-week"
+            hx-swap="innerHTML"
+            aria-label="N&auml;chste Woche">
+      &raquo;
+    </button>
+  </div>
+  {% include "partials/_time_nav.html" with context %}
 </div>
 
-{% for group_name, group_fields in field_groups %}
+{# Alle Feldgruppen in EINER Matrix (Gruppen als Spalten-Überschrift mit colspan,
+   analog zur Tages-Kopfzeile in der Wochenansicht) statt gestapelter Tabellen. #}
 <section class="field-section">
-  <h2 class="field-section__title">{{ group_name }}</h2>
   <div class="table-scroll">
     <table class="cal-table cal-table--day">
       <thead>
         <tr>
-          <th class="cal-table__corner"></th>
-          {% for fname in group_fields %}
-            <th class="cal-table__field">{{ field_display_names.get(fname, fname) }}</th>
+          <th class="cal-table__corner" rowspan="2"></th>
+          {% for group_name, group_fields in field_groups %}
+            <th class="cal-table__day" colspan="{{ group_fields | length }}">{{ group_name }}</th>
+          {% endfor %}
+        </tr>
+        <tr>
+          {% for group_name, group_fields in field_groups %}
+            {% for fname in group_fields %}
+              <th class="cal-table__field">{{ field_display_names.get(fname, fname) }}</th>
+            {% endfor %}
           {% endfor %}
         </tr>
       </thead>
@@ -42,50 +68,52 @@
         {% set slot_time = time_module(slot_parts[0] | int, slot_parts[1] | int) %}
         <tr>
           <td class="cal-table__time">{{ slot }}</td>
-          {% for field_name in group_fields %}
-            {% set found_start = [] %}
-            {% set found_cont = [] %}
-            {% for b in bookings if b.field.value == field_name
-                  and b.start_time <= slot_time and b.end_time > slot_time %}
-              {% if b.start_time.strftime('%H:%M') == slot %}
-                {% set _ = found_start.append(b) %}
-              {% else %}
-                {% set _ = found_cont.append(b) %}
-              {% endif %}
-            {% endfor %}
-            {% set found = found_start + found_cont %}
-            {# Konfliktprüfung #}
-            {% set conflicted = [] %}
-            {% if not found %}
-              {% for cf in conflict_sources.get(field_name, []) %}
-                {% for b in bookings if b.field.value == cf
-                      and b.start_time <= slot_time and b.end_time > slot_time %}
-                  {% set _ = conflicted.append(cf) %}
-                {% endfor %}
+          {% for group_name, group_fields in field_groups %}
+            {% for field_name in group_fields %}
+              {% set found_start = [] %}
+              {% set found_cont = [] %}
+              {% for b in bookings if b.field.value == field_name
+                    and b.start_time <= slot_time and b.end_time > slot_time %}
+                {% if b.start_time.strftime('%H:%M') == slot %}
+                  {% set _ = found_start.append(b) %}
+                {% else %}
+                  {% set _ = found_cont.append(b) %}
+                {% endif %}
               {% endfor %}
-            {% endif %}
-            <td class="cal-table__cell {% if day_iso == today %}cal-table__cell--today{% endif %}">
-              {% if found_start %}
-                {% include "partials/_booking_pill.html" with context %}
-              {% elif found_cont %}
-                {% set b = found_cont[0] %}
-                {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
-                <div class="slot slot--booked slot--continuation slot--{{ b.booking_type.value | lower }}"
-                     title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
-                  <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
-                </div>
-              {% elif conflicted %}
-                <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
-              {% else %}
-                <button class="slot slot--free slot--clickable"
-                        hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
-                        hx-target="#booking-modal-content"
-                        hx-swap="innerHTML"
-                        onclick="document.getElementById('booking-modal').showModal()"
-                        title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_display_names.get(field_name, field_name) }}">
-                </button>
+              {% set found = found_start + found_cont %}
+              {# Konfliktprüfung #}
+              {% set conflicted = [] %}
+              {% if not found %}
+                {% for cf in conflict_sources.get(field_name, []) %}
+                  {% for b in bookings if b.field.value == cf
+                        and b.start_time <= slot_time and b.end_time > slot_time %}
+                    {% set _ = conflicted.append(cf) %}
+                  {% endfor %}
+                {% endfor %}
               {% endif %}
-            </td>
+              <td class="cal-table__cell {% if day_iso == today %}cal-table__cell--today{% endif %}">
+                {% if found_start %}
+                  {% include "partials/_booking_pill.html" with context %}
+                {% elif found_cont %}
+                  {% set b = found_cont[0] %}
+                  {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
+                  <div class="slot slot--booked slot--continuation slot--{{ b.booking_type.value | lower }}"
+                       title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
+                    <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
+                  </div>
+                {% elif conflicted %}
+                  <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
+                {% else %}
+                  <button class="slot slot--free slot--clickable"
+                          hx-get="/bookings?date={{ day_iso }}&field={{ field_name | urlencode }}&start_time={{ slot }}"
+                          hx-target="#booking-modal-content"
+                          hx-swap="innerHTML"
+                          onclick="document.getElementById('booking-modal').showModal()"
+                          title="{{ day.strftime('%d.%m.%Y') }} {{ slot }} – {{ field_display_names.get(field_name, field_name) }}">
+                  </button>
+                {% endif %}
+              </td>
+            {% endfor %}
           {% endfor %}
         </tr>
         {% endfor %}
@@ -93,4 +121,3 @@
     </table>
   </div>
 </section>
-{% endfor %}

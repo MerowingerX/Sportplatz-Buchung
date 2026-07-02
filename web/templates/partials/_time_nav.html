@@ -1,0 +1,23 @@
+{# Zeitfenster-Navigation (Früher/Später). Erwartet: start_hour, prev_start_hour,
+   next_start_hour, time_range sowie time_nav_prev_url / time_nav_next_url
+   (vom einbindenden Template per {% set %} gesetzt, da Woche/Tag unterschiedliche
+   Endpunkte ansteuern). #}
+<div class="week-nav week-nav--time">
+  <button class="btn btn--ghost btn--small week-nav__time-btn"
+          hx-get="{{ time_nav_prev_url }}"
+          hx-target="#calendar-week"
+          hx-swap="innerHTML"
+          aria-label="Fr&uuml;her"
+          {% if start_hour == 0 %}disabled{% endif %}>
+    <span aria-hidden="true">&uarr;</span><span class="week-nav__time-btn-text">&nbsp;Fr&uuml;her</span>
+  </button>
+  <span class="week-nav__time-label">{{ time_range }}</span>
+  <button class="btn btn--ghost btn--small week-nav__time-btn"
+          hx-get="{{ time_nav_next_url }}"
+          hx-target="#calendar-week"
+          hx-swap="innerHTML"
+          aria-label="Sp&auml;ter"
+          {% if start_hour >= 18 %}disabled{% endif %}>
+    <span aria-hidden="true">&darr;</span><span class="week-nav__time-btn-text">&nbsp;Sp&auml;ter</span>
+  </button>
+</div>
