@@ -2,6 +2,7 @@
   <td>{{ user.name }}</td>
   <td>{{ user.role.value }}</td>
   <td>{{ user.mannschaft if user.mannschaft else '–' }}</td>
+  <td>{{ verantwortet[user.notion_id] | join(', ') if verantwortet[user.notion_id] else '–' }}</td>
   <td>{{ user.email }}</td>
   <td>
     <form class="inline-form"

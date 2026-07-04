@@ -95,6 +95,10 @@ async def save_scheduler_config(
 async def users_page(request: Request, current_user: CurrentUser):
     repo = request.app.state.repo
     users = repo.get_all_users()
+    verantwortet = {
+        u.notion_id: [m.name for m in repo.get_mannschaften_for_user(u.notion_id)]
+        for u in users
+    }
     return templates.TemplateResponse(
         "admin/users.html",
         {
@@ -103,6 +107,7 @@ async def users_page(request: Request, current_user: CurrentUser):
             "users": users,
             "roles": list(UserRole),
             "mannschaften": repo.get_all_mannschaften(),
+            "verantwortet": verantwortet,
         },
     )
 
@@ -149,7 +154,13 @@ async def reset_user_password(
 
 
 def _user_row_ctx(user, current_user, repo):
-    return {"user": user, "current_user": current_user, "roles": list(UserRole), "mannschaften": repo.get_all_mannschaften()}
+    return {
+        "user": user,
+        "current_user": current_user,
+        "roles": list(UserRole),
+        "mannschaften": repo.get_all_mannschaften(),
+        "verantwortet": {user.notion_id: [m.name for m in repo.get_mannschaften_for_user(user.notion_id)]},
+    }
 
 
 def _invalidate_user_tokens(app_state, user_id: str) -> None:
@@ -318,7 +329,12 @@ async def set_verantwortliche(request: Request, mannschaft_id: str, current_user
 def _mannschaft_row_ctx(m, current_user, repo):
     # Jeder User kann Mannschaftsverantwortlicher sein (nicht nur Rolle Trainer).
     trainers = repo.get_all_users()
-    return {"m": m, "current_user": current_user, "trainers": trainers}
+    return {
+        "m": m,
+        "current_user": current_user,
+        "trainers": trainers,
+        "verantwortliche": {m.notion_id: [u.name for u in repo.get_verantwortliche_for_mannschaft(m.name)]},
+    }
 
 
 def _sync_trainer_change(repo, old_trainer_id: Optional[str], new_trainer_id: Optional[str],
@@ -368,6 +384,10 @@ async def mannschaften_page(request: Request, current_user: CurrentUser):
     mannschaften = repo.get_all_mannschaften()
     # Jeder User kann Mannschaftsverantwortlicher sein (nicht nur Rolle Trainer).
     trainers = repo.get_all_users()
+    verantwortliche = {
+        m.notion_id: [u.name for u in repo.get_verantwortliche_for_mannschaft(m.name)]
+        for m in mannschaften
+    }
     return templates.TemplateResponse(
         "admin/mannschaften.html",
         {
@@ -375,6 +395,7 @@ async def mannschaften_page(request: Request, current_user: CurrentUser):
             "current_user": current_user,
             "mannschaften": mannschaften,
             "trainers": trainers,
+            "verantwortliche": verantwortliche,
         },
     )
 

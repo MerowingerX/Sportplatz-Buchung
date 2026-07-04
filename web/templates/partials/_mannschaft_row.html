@@ -1,7 +1,7 @@
 <tr id="mannschaft-{{ m.notion_id }}">
   <td>{{ m.name }}</td>
   <td>{{ m.shortname or '–' }}</td>
-  <td>{{ m.trainer_name or '–' }}</td>
+  <td>{{ verantwortliche[m.notion_id] | join(', ') if verantwortliche[m.notion_id] else '–' }}</td>
   <td>{{ m.fussball_de_team_id or '–' }}</td>
   <td>{{ m.cc_emails | join(', ') or '–' }}</td>
   <td>
