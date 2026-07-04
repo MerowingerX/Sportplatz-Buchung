@@ -36,10 +36,12 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
     from datetime import datetime as _dt
     import pathlib
 
+    from booking import mail_config
     repo = request.app.state.repo
     users = repo.get_all_users()
     sync_status = read_sync_status()
     scheduler_cfg = load_scheduler_cfg()
+    mail_enabled = mail_config.is_enabled(default=get_settings().mail_enabled)
 
     # Zeitstempel leserlich formatieren
     if sync_status and sync_status.get("timestamp"):
@@ -60,6 +62,7 @@ async def admin_dashboard(request: Request, current_user: CurrentUser):
             "users": users,
             "sync_status": sync_status,
             "scheduler_cfg": scheduler_cfg,
+            "mail_enabled": mail_enabled,
             "server_time": _dt.now().strftime("%d.%m.%Y %H:%M:%S"),
             "dist_files": dist_files,
         },
@@ -86,6 +89,14 @@ async def save_scheduler_config(
         msg = f"Automatischer Sync aktiviert – täglich {uhrzeit} Uhr"
     else:
         msg = "Automatischer Sync deaktiviert"
+    return HTMLResponse(_toast(msg, "success"))
+
+
+@router.post("/mail-config", response_class=HTMLResponse, dependencies=[_admin_required])
+async def save_mail_config(request: Request, enabled: Optional[str] = Form(None)):
+    from booking import mail_config
+    mail_config.set_enabled(enabled is not None)
+    msg = "E-Mail-Versand aktiviert" if enabled is not None else "E-Mail-Versand deaktiviert"
     return HTMLResponse(_toast(msg, "success"))
 
 

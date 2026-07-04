@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 async def _send_email(to: str, subject: str, body: str, settings: Settings, cc: list[str] = []) -> None:
+    # Laufzeit-Schalter (Admin-Toggle in vereinsconfig.json); .env MAIL_ENABLED = Default.
+    from booking import mail_config
+    if not mail_config.is_enabled(default=settings.mail_enabled):
+        logger.info("Mailversand deaktiviert — übersprungen: %r an %s", subject, to)
+        return
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from

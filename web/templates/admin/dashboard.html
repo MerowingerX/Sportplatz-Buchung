@@ -137,6 +137,22 @@
     </div>
   </div>
   <div class="card">
+    <h2>E-Mail-Versand</h2>
+    <p>Benachrichtigungen (Buchung, Storno, Verdrängung) global an-/abschalten.
+       Wirkt sofort, ohne Neustart. Status:
+       <strong>{{ 'aktiv' if mail_enabled else 'deaktiviert' }}</strong>.</p>
+    <form class="scheduler-form"
+          hx-post="/admin/mail-config"
+          hx-target="#toast"
+          hx-swap="outerHTML">
+      <label class="scheduler-form__toggle">
+        <input type="checkbox" name="enabled" value="1" {% if mail_enabled %}checked{% endif %}>
+        E-Mail-Versand aktiv
+      </label>
+      <button type="submit" class="btn btn--ghost btn--small">Speichern</button>
+    </form>
+  </div>
+  <div class="card">
     <h2>Instagram</h2>
     <p>Spiele bis nächsten Sonntag als Karussell auf Instagram posten</p>
     <button class="btn btn--secondary"
