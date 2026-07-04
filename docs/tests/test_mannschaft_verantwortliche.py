@@ -148,26 +148,72 @@ def test_user_row_leer_zeigt_strich():
 
 
 def test_mannschaft_row_zeigt_verantwortlichen_liste():
-    m = NS(notion_id="m1", name="Team A", shortname="TA", trainer_name="Hans",
-           fussball_de_team_id=None, cc_emails=[], color=None, aktiv=True)
+    m = NS(notion_id="m1", name="Team A", shortname="TA", trainer_id="u2",
+           trainer_name="Klaus", fussball_de_team_id=None, cc_emails=[],
+           color=None, aktiv=True)
     html = _render(
         "partials/_mannschaft_row.html",
         m=m, current_user=NS(sub="admin"), trainers=[],
         verantwortliche={"m1": ["Hans", "Klaus"]},
+        verantwortlich_primary={"m1": "Klaus"},
+        verantwortlich_emails={"m1": []},
     )
-    assert "Hans, Klaus" in html
+    assert "Hans" in html and "Klaus" in html
+    # Primärer (Klaus) wird hervorgehoben, sekundärer (Hans) nicht
+    assert "<strong>Klaus</strong>" in html
+    assert "<strong>Hans</strong>" not in html
+
+
+def test_mannschaft_row_cc_zeigt_auto_mails():
+    """CC-Zelle zeigt manuelle Adressen plus (auto) die Verantwortlichen-Mails."""
+    m = NS(notion_id="m1", name="Team A", shortname="TA", trainer_id="u1",
+           trainer_name="Hans", fussball_de_team_id=None, cc_emails=["manuell@v.de"],
+           color=None, aktiv=True)
+    html = _render(
+        "partials/_mannschaft_row.html",
+        m=m, current_user=NS(sub="admin"), trainers=[],
+        verantwortliche={"m1": ["Hans"]},
+        verantwortlich_primary={"m1": "Hans"},
+        verantwortlich_emails={"m1": ["hans@v.de"]},
+    )
+    assert "manuell@v.de" in html and "hans@v.de" in html
+
+
+def test_mannschaft_edit_row_primaer_und_sekundaere():
+    """Edit-Zeile: Primär-Dropdown (trainer_id) plus Sekundär-Checkboxen
+    (name='user_id'); bereits Zugewiesene vorausgewählt."""
+    m = NS(notion_id="m1", name="Team A", shortname=None, trainer_id="u2",
+           trainer_name="Klaus", fussball_de_team_id=None, cc_emails=[],
+           color=None, aktiv=False)  # aktiv=False → keine fremde 'checked'-Quelle
+    trainers = [NS(notion_id="u1", name="Hans"),
+                NS(notion_id="u2", name="Klaus"),
+                NS(notion_id="u3", name="Egon")]
+    html = _render(
+        "partials/_mannschaft_row_edit.html",
+        m=m, current_user=NS(sub="admin"), trainers=trainers,
+        verantwortlich_ids={"u1", "u2"},
+        verantwortlich_emails={"m1": ["hans@v.de", "klaus@v.de"]},
+    )
+    assert 'value="u2" selected' in html          # Primär = Klaus vorgewählt
+    assert html.count('name="user_id"') == 3       # eine Sekundär-Checkbox je User
+    assert html.count("checked") == 2              # u1, u2 vorausgewählt
+    assert "hans@v.de" in html                     # Auto-CC read-only sichtbar
 
 
 def test_mannschaft_row_leer_zeigt_strich():
-    # alle anderen optionalen Felder gesetzt → einzige '–'-Zelle = Verantwortliche
-    m = NS(notion_id="m1", name="Team A", shortname="TA", trainer_name="Hans",
-           fussball_de_team_id="123", cc_emails=["a@x.de"], color="#fff", aktiv=True)
+    # verantwortliche leer → Verantwortlicher-Zelle zeigt genau ein '–';
+    # alle anderen optionalen Felder gesetzt (kein weiteres '–')
+    m = NS(notion_id="m1", name="Team A", shortname="TA", trainer_id=None,
+           trainer_name=None, fussball_de_team_id="123", cc_emails=["a@x.de"],
+           color="#fff", aktiv=True)
     html = _render(
         "partials/_mannschaft_row.html",
         m=m, current_user=NS(sub="admin"), trainers=[],
         verantwortliche={"m1": []},
+        verantwortlich_primary={"m1": None},
+        verantwortlich_emails={"m1": []},
     )
-    assert html.count("<td>–</td>") == 1
+    assert html.count("–") == 1
 
 
 def test_create_user_combobox_nutzt_name_nicht_value():

@@ -85,6 +85,28 @@ def validate_booking_input(data: BookingCreate, skip_time_check: bool = False) -
     return errors
 
 
+def user_teams(repo, current_user: TokenPayload) -> set[str]:
+    """Namen aller Teams, denen der User zugewiesen ist (primär oder sekundär via
+    M:N) plus sein Token-Team `current_user.mannschaft`."""
+    teams = {m.name for m in repo.get_mannschaften_for_user(current_user.sub)}
+    if current_user.mannschaft:
+        teams.add(current_user.mannschaft)
+    return teams
+
+
+def user_may_book_for(repo, current_user: TokenPayload, mannschaft_name: Optional[str]) -> bool:
+    """True, wenn der User für die Mannschaft buchen darf.
+    - Ohne Team (`None`): immer erlaubt.
+    - Administrator/DFBnet: alle Teams.
+    - Sonst: nur Teams, denen der User zugewiesen ist.
+    """
+    if not mannschaft_name:
+        return True
+    if current_user.role in (UserRole.ADMINISTRATOR, UserRole.DFBNET):
+        return True
+    return mannschaft_name in user_teams(repo, current_user)
+
+
 def build_booking(
     repo,
     data: BookingCreate,
@@ -105,6 +127,13 @@ def build_booking(
     """
     errors = validate_booking_input(data, skip_time_check=skip_time_check)
     if errors:
+        return None, errors
+
+    # Buchungsrecht: Nicht-Admins/-DFBnet dürfen nur für Teams buchen, denen sie
+    # zugewiesen sind (primär oder sekundär). Buchung ohne Team bleibt erlaubt.
+    target_mannschaft = mannschaft_override or data.mannschaft or current_user.mannschaft
+    if not user_may_book_for(repo, current_user, target_mannschaft):
+        errors.append(f"Sie sind für die Mannschaft '{target_mannschaft}' nicht eingetragen.")
         return None, errors
 
     end_time = compute_end_time(data.start_time, data.duration_min)

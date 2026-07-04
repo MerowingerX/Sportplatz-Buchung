@@ -27,6 +27,7 @@ Stand: 2026-07-04. Bereits vorhanden: 4 Testdateien, 30 Testfunktionen (inkl. pa
 | 5. Kalender / Übersicht | teilweise | ⬜ | teilweise |
 | 6. Serien | ⬜ | ⬜ | offen |
 | 7. Mannschaft-Verantwortliche (M:N) | ✅ | ✅ | **fertig** |
+| 7b. Team-Zuordnung & Buchungsrechte | ✅ | ✅ | **fertig** |
 | 8. Repository (SQLite CRUD) | teilweise | ⬜ | teilweise |
 | 9. Admin-Router | ⬜ | ⬜ | offen |
 | 10. Events-Router | ⬜ | ⬜ | offen |
@@ -153,6 +154,24 @@ Stand: 2026-07-04. Bereits vorhanden: 4 Testdateien, 30 Testfunktionen (inkl. pa
 | MV-9 | Gut: `_mannschaft_row` zeigt Liste | „Hans, Klaus“ | ✅ `test_mannschaft_verantwortliche.py::test_mannschaft_row_zeigt_verantwortlichen_liste` |
 | MV-10 | Rand: `_mannschaft_row` leer → `–` | genau eine `–`-Zelle | ✅ `test_mannschaft_verantwortliche.py::test_mannschaft_row_leer_zeigt_strich` |
 | MV-11 | Regression: Combobox nutzt `m.name` (nicht `m.value`) | Optionen gefüllt | ✅ `test_mannschaft_verantwortliche.py::test_create_user_combobox_nutzt_name_nicht_value` |
+| MV-12 | Gut: Edit-Zeile Primär-Dropdown + Sekundär-Checkboxen | Dropdown selected, 3 Checkboxen, 2 checked, CC-Auto | ✅ `test_mannschaft_verantwortliche.py::test_mannschaft_edit_row_primaer_und_sekundaere` |
+| MV-13 | Gut: Übersicht CC-Zelle zeigt manuelle + Auto-Mails | beide sichtbar | ✅ `test_mannschaft_verantwortliche.py::test_mannschaft_row_cc_zeigt_auto_mails` |
+| MV-14 | Gut: Übersicht hebt primären Verantwortlichen hervor | primär **fett**, sekundär normal | ✅ `test_mannschaft_verantwortliche.py::test_mannschaft_row_zeigt_verantwortlichen_liste` |
+
+## 7b. Team-Zuordnung & Buchungsrechte — `booking/booking.py`, `web/routers/bookings.py`
+
+Feature-Doc: `docs/Features/team_zuordnung_und_buchungsrechte.md`. Tests: `test_team_buchungsrechte.py`.
+
+| Test-ID | Fall | Erwartung | Status |
+|---------|------|-----------|:---:|
+| TEAM-1 | `user_teams` = zugewiesene Teams (+ Token-Team) | korrektes Set | ✅ `test_user_teams_enthaelt_zugewiesene` |
+| TEAM-4 | `_bookable_teams` Trainer → nur eigene | fremde fehlen | ✅ `test_dropdown_trainer_nur_eigene_teams` |
+| TEAM-5 | `_bookable_teams` Admin → alle | alle | ✅ `test_dropdown_admin_alle_teams` |
+| TEAM-6 | `user_may_book_for`/`build_booking` Trainer fremdes Team | False / Fehler | ✅ `test_trainer_darf_fremdes_team_nicht`, `test_build_booking_trainer_fremdes_team_fehler` |
+| TEAM-6b | Gegenprobe: Trainer eigenes Team | erlaubt | ✅ `test_trainer_darf_eigenes_team`, `test_build_booking_trainer_eigenes_team_ok` |
+| TEAM-7 | Admin/DFBnet beliebiges Team | erlaubt | ✅ `test_admin_darf_jedes_team`, `test_dfbnet_darf_jedes_team` |
+| TEAM-8 | Buchung ohne Team | erlaubt | ✅ `test_buchung_ohne_team_immer_erlaubt` |
+| TEAM-9 | Invariante `trainer_id` in M:N (Router) | konsistent | ⬜ offen |
 
 ## 8. Repository — `db/sqlite_repository.py` (echte SQLite, `tmp_path`)
 
@@ -182,7 +201,7 @@ Stand: 2026-07-04. Bereits vorhanden: 4 Testdateien, 30 Testfunktionen (inkl. pa
 | ADM-4 | Gut: `POST /admin/users/{id}` update | Zeile aktualisiert | ⬜ |
 | ADM-5 | Gut: `DELETE /admin/users/{id}` | Zeile entfernt | ⬜ |
 | ADM-6 | Gut: `POST /admin/mannschaften` neu | angelegt, Trainer → M:N | ⬜ |
-| ADM-7 | Gut: `POST /admin/mannschaften/{id}` update | aktualisiert | ⬜ |
+| ADM-7 | Gut: `PATCH /admin/mannschaften/{id}` update inkl. mehrerer Verantwortlicher (Checkboxen → M:N-Diff, erster = primärer Trainer) | aktualisiert, alle Verantwortlichen gesetzt | ⬜ (Render: MV-12) |
 | ADM-8 | Fehler: `DELETE .../{id}` unbekannt | 404 „nicht gefunden“ | ⬜ |
 | ADM-9 | Gut: `POST .../verantwortliche` Mehrfachauswahl | Diff add/remove korrekt | ⬜ |
 | ADM-10 | Fehler: `POST .../verantwortliche` unbekannte Mannschaft | 404 | ⬜ |

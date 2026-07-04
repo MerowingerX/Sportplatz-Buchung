@@ -329,11 +329,15 @@ async def set_verantwortliche(request: Request, mannschaft_id: str, current_user
 def _mannschaft_row_ctx(m, current_user, repo):
     # Jeder User kann Mannschaftsverantwortlicher sein (nicht nur Rolle Trainer).
     trainers = repo.get_all_users()
+    verantw = repo.get_verantwortliche_for_mannschaft(m.name)
     return {
         "m": m,
         "current_user": current_user,
         "trainers": trainers,
-        "verantwortliche": {m.notion_id: [u.name for u in repo.get_verantwortliche_for_mannschaft(m.name)]},
+        "verantwortliche": {m.notion_id: [u.name for u in verantw]},           # Anzeige (Namen)
+        "verantwortlich_primary": {m.notion_id: m.trainer_name},               # zum Hervorheben
+        "verantwortlich_emails": {m.notion_id: [u.email for u in verantw if u.email]},  # Auto-CC
+        "verantwortlich_ids": {u.notion_id for u in verantw},                  # Edit-Checkboxen
     }
 
 
@@ -384,10 +388,12 @@ async def mannschaften_page(request: Request, current_user: CurrentUser):
     mannschaften = repo.get_all_mannschaften()
     # Jeder User kann Mannschaftsverantwortlicher sein (nicht nur Rolle Trainer).
     trainers = repo.get_all_users()
-    verantwortliche = {
-        m.notion_id: [u.name for u in repo.get_verantwortliche_for_mannschaft(m.name)]
-        for m in mannschaften
-    }
+    verantwortliche, verantwortlich_primary, verantwortlich_emails = {}, {}, {}
+    for m in mannschaften:
+        verantw = repo.get_verantwortliche_for_mannschaft(m.name)
+        verantwortliche[m.notion_id] = [u.name for u in verantw]
+        verantwortlich_primary[m.notion_id] = m.trainer_name
+        verantwortlich_emails[m.notion_id] = [u.email for u in verantw if u.email]
     return templates.TemplateResponse(
         "admin/mannschaften.html",
         {
@@ -396,6 +402,8 @@ async def mannschaften_page(request: Request, current_user: CurrentUser):
             "mannschaften": mannschaften,
             "trainers": trainers,
             "verantwortliche": verantwortliche,
+            "verantwortlich_primary": verantwortlich_primary,
+            "verantwortlich_emails": verantwortlich_emails,
         },
     )
 
@@ -651,7 +659,6 @@ async def update_mannschaft(
     current_user: CurrentUser,
     name: str = Form(...),
     shortname: Optional[str] = Form(None),
-    trainer_id: Optional[str] = Form(None),
     fussball_de_team_id: Optional[str] = Form(None),
     cc_emails: Optional[str] = Form(None),
     aktiv: Optional[str] = Form(None),
@@ -659,7 +666,11 @@ async def update_mannschaft(
 ):
     repo = request.app.state.repo
     old_m = repo.get_mannschaft_by_id(mid)
-    new_trainer_id = trainer_id or None
+    # Primärer Verantwortlicher via Dropdown (trainer_id), weitere via Checkboxen
+    # (name="user_id"). Team-Liste = Sekundäre ∪ {Primär} (Invariante: Primär ist
+    # immer auch in der M:N-Liste).
+    form = await request.form()
+    new_trainer_id = (form.get("trainer_id") or "").strip() or None
     trainer_name: Optional[str] = None
     if new_trainer_id:
         trainer = repo.get_user_by_id(new_trainer_id)
@@ -678,10 +689,15 @@ async def update_mannschaft(
     )
     if old_m:
         _sync_trainer_change(repo, old_m.trainer_id, new_trainer_id, m.name)
-    # Gewählter Trainer bleibt/wird Mannschaftsverantwortlicher (M:N). Additiv —
-    # bestehende M:N-Verantwortliche werden nicht entfernt.
+    # M:N-Team-Liste auf die Auswahl abgleichen (Sekundäre + Primär, add/remove-Diff).
+    selected_set = set(form.getlist("user_id"))
     if new_trainer_id:
-        repo.add_verantwortlicher(mid, new_trainer_id)
+        selected_set.add(new_trainer_id)  # Invariante: Primär bleibt in der Liste
+    current_ids = {u.notion_id for u in repo.get_verantwortliche_for_mannschaft(m.name)}
+    for uid in selected_set - current_ids:
+        repo.add_verantwortlicher(mid, uid)
+    for uid in current_ids - selected_set:
+        repo.remove_verantwortlicher(mid, uid)
     return HTMLResponse(
         templates.get_template("partials/_mannschaft_row.html").render(
             _mannschaft_row_ctx(m, current_user, repo)

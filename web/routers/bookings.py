@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, Query, Request, Form
 from fastapi.responses import HTMLResponse
 
 from auth.dependencies import CurrentUser, require_permission
-from booking.booking import build_booking, check_availability, dfbnet_displace
-from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Permission, has_permission
+from booking.booking import build_booking, check_availability, dfbnet_displace, user_teams
+from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Permission, UserRole, has_permission
 import booking.field_config as fc
 from utils.time_slots import (
     compute_end_time,
@@ -47,6 +47,16 @@ def _get_cc_emails(repo, mannschaft_name: Optional[str]) -> list[str]:
     return m.cc_emails if m else []
 
 
+def _bookable_teams(repo, current_user):
+    """Aktive Teams, die der User buchen darf. Admin/DFBnet: alle. Sonst nur
+    Teams, denen der User zugewiesen ist (primär oder sekundär)."""
+    active = repo.get_all_mannschaften(only_active=True)
+    if current_user.role in (UserRole.ADMINISTRATOR, UserRole.DFBNET):
+        return active
+    my = user_teams(repo, current_user)
+    return [m for m in active if m.name in my]
+
+
 def _build_cc(repo, mannschaft_name: Optional[str], to_email: Optional[str]) -> list[str]:
     """CC-Liste: konfigurierte cc_emails + alle Verantwortlichen der Mannschaft.
 
@@ -69,7 +79,7 @@ async def bookings_page(
     start_time: Optional[str] = None,
 ):
     repo = request.app.state.repo
-    mannschaften = repo.get_all_mannschaften(only_active=True)
+    mannschaften = _bookable_teams(repo, current_user)
     user_mannschaft = current_user.mannschaft
     start_slots = get_all_start_slots()
     return templates.TemplateResponse(
@@ -130,7 +140,7 @@ async def create_booking(
 
     if errors:
         start_slots = get_all_start_slots()
-        mannschaften = repo.get_all_mannschaften(only_active=True)
+        mannschaften = _bookable_teams(repo, current_user)
         return templates.TemplateResponse(
             "partials/_booking_form.html",
             {
