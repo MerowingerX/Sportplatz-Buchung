@@ -172,7 +172,8 @@ def fetch_matchplan_html(
     fussball.de gibt JSON zurück: {"success": true, "html": "<table>..."}
 
     datum_von / datum_bis: ISO-Format YYYY-MM-DD, wird in DD.MM.YYYY umgewandelt.
-    Ohne Angabe gilt: heute bis Saisonende (30.06.).
+    Ohne Angabe gilt: heute bis weit in die Zukunft (alle bekannten Termine).
+    fussball.de liefert nur tatsächlich angesetzte Spiele, daher kein Saison-Ende.
     """
     url = _matchplan_url(club_id)
 
@@ -185,10 +186,12 @@ def fetch_matchplan_html(
             return iso
 
     heute = date.today()
-    saison_ende = date(heute.year if heute.month >= 7 else heute.year - 1 + 1, 6, 30)
+    # Kein Saison-Ende: DFBnet-Termine dürfen beliebig weit in der Zukunft liegen.
+    # fussball.de gibt ohnehin nur angesetzte Spiele zurück; großzügiges bis genügt.
+    bis_default = date(heute.year + 3, 6, 30)
 
     von_de = _to_de(datum_von) if datum_von else heute.strftime("%d.%m.%Y")
-    bis_de = _to_de(datum_bis) if datum_bis else saison_ende.strftime("%d.%m.%Y")
+    bis_de = _to_de(datum_bis) if datum_bis else bis_default.strftime("%d.%m.%Y")
 
     post_headers = {
         **HEADERS,
