@@ -35,6 +35,10 @@ class FakeRepo:
     def __init__(self):
         self.captured_mannschaft = "__unset__"
 
+    def get_mannschaften_for_user(self, user_id):
+        # Buchungsrechts-Prüfung (build_booking) fragt die Team-Liste ab.
+        return []
+
     def create_booking(self, *, data, booked_by_id, booked_by_name, role,
                         end_time, sunset_note=None, series_id=None,
                         mannschaft=None, zweck=None, kontakt=None):
@@ -126,11 +130,13 @@ def test_override_schlaegt_formular(settings):
 
 
 def test_formular_schlaegt_user_default(settings):
-    """Formularwert gewinnt vor dem persönlichen Default des Buchenden."""
+    """Formularwert gewinnt vor dem persönlichen Default des Buchenden.
+    (Admin, damit die Buchungsrechts-Prüfung die Präzedenz nicht überlagert —
+    Team-Beschränkung siehe test_team_buchungsrechte.py.)"""
     repo = FakeRepo()
     build_booking(
         repo=repo, data=_data(mannschaft="A-Junioren"),
-        current_user=_user(mannschaft="F-Junioren", role=UserRole.TRAINER),
+        current_user=_user(mannschaft="F-Junioren", role=UserRole.ADMINISTRATOR),
         settings=settings, existing_bookings=[],
     )
     assert repo.captured_mannschaft == "A-Junioren"

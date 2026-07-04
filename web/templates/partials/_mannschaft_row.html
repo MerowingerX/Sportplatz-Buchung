@@ -1,9 +1,22 @@
 <tr id="mannschaft-{{ m.notion_id }}">
   <td>{{ m.name }}</td>
   <td>{{ m.shortname or '–' }}</td>
-  <td>{{ m.trainer_name or '–' }}</td>
+  <td>
+    {% set vs = verantwortliche[m.notion_id] %}
+    {% if vs %}
+      {%- for n in vs -%}
+        {%- if not loop.first %}, {% endif -%}
+        {%- if n == verantwortlich_primary[m.notion_id] %}<strong>{{ n }}</strong>{% else %}{{ n }}{% endif -%}
+      {%- endfor -%}
+    {% else %}–{% endif %}
+  </td>
   <td>{{ m.fussball_de_team_id or '–' }}</td>
-  <td>{{ m.cc_emails | join(', ') or '–' }}</td>
+  <td>
+    {%- set autos = verantwortlich_emails[m.notion_id] -%}
+    {{ m.cc_emails | join(', ') if m.cc_emails else '' }}
+    {%- if autos %}<br><span class="text-muted text-sm" title="automatisch: Verantwortliche">+ {{ autos | join(', ') }}</span>{% endif -%}
+    {%- if not m.cc_emails and not autos %}–{% endif -%}
+  </td>
   <td>
     {% if m.color %}
       <span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:{{ m.color }};border:1px solid rgba(0,0,0,.2);vertical-align:middle;"></span>
