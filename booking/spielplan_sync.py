@@ -275,6 +275,12 @@ async def sync_spielplan(repo: AbstractRepository, settings: Settings) -> SyncRe
         typ = buchung.booking_type.value if buchung.booking_type else ""
         datum_str = buchung.date.isoformat()
 
+        # Nur vom Crawler selbst erzeugte Buchungen dürfen automatisch storniert
+        # werden. Manuell eingetragene Spiele (Trainer/Admin) bleiben unangetastet
+        # — die verschwinden nur durch Verdrängung, nie durch diesen Gegencheck.
+        if buchung.booked_by_id != sys_user.sub:
+            continue
+
         # Nur Plätze mit bekanntem Präfix und Spiel-Buchungen prüfen
         prefix = next((p for p in _FELD_PRAEFIXE if platz.startswith(p)), None)
         if not prefix or typ == "Training":
