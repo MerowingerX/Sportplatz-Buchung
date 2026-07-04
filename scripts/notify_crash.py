@@ -20,6 +20,21 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_FILE = os.path.join(PROJECT_DIR, ".env")
 
 
+def _mail_enabled(cfg: dict) -> bool:
+    """Laufzeit-Schalter: vereinsconfig.json (Admin-Toggle) gewinnt, sonst .env
+    MAIL_ENABLED (Default an)."""
+    import json
+    config_dir = os.environ.get("CONFIG_DIR", "config")
+    vc = os.path.join(PROJECT_DIR, config_dir, "vereinsconfig.json")
+    try:
+        data = json.loads(open(vc, encoding="utf-8").read())
+        if "mail_enabled" in data:
+            return bool(data["mail_enabled"])
+    except Exception:
+        pass
+    return cfg.get("MAIL_ENABLED", "true").strip().lower() not in ("false", "0", "no")
+
+
 def _get_journal(service_name: str, lines: int = 150) -> str:
     try:
         result = subprocess.run(
@@ -43,6 +58,9 @@ def main() -> None:
     service_name = sys.argv[1] if len(sys.argv) > 1 else "unbekannter Dienst"
 
     cfg = dotenv_values(ENV_FILE)
+    if not _mail_enabled(cfg):
+        print("Mailversand deaktiviert — Crash-Mail übersprungen")
+        return
     smtp_host     = cfg.get("SMTP_HOST", "")
     smtp_port     = int(cfg.get("SMTP_PORT", 587))
     smtp_user     = cfg.get("SMTP_USER", "")

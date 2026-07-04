@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     jwt_expire_hours: int = 8
 
     # E-Mail
+    mail_enabled: bool = True            # False = kein Mailversand (kurzfristig abschalten)
     smtp_host: str
     smtp_port: int = 587
     smtp_user: str
