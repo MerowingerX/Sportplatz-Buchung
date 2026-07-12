@@ -471,19 +471,182 @@ async def booking_detail(request: Request, booking_id: str, current_user: Curren
     if not b:
         return HTMLResponse('<div style="padding:1.5rem;">Buchung nicht gefunden.</div>')
     display = get_display_name(b.field.value)
-    can_cancel = (
+    is_owner_or_admin = (
         has_permission(current_user.role, Permission.DELETE_ALL_BOOKINGS)
         or b.booked_by_id == current_user.sub
     )
-    can_convert = (
-        has_permission(current_user.role, Permission.MANAGE_SERIES)
+    can_cancel = is_owner_or_admin and b.status == BookingStatus.BESTAETIGT
+    can_edit = (
+        is_owner_or_admin
         and not b.series_id
         and b.status == BookingStatus.BESTAETIGT
     )
+    # Nur Admin: in Serie wandeln + endgültig löschen
+    is_admin = current_user.role == UserRole.ADMINISTRATOR
+    can_convert = is_admin and not b.series_id and b.status == BookingStatus.BESTAETIGT
+    can_delete = is_admin
     return templates.TemplateResponse(
         "partials/_booking_detail.html",
         {"request": request, "b": b, "display": display,
-         "can_cancel": can_cancel, "can_convert": can_convert},
+         "can_cancel": can_cancel, "can_convert": can_convert,
+         "can_edit": can_edit, "can_delete": can_delete},
     )
+
+
+def _edit_form_ctx(request, repo, current_user, b, errors=None, toast=None):
+    return {
+        "request": request,
+        "current_user": current_user,
+        "b": b,
+        "fields": _visible_fields(current_user),
+        "field_display_names": fc.get_display_names(),
+        "start_slots": get_all_start_slots(),
+        "durations": get_duration_options(),
+        "booking_types": list(BookingType),
+        "mannschaften": _bookable_teams(repo, current_user),
+        "errors": errors or [],
+        "form_toast": toast or "",
+    }
+
+
+def _may_edit(current_user, b) -> bool:
+    return (
+        has_permission(current_user.role, Permission.DELETE_ALL_BOOKINGS)
+        or b.booked_by_id == current_user.sub
+    )
+
+
+@router.get("/{booking_id}/edit", response_class=HTMLResponse)
+async def edit_booking_form(request: Request, booking_id: str, current_user: CurrentUser):
+    repo = request.app.state.repo
+    b = repo.get_booking_by_id(booking_id)
+    if not b:
+        return HTMLResponse(_toast("Buchung nicht gefunden.", "error"), status_code=404)
+    if not _may_edit(current_user, b):
+        return HTMLResponse(_toast("Keine Berechtigung.", "error"), status_code=403)
+    if b.series_id:
+        return HTMLResponse(_toast("Serientermine bitte über die Serienverwaltung ändern.", "error"), status_code=400)
+    return templates.TemplateResponse(
+        "partials/_booking_edit_form.html",
+        _edit_form_ctx(request, repo, current_user, b),
+    )
+
+
+@router.post("/{booking_id}/edit", response_class=HTMLResponse)
+async def update_booking_endpoint(
+    request: Request,
+    booking_id: str,
+    current_user: CurrentUser,
+    field: str = Form(...),
+    booking_date: date = Form(..., alias="date"),
+    start_time: str = Form(...),
+    duration_min: int = Form(...),
+    booking_type: str = Form(...),
+    mannschaft: Optional[str] = Form(None),
+    zweck: Optional[str] = Form(None),
+):
+    from datetime import time as dtime
+    repo = request.app.state.repo
+    b = repo.get_booking_by_id(booking_id)
+    if not b:
+        return HTMLResponse(_toast("Buchung nicht gefunden.", "error"), status_code=404)
+    if not _may_edit(current_user, b):
+        return HTMLResponse(_toast("Keine Berechtigung.", "error"), status_code=403)
+    if b.series_id:
+        return HTMLResponse(_toast("Serientermine bitte über die Serienverwaltung ändern.", "error"), status_code=400)
+
+    h, m = start_time.split(":")
+    parsed_start = dtime(int(h), int(m))
+    from booking.booking import validate_booking_input
+    data = BookingCreate(
+        field=FieldName(field),
+        date=booking_date,
+        start_time=parsed_start,
+        duration_min=duration_min,
+        booking_type=BookingType(booking_type),
+        mannschaft=mannschaft or None,
+        zweck=(zweck or "").strip() or None,
+    )
+    errors = validate_booking_input(data)
+    if not errors:
+        existing = repo.get_bookings_for_date(booking_date)
+        conflicts = check_availability(
+            existing, data.field, parsed_start, duration_min,
+            exclude_booking_id=booking_id,
+        )
+        for c in conflicts:
+            errors.append(
+                f"Konflikt: {c.mannschaft or c.booked_by_name} "
+                f"{c.start_time.strftime('%H:%M')}–{c.end_time.strftime('%H:%M')} "
+                f"({get_display_name(c.field.value)})"
+            )
+    if errors:
+        b_form = b.model_copy(update={
+            "field": data.field, "date": booking_date,
+            "start_time": parsed_start, "duration_min": duration_min,
+            "booking_type": data.booking_type,
+            "mannschaft": data.mannschaft, "zweck": data.zweck,
+        })
+        return templates.TemplateResponse(
+            "partials/_booking_edit_form.html",
+            _edit_form_ctx(request, repo, current_user, b_form,
+                           errors=errors,
+                           toast=_toast("Änderung fehlgeschlagen", "error")),
+        )
+
+    old_date = b.date
+    end_time = compute_end_time(parsed_start, duration_min)
+    updated = repo.update_booking(
+        booking_id,
+        field=data.field,
+        booking_date=booking_date,
+        start_time=parsed_start,
+        end_time=end_time,
+        duration_min=duration_min,
+        booking_type=data.booking_type,
+        mannschaft=data.mannschaft,
+        zweck=data.zweck,
+    )
+    invalidate_week_cache(old_date)
+    invalidate_week_cache(booking_date)
+    log_booking(request, current_user.username, updated)
+
+    display = get_display_name(updated.field.value)
+    iso = booking_date.isocalendar()
+    start_hour = calendar_start_hour_for(updated.start_time.hour)
+    html = (
+        _toast(f"Buchung für {display} am {updated.date.strftime('%d.%m.%Y')} geändert.")
+        + f'<div id="calendar-week" hx-swap-oob="innerHTML">'
+        + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}&start_hour={start_hour}"'
+        + ' hx-trigger="load" hx-swap="innerHTML"></div></div>'
+    )
+    resp = HTMLResponse(html)
+    resp.headers["HX-Trigger"] = '{"closeModal": true, "bookingChanged": true}'
+    return resp
+
+
+@router.delete("/{booking_id}/purge", response_class=HTMLResponse)
+async def purge_booking(request: Request, booking_id: str, current_user: CurrentUser):
+    """Buchung endgültig löschen (nur Administrator)."""
+    if current_user.role != UserRole.ADMINISTRATOR:
+        return HTMLResponse(_toast("Keine Berechtigung.", "error"), status_code=403)
+    repo = request.app.state.repo
+    b = repo.get_booking_by_id(booking_id)
+    if not b:
+        return HTMLResponse(_toast("Buchung nicht gefunden.", "error"), status_code=404)
+    repo.delete_booking(booking_id)
+    invalidate_week_cache(b.date)
+    log_cancel(request, current_user.username, b)
+    iso = b.date.isocalendar()
+    start_hour = calendar_start_hour_for(b.start_time.hour)
+    html = (
+        _toast("Buchung endgültig gelöscht.")
+        + f'<div id="calendar-week" hx-swap-oob="innerHTML">'
+        + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}&start_hour={start_hour}"'
+        + ' hx-trigger="load" hx-swap="innerHTML"></div></div>'
+    )
+    resp = HTMLResponse(html)
+    resp.headers["HX-Trigger"] = '{"closeModal": true, "bookingChanged": true}'
+    return resp
 
 

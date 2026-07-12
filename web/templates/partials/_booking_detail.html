@@ -46,14 +46,22 @@
     </tr>
   </table>
 
-  {% if can_cancel or can_convert %}
-  <div style="margin-top:1.2rem;display:flex;justify-content:flex-end;gap:.5rem;">
+  {% if can_cancel or can_convert or can_edit or can_delete %}
+  <div style="margin-top:1.2rem;display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap;">
     {% if can_convert %}
     <button class="btn btn--ghost btn--small"
             hx-get="/series/new?from_booking={{ b.notion_id }}"
             hx-target="#booking-modal-content"
             hx-swap="innerHTML">
       ↗ In Serie wandeln
+    </button>
+    {% endif %}
+    {% if can_edit %}
+    <button class="btn btn--ghost btn--small"
+            hx-get="/bookings/{{ b.notion_id }}/edit"
+            hx-target="#booking-modal-content"
+            hx-swap="innerHTML">
+      ✎ Ändern
     </button>
     {% endif %}
     {% if can_cancel %}
@@ -64,6 +72,14 @@
             hx-confirm="Buchung stornieren?"
             onclick="document.getElementById('booking-modal').close()">
       Stornieren
+    </button>
+    {% endif %}
+    {% if can_delete %}
+    <button class="btn btn--danger btn--small"
+            hx-delete="/bookings/{{ b.notion_id }}/purge"
+            hx-swap="none"
+            hx-confirm="Buchung ENDGÜLTIG löschen? Sie verschwindet auch aus der Historie. Nicht rückgängig machbar!">
+      🗑 Löschen
     </button>
     {% endif %}
   </div>

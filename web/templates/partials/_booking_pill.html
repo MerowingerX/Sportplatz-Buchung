@@ -3,7 +3,15 @@
 {% set is_compact = slot_bookings is defined and slot_bookings|length > 1 %}
 {% set is_start = b.start_time.strftime('%H:%M') == slot %}
 {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
+{% set can_open_detail = current_user and (current_user.sub == b.booked_by_id or current_user.role.value in ["Administrator", "DFBnet"]) %}
 <div class="slot slot--booked slot--{{ b.booking_type.value | lower }}{% if not is_start %} slot--continuation{% endif %}{% if is_compact %} slot--compact slot--overlap{% endif %}"
+     {% if can_open_detail %}
+     style="cursor:pointer;"
+     hx-get="/bookings/{{ b.notion_id }}/detail"
+     hx-target="#booking-modal-content"
+     hx-swap="innerHTML"
+     onclick="document.getElementById('booking-modal').showModal()"
+     {% endif %}
      title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %}{% if b.kontakt %} – {{ b.kontakt }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}{% if b.sunset_note %} | {{ b.sunset_note }}{% endif %}">
   <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
   <span class="slot__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
@@ -18,6 +26,7 @@
               hx-confirm="Nur diesen Termin aus der Serie entfernen?"
               hx-target="closest .slot"
               hx-swap="outerHTML"
+              onclick="event.stopPropagation()"
               title="Einzeltermin aus Serie entfernen">
         ✕
       </button>
@@ -26,7 +35,8 @@
               hx-delete="/bookings/{{ b.notion_id }}"
               hx-confirm="Buchung wirklich stornieren?"
               hx-target="closest .slot"
-              hx-swap="outerHTML">
+              hx-swap="outerHTML"
+              onclick="event.stopPropagation()">
         ✕
       </button>
     {% endif %}

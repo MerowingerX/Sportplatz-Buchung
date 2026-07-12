@@ -519,6 +519,56 @@ class SQLiteRepository(AbstractRepository):
         conn.commit()
         return self.get_booking_by_id(booking_id)  # type: ignore[return-value]
 
+    def update_booking(
+        self,
+        booking_id: str,
+        field: FieldName,
+        booking_date: date,
+        start_time: time,
+        end_time: time,
+        duration_min: int,
+        booking_type: BookingType,
+        mannschaft: Optional[str] = None,
+        zweck: Optional[str] = None,
+    ) -> Booking:
+        conn = self._get_conn()
+        title = (
+            f"{field.value} – "
+            f"{booking_date.isoformat()} "
+            f"{start_time.strftime('%H:%M')}"
+        )
+        conn.execute(
+            """
+            UPDATE bookings SET
+                title = ?, field = ?, date = ?, start_time = ?, end_time = ?,
+                duration_min = ?, booking_type = ?, mannschaft = ?, zweck = ?
+            WHERE id = ?
+            """,
+            (
+                title, field.value, booking_date.isoformat(),
+                start_time.strftime("%H:%M"), end_time.strftime("%H:%M"),
+                duration_min, booking_type.value, mannschaft, zweck,
+                booking_id,
+            ),
+        )
+        conn.commit()
+        return self.get_booking_by_id(booking_id)  # type: ignore[return-value]
+
+    def delete_booking(self, booking_id: str) -> None:
+        conn = self._get_conn()
+        conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+        conn.commit()
+
+    def delete_series(self, series_id: str) -> int:
+        conn = self._get_conn()
+        cur = conn.execute(
+            "DELETE FROM bookings WHERE series_id = ?", (series_id,)
+        )
+        deleted = cur.rowcount
+        conn.execute("DELETE FROM series WHERE id = ?", (series_id,))
+        conn.commit()
+        return deleted
+
     def mark_series_exception(self, booking_id: str) -> Booking:
         conn = self._get_conn()
         conn.execute(

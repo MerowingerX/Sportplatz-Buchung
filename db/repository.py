@@ -11,6 +11,8 @@ from booking.models import (
     Booking,
     BookingCreate,
     BookingStatus,
+    BookingType,
+    FieldName,
     ExternalEvent,
     ExternalEventCreate,
     MannschaftConfig,
@@ -139,6 +141,32 @@ class AbstractRepository(ABC):
     def update_booking_status(
         self, booking_id: str, status: BookingStatus
     ) -> Booking: ...
+
+    # Nicht abstrakt, damit das Legacy-Notion-Backend (unverändert) weiter
+    # instanziierbar bleibt — SQLite überschreibt diese Methoden.
+    def update_booking(
+        self,
+        booking_id: str,
+        field: FieldName,
+        booking_date: date,
+        start_time: time,
+        end_time: time,
+        duration_min: int,
+        booking_type: BookingType,
+        mannschaft: Optional[str] = None,
+        zweck: Optional[str] = None,
+    ) -> Booking:
+        """Kernfelder einer Buchung ändern (Admin-/Besitzer-Edit)."""
+        raise NotImplementedError
+
+    def delete_booking(self, booking_id: str) -> None:
+        """Buchung endgültig löschen (hard delete)."""
+        raise NotImplementedError
+
+    def delete_series(self, series_id: str) -> int:
+        """Serie samt aller zugehörigen Termine endgültig löschen.
+        Gibt die Anzahl gelöschter Buchungen zurück."""
+        raise NotImplementedError
 
     @abstractmethod
     def mark_series_exception(self, booking_id: str) -> Booking: ...

@@ -440,6 +440,27 @@ async def remove_date(
     )
 
 
+@router.delete("/{series_id}/purge", response_class=HTMLResponse)
+async def purge_series(request: Request, series_id: str, current_user: CurrentUser):
+    """Serie samt aller Termine endgültig löschen (nur Administrator)."""
+    if current_user.role != UserRole.ADMINISTRATOR:
+        return HTMLResponse(_toast("Keine Berechtigung.", "error"), status_code=403)
+    repo = request.app.state.repo
+    series = repo.get_series_by_id(series_id)
+    if not series:
+        return HTMLResponse(_toast("Serie nicht gefunden.", "error"), status_code=404)
+
+    bookings = repo.get_bookings_for_series(series_id)
+    deleted = repo.delete_series(series_id)
+    for b in bookings:
+        invalidate_week_cache(b.date)
+
+    return HTMLResponse(
+        f'<tr id="series-{series_id}" hx-swap-oob="delete"></tr>'
+        + _toast(f"Serie gelöscht. {deleted} Termine endgültig entfernt.")
+    )
+
+
 @router.delete("/{series_id}", response_class=HTMLResponse, dependencies=[_series_required])
 async def cancel_series_endpoint(
     request: Request,

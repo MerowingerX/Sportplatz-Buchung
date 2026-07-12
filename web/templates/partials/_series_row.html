@@ -15,7 +15,7 @@
       {{ s.status.value }}
     </span>
   </td>
-  <td>
+  <td style="white-space:nowrap;">
     {% if s.status.value == 'Aktiv' %}
       <button class="btn btn--ghost btn--sm"
               hx-delete="/series/{{ s.notion_id }}"
@@ -23,6 +23,14 @@
               hx-swap="outerHTML"
               hx-confirm="Serie '{{ s.mannschaft }}' wirklich beenden? Alle zukünftigen Termine werden storniert.">
         Serie beenden
+      </button>
+    {% endif %}
+    {% if current_user and current_user.role.value == 'Administrator' %}
+      <button class="btn btn--danger btn--sm"
+              hx-delete="/series/{{ s.notion_id }}/purge"
+              hx-swap="none"
+              hx-confirm="Serie '{{ s.mannschaft }}' ENDGÜLTIG löschen? Alle Termine – auch vergangene – werden aus der Datenbank entfernt. Nicht rückgängig machbar!">
+        🗑 Löschen
       </button>
     {% endif %}
   </td>

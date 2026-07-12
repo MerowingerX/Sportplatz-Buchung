@@ -1,6 +1,10 @@
 {% set wochentage = ["Mo","Di","Mi","Do","Fr","Sa","So"] %}
 {% for b in bookings %}
-<tr>
+<tr style="cursor:pointer;" title="Details anzeigen"
+    hx-get="/bookings/{{ b.notion_id }}/detail"
+    hx-target="#booking-modal-content"
+    hx-swap="innerHTML"
+    onclick="document.getElementById('booking-modal').showModal()">
   <td>{{ b.date.strftime('%d.%m.%Y') }} <span class="text-muted">{{ wochentage[b.date.weekday()] }}</span></td>
   <td>{{ field_display_names.get(b.field.value, b.field.value) }}</td>
   <td>{{ b.start_time.strftime('%H:%M') }}</td>

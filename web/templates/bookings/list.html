@@ -54,9 +54,24 @@
         <th>Gebucht von</th>
       </tr>
     </thead>
-    <tbody id="booking-tbody">
+    <tbody id="booking-tbody"
+           hx-get="/bookings/list"
+           hx-include="#booking-filter"
+           hx-trigger="bookingChanged from:body"
+           hx-swap="innerHTML">
       {% include "partials/_booking_list_tbody.html" %}
     </tbody>
   </table>
 </div>
+
+<!-- Buchungs-Detailmodal (geteilt mit Kalender/Übersicht) -->
+<dialog id="booking-modal" style="border:none;border-radius:8px;padding:0;max-width:480px;width:95%;">
+  <div id="booking-modal-content" class="modal__body"></div>
+</dialog>
+
+<script>
+  document.body.addEventListener('closeModal', function() {
+    document.getElementById('booking-modal').close();
+  });
+</script>
 {% endblock %}
