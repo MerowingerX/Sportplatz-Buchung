@@ -917,8 +917,9 @@ async def admin_create_booking(
     booking_type: str = Form(...),
     zweck: str = Form(...),
     kontakt: Optional[str] = Form(None),
+    confirm_overlap: Optional[str] = Form(None),
 ):
-    from booking.booking import build_booking
+    from booking.booking import build_booking, get_same_field_overlaps, overlaps_are_shareable
     from booking.models import BookingCreate, FieldName, BookingType
 
     h, m = start_time_str.split(":")
@@ -937,6 +938,37 @@ async def admin_create_booking(
     repo = request.app.state.repo
     settings = get_settings()
     existing = repo.get_bookings_for_date(booking_date)
+    same_field_overlaps = get_same_field_overlaps(
+        existing,
+        data.field,
+        parsed_start,
+        duration_min,
+    )
+    # Bestätigungs-Token bindet die Zustimmung an genau diesen Slot.
+    overlap_token = f"{field}|{booking_date.isoformat()}|{start_time_str}|{duration_min}"
+    share_confirmed = confirm_overlap == overlap_token
+    shareable = bool(same_field_overlaps) and overlaps_are_shareable(data.field, same_field_overlaps)
+
+    if shareable and not share_confirmed:
+        overlap_list = "".join(
+            f"<li>{b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
+            + (f" · {b.mannschaft}" if b.mannschaft else "")
+            + f" ({b.booked_by_name})</li>"
+            for b in same_field_overlaps
+        )
+        return HTMLResponse(
+            '<div id="form-errors" class="overlap-confirm-box">'
+            f'<strong>⚠️ Platz bereits belegt:</strong><ul>{overlap_list}</ul>'
+            '<p>Der Platz kann <strong>geteilt</strong> genutzt werden. '
+            'Beide Buchungen gelten dann gleichberechtigt.</p>'
+            '<button class="btn btn--primary" '
+            'hx-post="/admin/booking" '
+            'hx-include="#admin-booking-form" '
+            f'hx-vals=\'{{"confirm_overlap": "{overlap_token}"}}\' '
+            'hx-target="#form-errors" hx-swap="outerHTML">'
+            'Teilen bestätigen &amp; buchen</button>'
+            '</div>'
+        )
 
     booking, errors = build_booking(
         repo=repo,
@@ -945,6 +977,7 @@ async def admin_create_booking(
         settings=settings,
         existing_bookings=existing,
         skip_time_check=True,    # Admins dürfen außerhalb 16-22 Uhr buchen
+        allow_same_field_overlap=share_confirmed,
     )
 
     if errors:
@@ -962,9 +995,18 @@ async def admin_create_booking(
         from notifications.notify import send_booking_confirmation
         await send_booking_confirmation(booking, owner, settings)
 
+    if same_field_overlaps:
+        toast_text = (
+            f"Buchung '{booking.zweck}' am {booking.date} um {booking.start_time.strftime('%H:%M')} "
+            f"als geteilte Nutzung gespeichert ({len(same_field_overlaps)} weitere Buchung(en) auf dieser Ressource)."
+        )
+        toast_kind = "warning"
+    else:
+        toast_text = f"Buchung '{booking.zweck}' am {booking.date} um {booking.start_time.strftime('%H:%M')} gespeichert!"
+        toast_kind = "success"
     return HTMLResponse(
         '<div id="form-errors"></div>'
-        + _toast(f"Buchung '{booking.zweck}' am {booking.date} um {booking.start_time.strftime('%H:%M')} gespeichert!")
+        + _toast(toast_text, toast_kind)
     )
 
 

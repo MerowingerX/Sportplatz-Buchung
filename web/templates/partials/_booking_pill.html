@@ -1,14 +1,17 @@
-{# Erwartet: found[0] = Booking-Objekt, mannschaft_shortnames = {name: shortname} #}
-{% set b = found[0] %}
+{# Erwartet: b = Booking-Objekt, slot = "HH:MM" des Kalender-Slots,
+   slot_bookings = alle Buchungen dieser Zelle, mannschaft_shortnames = {name: shortname} #}
+{% set is_compact = slot_bookings is defined and slot_bookings|length > 1 %}
+{% set is_start = b.start_time.strftime('%H:%M') == slot %}
 {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
-<div class="slot slot--booked slot--{{ b.booking_type.value | lower }}"
+<div class="slot slot--booked slot--{{ b.booking_type.value | lower }}{% if not is_start %} slot--continuation{% endif %}{% if is_compact %} slot--compact slot--overlap{% endif %}"
      title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %}{% if b.kontakt %} – {{ b.kontakt }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}{% if b.sunset_note %} | {{ b.sunset_note }}{% endif %}">
   <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
   <span class="slot__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
   {% if b.sunset_note %}
     <span class="slot__sun" title="{{ b.sunset_note }}">🌅</span>
   {% endif %}
-  {% if current_user and (current_user.sub == b.booked_by_id or current_user.role.value in ["Administrator", "DFBnet"]) %}
+  {# Storno nur am obersten Eintrag (Start-Slot) — keine Teilzeiten #}
+  {% if is_start and current_user and (current_user.sub == b.booked_by_id or current_user.role.value in ["Administrator", "DFBnet"]) %}
     {% if b.series_id and current_user.role.value in ["Administrator", "DFBnet"] %}
       <button class="slot__cancel slot__cancel--series"
               hx-patch="/series/{{ b.notion_id }}/remove-date"

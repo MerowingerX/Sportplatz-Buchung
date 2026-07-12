@@ -135,6 +135,17 @@ def get_leaf_fields(group_fields: list[str]) -> list[str]:
     ]
 
 
+def is_leaf_field(field_id: str) -> bool:
+    """
+    True, wenn das Feld die kleinste konfigurierte Einheit ist — also kein
+    anderes konfiguriertes Feld es als Präfix hat.
+    Beispiel: bei ["A", "AA", "AB"] ist "A" kein Blatt, "AA"/"AB" schon.
+    """
+    cfg = load()
+    all_fields = [f for g in cfg["field_groups"] for f in g["fields"]]
+    return not any(f != field_id and f.startswith(field_id) for f in all_fields)
+
+
 def get_visible_fields(role_value: str) -> list[FieldName]:
     """Gibt alle für diese Rolle sichtbaren FieldName-Werte zurück."""
     visible_ids: set[str] = set()

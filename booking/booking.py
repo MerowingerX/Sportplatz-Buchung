@@ -46,6 +46,7 @@ def check_availability(
     start_time,
     duration_min: int,
     exclude_booking_id: Optional[str] = None,
+    allow_same_field_overlap: bool = False,
 ) -> list[Booking]:
     """
     Gibt alle Buchungen zurück, die mit der gewünschten Buchung in Konflikt stehen.
@@ -64,9 +65,50 @@ def check_availability(
         if booking.field not in conflict_fields:
             continue
         if time_range_overlaps(start_time, end_time, booking.start_time, booking.end_time):
+            if (
+                allow_same_field_overlap
+                and booking.field == field
+                and overlaps_are_shareable(field, [booking])
+            ):
+                continue
             conflicts.append(booking)
 
     return conflicts
+
+
+def get_same_field_overlaps(
+    existing_bookings: list[Booking],
+    field: FieldName,
+    start_time,
+    duration_min: int,
+    exclude_booking_id: Optional[str] = None,
+) -> list[Booking]:
+    """Gibt überlappende Buchungen derselben Ressource zurück."""
+    end_time = compute_end_time(start_time, duration_min)
+    overlaps = []
+
+    for booking in existing_bookings:
+        if exclude_booking_id and booking.notion_id == exclude_booking_id:
+            continue
+        if booking.field != field:
+            continue
+        if time_range_overlaps(start_time, end_time, booking.start_time, booking.end_time):
+            overlaps.append(booking)
+
+    return overlaps
+
+
+def overlaps_are_shareable(field: FieldName, overlaps: list[Booking]) -> bool:
+    """True, wenn die überlappenden Buchungen per Bestätigung geteilt werden dürfen.
+
+    Regeln:
+    - Nur auf der untersten Feldebene (kein konfiguriertes Sub-Feld) — bei
+      teilbaren Plätzen soll stattdessen die vorhandene Teilung genutzt werden.
+    - DFBnet-Buchungen sind nie teilbar (unsharable, an der Rolle festgemacht).
+    """
+    if not _fc.is_leaf_field(field.value):
+        return False
+    return all(b.role != UserRole.DFBNET for b in overlaps)
 
 
 # ------------------------------------------------------------------ Buchung erstellen
@@ -116,6 +158,7 @@ def build_booking(
     series_id: Optional[str] = None,
     skip_time_check: bool = False,
     mannschaft_override: Optional[str] = None,
+    allow_same_field_overlap: bool = False,
 ) -> tuple[Booking, list[str]]:
     """
     Erstellt eine Buchung nach vollständiger Validierung.
@@ -124,6 +167,9 @@ def build_booking(
     oder (None, [Fehlermeldungen]) bei Fehler.
 
     repo: NotionRepository-Instanz
+    allow_same_field_overlap: geteilte Nutzung derselben Ressource zulassen —
+        nur setzen, wenn der Nutzer das Teilen explizit bestätigt hat.
+        Greift nur für teilbare Überlappungen (siehe overlaps_are_shareable).
     """
     errors = validate_booking_input(data, skip_time_check=skip_time_check)
     if errors:
@@ -139,7 +185,13 @@ def build_booking(
     end_time = compute_end_time(data.start_time, data.duration_min)
 
     # Konfliktcheck
-    conflicts = check_availability(existing_bookings, data.field, data.start_time, data.duration_min)
+    conflicts = check_availability(
+        existing_bookings,
+        data.field,
+        data.start_time,
+        data.duration_min,
+        allow_same_field_overlap=allow_same_field_overlap,
+    )
     if conflicts:
         names = ", ".join(
             f"{_fc.get_display_name(b.field.value)} {b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
@@ -214,6 +266,7 @@ def dfbnet_displace(
         role=UserRole.DFBNET,
         end_time=end_time,
         sunset_note=sunset_note,
+        mannschaft=data.mannschaft,
         zweck=data.zweck,
     )
     return new_booking, displaced

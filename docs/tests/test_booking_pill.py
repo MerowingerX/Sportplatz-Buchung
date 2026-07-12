@@ -61,7 +61,8 @@ def make_booking(**overrides) -> Booking:
 def render(env: Environment, booking: Booking, shortnames: dict | None = None) -> str:
     tmpl = env.get_template(PILL)
     return tmpl.render(
-        found=[booking],
+        b=booking,
+        slot=booking.start_time.strftime("%H:%M"),
         mannschaft_shortnames=shortnames or {},
         current_user=None,
     )

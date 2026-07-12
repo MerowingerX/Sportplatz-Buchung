@@ -26,6 +26,38 @@
     {% endif %}
   </div>
 
+  {% if displace_confirm %}
+  <div class="overlap-confirm-box overlap-confirm-box--danger">
+    <strong>⚠️ DFBnet-Verdrängung — folgende Buchung(en) werden storniert und benachrichtigt:</strong>
+    <ul>
+      {% for b in displace_confirm %}
+        <li>{{ field_display_names.get(b.field.value, b.field.value) }}
+            {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}
+            {% if b.mannschaft %}· {{ b.mannschaft }}{% endif %}
+            ({{ b.booked_by_name }})</li>
+      {% endfor %}
+    </ul>
+    <p>Zum Bestätigen erneut auf <strong>„Verdrängen bestätigen &amp; buchen“</strong> klicken.</p>
+    <input type="hidden" name="confirm_overlap" value="{{ overlap_token }}">
+  </div>
+  {% endif %}
+
+  {% if overlap_confirm %}
+  <div class="overlap-confirm-box">
+    <strong>⚠️ Platz bereits belegt:</strong>
+    <ul>
+      {% for b in overlap_confirm %}
+        <li>{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}
+            {% if b.mannschaft %}· {{ b.mannschaft }}{% endif %}
+            ({{ b.booked_by_name }})</li>
+      {% endfor %}
+    </ul>
+    <p>Der Platz kann <strong>geteilt</strong> genutzt werden. Beide Buchungen gelten dann gleichberechtigt.
+       Zum Bestätigen erneut auf <strong>„Teilen bestätigen &amp; buchen“</strong> klicken.</p>
+    <input type="hidden" name="confirm_overlap" value="{{ overlap_token }}">
+  </div>
+  {% endif %}
+
   <div class="form-group">
     <label for="field">Platz</label>
     <select id="field" name="field" required
@@ -78,7 +110,7 @@
             hx-target="#availability-result"
             hx-swap="innerHTML">
       {% for d in durations %}
-        <option value="{{ d }}" {{ 'selected' if d == 60 }}>
+        <option value="{{ d }}" {{ 'selected' if d == (prefill_duration or 60) }}>
           {%- set dh = d // 60 %}{% set dm = d % 60 -%}
           {%- if dh and dm %}{{ dh }} h {{ dm }} Min{% elif dh %}{{ dh }} h{% else %}{{ dm }} Min{% endif -%}
         </option>
@@ -92,7 +124,7 @@
       <label for="booking_type">Art</label>
       <select id="booking_type" name="booking_type" required>
         {% for t in booking_types %}
-          <option value="{{ t.value }}">{{ t.value }}</option>
+          <option value="{{ t.value }}" {{ 'selected' if prefill_booking_type == t.value }}>{{ t.value }}</option>
         {% endfor %}
       </select>
     </div>
@@ -104,7 +136,7 @@
     <select id="mannschaft" name="mannschaft">
       <option value="">– keine –</option>
       {% for m in mannschaften %}
-        <option value="{{ m.name }}" {{ 'selected' if user_mannschaft == m.name }}>{{ m.name }}</option>
+        <option value="{{ m.name }}" {{ 'selected' if (prefill_mannschaft or user_mannschaft) == m.name }}>{{ m.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -147,7 +179,7 @@
       Abbrechen
     </button>
     <button type="submit" class="btn btn--primary" id="submit-btn">
-      <span class="btn__label">Buchen</span>
+      <span class="btn__label">{% if overlap_confirm %}Teilen bestätigen &amp; buchen{% elif displace_confirm %}Verdrängen bestätigen &amp; buchen{% else %}Buchen{% endif %}</span>
       <span class="btn__loading htmx-indicator">Wird gebucht…</span>
     </button>
   </div>

@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, Query, Request, Form
 from fastapi.responses import HTMLResponse
 
 from auth.dependencies import CurrentUser, require_permission
-from booking.booking import build_booking, check_availability, dfbnet_displace, user_teams
+from booking.booking import (
+    build_booking,
+    check_availability,
+    dfbnet_displace,
+    get_same_field_overlaps,
+    overlaps_are_shareable,
+    user_teams,
+)
 from booking.models import BookingCreate, BookingStatus, FieldName, BookingType, Permission, UserRole, has_permission
 import booking.field_config as fc
 from utils.time_slots import (
@@ -111,6 +118,7 @@ async def create_booking(
     duration_min: int = Form(...),
     booking_type: str = Form(...),
     mannschaft: Optional[str] = Form(None),
+    confirm_overlap: Optional[str] = Form(None),
 ):
     from datetime import time as dtime
     repo = request.app.state.repo
@@ -129,6 +137,86 @@ async def create_booking(
     )
 
     existing = repo.get_bookings_for_date(booking_date)
+    same_field_overlaps = get_same_field_overlaps(
+        existing,
+        data.field,
+        parsed_start,
+        duration_min,
+    )
+    # Bestätigungs-Token bindet die Zustimmung an genau diesen Slot — ändert
+    # der User danach Platz/Zeit, ist eine neue Bestätigung nötig.
+    overlap_token = f"{field}|{booking_date.isoformat()}|{start_time}|{duration_min}"
+    share_confirmed = confirm_overlap == overlap_token
+
+    def _confirm_form(**extra):
+        return templates.TemplateResponse(
+            "partials/_booking_form.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "fields": _visible_fields(current_user),
+                "field_display_names": fc.get_display_names(),
+                "start_slots": get_all_start_slots(),
+                "durations": get_duration_options(),
+                "booking_types": list(BookingType),
+                "prefill_date": booking_date,
+                "prefill_field": field,
+                "prefill_start_time": start_time,
+                "prefill_duration": duration_min,
+                "prefill_booking_type": booking_type,
+                "prefill_mannschaft": mannschaft or None,
+                "overlap_token": overlap_token,
+                "mannschaften": _bookable_teams(repo, current_user),
+                "user_mannschaft": current_user.mannschaft,
+                **extra,
+            },
+        )
+
+    # DFBnet-Rolle: verdrängt statt zu teilen — mit expliziter Bestätigung.
+    if current_user.role == UserRole.DFBNET:
+        conflicts = check_availability(existing, data.field, parsed_start, duration_min)
+        if conflicts:
+            if not share_confirmed:
+                return _confirm_form(displace_confirm=conflicts)
+
+            new_booking, displaced = dfbnet_displace(
+                repo=repo,
+                data=data,
+                current_user=current_user,
+                settings=settings,
+                existing_bookings=existing,
+            )
+            invalidate_week_cache(booking_date)
+            log_booking(request, current_user.username, new_booking)
+
+            from notifications.notify import send_dfbnet_displacement_notice
+            for b in displaced:
+                owner = repo.get_user_by_id(b.booked_by_id)
+                if owner:
+                    await send_dfbnet_displacement_notice(b, owner, new_booking, settings)
+
+            display = get_display_name(new_booking.field.value)
+            iso = booking_date.isocalendar()
+            start_hour = calendar_start_hour_for(new_booking.start_time.hour)
+            html = (
+                _toast(
+                    f"DFBnet-Buchung für {display} am {new_booking.date.strftime('%d.%m.%Y')} gespeichert. "
+                    f"{len(displaced)} Buchung(en) verdrängt und benachrichtigt.",
+                    "warning",
+                )
+                + f'<div id="calendar-week" hx-swap-oob="innerHTML">'
+                + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}&start_hour={start_hour}"'
+                + ' hx-trigger="load" hx-swap="innerHTML"></div></div>'
+            )
+            resp = HTMLResponse(html)
+            resp.headers["HX-Trigger"] = "closeModal"
+            return resp
+        # kein Konflikt → normale Buchung (Rolle DFBnet wird gespeichert)
+
+    else:
+        shareable = bool(same_field_overlaps) and overlaps_are_shareable(data.field, same_field_overlaps)
+        if shareable and not share_confirmed:
+            return _confirm_form(overlap_confirm=same_field_overlaps)
 
     booking, errors = build_booking(
         repo=repo,
@@ -136,6 +224,7 @@ async def create_booking(
         current_user=current_user,
         settings=settings,
         existing_bookings=existing,
+        allow_same_field_overlap=share_confirmed,
     )
 
     if errors:
@@ -154,6 +243,9 @@ async def create_booking(
                 "prefill_date": booking_date,
                 "prefill_field": field,
                 "prefill_start_time": start_time,
+                "prefill_duration": duration_min,
+                "prefill_booking_type": booking_type,
+                "prefill_mannschaft": mannschaft or None,
                 "errors": errors,
                 "form_toast": _toast("Buchung fehlgeschlagen", "error"),
                 "mannschaften": mannschaften,
@@ -175,8 +267,17 @@ async def create_booking(
     # Zeitfenster so wählen, dass die neue Buchung sichtbar ist (6h-Fenster ab
     # start_hour). ~2h Vorlauf, geclamped auf den vom Router erlaubten Bereich.
     start_hour = calendar_start_hour_for(booking.start_time.hour)
+    if same_field_overlaps:
+        toast_text = (
+            f"Buchung für {display} am {booking.date.strftime('%d.%m.%Y')} als geteilte Nutzung gespeichert "
+            f"({len(same_field_overlaps)} weitere Buchung(en) auf dieser Ressource)."
+        )
+        toast_kind = "warning"
+    else:
+        toast_text = f"Buchung für {display} am {booking.date.strftime('%d.%m.%Y')} gespeichert!"
+        toast_kind = "success"
     html = (
-        _toast(f"Buchung für {display} am {booking.date.strftime('%d.%m.%Y')} gespeichert!")
+        _toast(toast_text, toast_kind)
         + f'<div id="calendar-week" hx-swap-oob="innerHTML">'
         + f'<div hx-get="/calendar/week?year={iso[0]}&week={iso[1]}&start_hour={start_hour}"'
         + ' hx-trigger="load" hx-swap="innerHTML"></div></div>'
@@ -252,8 +353,23 @@ async def check_availability_endpoint(
         return HTMLResponse('<span class="badge badge--neutral">–</span>')
 
     existing = repo.get_bookings_for_date(booking_date)
-    conflicts = check_availability(existing, field_enum, parsed_start, duration_min)
 
+    # DFBnet-Rolle verdrängt statt zu teilen — eigener Hinweis.
+    if current_user.role == UserRole.DFBNET:
+        dfb_conflicts = check_availability(existing, field_enum, parsed_start, duration_min)
+        if dfb_conflicts:
+            return HTMLResponse(
+                f'<span class="badge badge--warning">Belegt – {len(dfb_conflicts)} Buchung(en) '
+                'werden bei Buchung verdrängt (Bestätigung erforderlich).</span>'
+            )
+        return HTMLResponse('<span class="badge badge--success">Verfügbar</span>')
+
+    # Teilbare Same-Field-Überlappungen sind kein harter Konflikt — sie landen
+    # unten im Warning-Badge. Unteilbare (DFBnet, kein Blatt-Feld) bleiben Konflikt.
+    conflicts = check_availability(
+        existing, field_enum, parsed_start, duration_min,
+        allow_same_field_overlap=True,
+    )
     if conflicts:
         names = ", ".join(
             f"{get_display_name(b.field.value)} {b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
@@ -261,6 +377,15 @@ async def check_availability_endpoint(
         )
         return HTMLResponse(
             f'<span class="badge badge--error">Belegt: {names}</span>'
+        )
+    same_field_overlaps = get_same_field_overlaps(existing, field_enum, parsed_start, duration_min)
+    if same_field_overlaps:
+        names = ", ".join(
+            f"{b.start_time.strftime('%H:%M')}–{b.end_time.strftime('%H:%M')}"
+            for b in same_field_overlaps
+        )
+        return HTMLResponse(
+            f'<span class="badge badge--warning">Belegt ({names}) – Teilen möglich, Bestätigung beim Buchen erforderlich.</span>'
         )
     return HTMLResponse('<span class="badge badge--success">Verfügbar</span>')
 

@@ -70,20 +70,14 @@
           <td class="cal-table__time">{{ slot }}</td>
           {% for group_name, group_fields in field_groups %}
             {% for field_name in group_fields %}
-              {% set found_start = [] %}
-              {% set found_cont = [] %}
+              {% set slot_bookings = [] %}
               {% for b in bookings if b.field.value == field_name
                     and b.start_time <= slot_time and b.end_time > slot_time %}
-                {% if b.start_time.strftime('%H:%M') == slot %}
-                  {% set _ = found_start.append(b) %}
-                {% else %}
-                  {% set _ = found_cont.append(b) %}
-                {% endif %}
+                {% set _ = slot_bookings.append(b) %}
               {% endfor %}
-              {% set found = found_start + found_cont %}
               {# Konfliktprüfung #}
               {% set conflicted = [] %}
-              {% if not found %}
+              {% if not slot_bookings %}
                 {% for cf in conflict_sources.get(field_name, []) %}
                   {% for b in bookings if b.field.value == cf
                         and b.start_time <= slot_time and b.end_time > slot_time %}
@@ -92,14 +86,11 @@
                 {% endfor %}
               {% endif %}
               <td class="cal-table__cell {% if day_iso == today %}cal-table__cell--today{% endif %}">
-                {% if found_start %}
-                  {% include "partials/_booking_pill.html" with context %}
-                {% elif found_cont %}
-                  {% set b = found_cont[0] %}
-                  {% set m_display = mannschaft_shortnames.get(b.mannschaft, b.mannschaft) if b.mannschaft else None %}
-                  <div class="slot slot--booked slot--continuation slot--{{ b.booking_type.value | lower }}"
-                       title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}">
-                    <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
+                {% if slot_bookings %}
+                  <div class="slot-stack">
+                    {% for b in slot_bookings %}
+                      {% include "partials/_booking_pill.html" with context %}
+                    {% endfor %}
                   </div>
                 {% elif conflicted %}
                   <div class="slot slot--unavailable" title="Belegt durch {{ conflicted | join(', ') }}"></div>
