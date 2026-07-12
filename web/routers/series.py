@@ -72,7 +72,9 @@ async def series_list(
 
 def _series_form_ctx(request, repo, current_user, errors=None, toast=None,
                      prefill_field="", prefill_start_time="",
-                     prefill_start_date="", prefill_end_date=""):
+                     prefill_start_date="", prefill_end_date="",
+                     prefill_duration=None, prefill_mannschaft="",
+                     prefill_trainer_id="", trainer_options=None):
     return {
         "request": request,
         "current_user": current_user,
@@ -90,6 +92,10 @@ def _series_form_ctx(request, repo, current_user, errors=None, toast=None,
         "prefill_start_time": prefill_start_time,
         "prefill_start_date": prefill_start_date,
         "prefill_end_date": prefill_end_date,
+        "prefill_duration": prefill_duration,
+        "prefill_mannschaft": prefill_mannschaft,
+        "prefill_trainer_id": prefill_trainer_id,
+        "trainer_options": trainer_options or [],
     }
 
 
@@ -110,9 +116,35 @@ async def series_form(
     field: str = "",
     start_time: str = "",
     date: str = "",
+    from_booking: str = "",
 ):
     from datetime import date as _date
     repo = request.app.state.repo
+
+    prefill_duration = None
+    prefill_mannschaft = ""
+    prefill_trainer_id = ""
+    trainer_options = []
+
+    if from_booking:
+        # Bestehende Buchung als Vorlage: alle Serienfelder daraus übernehmen.
+        # Die Originalbuchung bleibt bestehen; die Serie überspringt diesen
+        # Termin später als Konflikt.
+        b = repo.get_booking_by_id(from_booking)
+        if b:
+            field = b.field.value
+            start_time = b.start_time.strftime("%H:%M")
+            date = b.date.isoformat()
+            prefill_duration = b.duration_min
+            if b.mannschaft:
+                prefill_mannschaft = b.mannschaft
+                trainer_options = repo.get_trainers_for_mannschaft(b.mannschaft)
+                if not trainer_options:
+                    trainer_options = [u for u in repo.get_all_users()
+                                       if u.role == UserRole.ADMINISTRATOR]
+                if any(t.notion_id == b.booked_by_id for t in trainer_options):
+                    prefill_trainer_id = b.booked_by_id
+
     try:
         ref = _date.fromisoformat(date) if date else _date.today()
     except ValueError:
@@ -126,6 +158,10 @@ async def series_form(
             prefill_start_time=start_time,
             prefill_start_date=date,
             prefill_end_date=end_date.isoformat(),
+            prefill_duration=prefill_duration,
+            prefill_mannschaft=prefill_mannschaft,
+            prefill_trainer_id=prefill_trainer_id,
+            trainer_options=trainer_options,
         ),
     )
 

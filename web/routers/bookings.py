@@ -475,9 +475,15 @@ async def booking_detail(request: Request, booking_id: str, current_user: Curren
         has_permission(current_user.role, Permission.DELETE_ALL_BOOKINGS)
         or b.booked_by_id == current_user.sub
     )
+    can_convert = (
+        has_permission(current_user.role, Permission.MANAGE_SERIES)
+        and not b.series_id
+        and b.status == BookingStatus.BESTAETIGT
+    )
     return templates.TemplateResponse(
         "partials/_booking_detail.html",
-        {"request": request, "b": b, "display": display, "can_cancel": can_cancel},
+        {"request": request, "b": b, "display": display,
+         "can_cancel": can_cancel, "can_convert": can_convert},
     )
 
 

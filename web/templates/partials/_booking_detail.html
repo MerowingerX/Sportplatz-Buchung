@@ -46,8 +46,17 @@
     </tr>
   </table>
 
-  {% if can_cancel %}
-  <div style="margin-top:1.2rem;text-align:right;">
+  {% if can_cancel or can_convert %}
+  <div style="margin-top:1.2rem;display:flex;justify-content:flex-end;gap:.5rem;">
+    {% if can_convert %}
+    <button class="btn btn--ghost btn--small"
+            hx-get="/series/new?from_booking={{ b.notion_id }}"
+            hx-target="#booking-modal-content"
+            hx-swap="innerHTML">
+      ↗ In Serie wandeln
+    </button>
+    {% endif %}
+    {% if can_cancel %}
     <button class="btn btn--danger btn--small"
             hx-delete="/bookings/{{ b.notion_id }}"
             hx-target="closest dialog"
@@ -56,6 +65,7 @@
             onclick="document.getElementById('booking-modal').close()">
       Stornieren
     </button>
+    {% endif %}
   </div>
   {% endif %}
 </div>

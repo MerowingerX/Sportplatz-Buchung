@@ -33,7 +33,7 @@ function prefillSaisonDates(saison) {
             hx-include="this">
       <option value="">– Mannschaft wählen –</option>
       {% for m in mannschaften %}
-        <option value="{{ m.name }}">{{ m.name }}</option>
+        <option value="{{ m.name }}" {{ 'selected' if prefill_mannschaft == m.name }}>{{ m.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -41,7 +41,14 @@ function prefillSaisonDates(saison) {
   <div class="form-group">
     <label for="trainer_id">Verantwortlicher</label>
     <select id="trainer_id" name="trainer_id" required>
-      <option value="">– Zuerst Mannschaft wählen –</option>
+      {% if trainer_options %}
+        <option value="">– Verantwortlichen wählen –</option>
+        {% for t in trainer_options %}
+          <option value="{{ t.notion_id }}" {{ 'selected' if prefill_trainer_id == t.notion_id }}>{{ t.name }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">– Zuerst Mannschaft wählen –</option>
+      {% endif %}
     </select>
   </div>
 
@@ -70,7 +77,7 @@ function prefillSaisonDates(saison) {
     <label for="duration_min">Dauer</label>
     <select id="duration_min" name="duration_min" required>
       {% for d in durations %}
-        <option value="{{ d }}">{{ d }} Min</option>
+        <option value="{{ d }}" {{ 'selected' if prefill_duration == d }}>{{ d }} Min</option>
       {% endfor %}
     </select>
   </div>

@@ -18,8 +18,14 @@
 
 <!-- Buchungs-Detailmodal (geteilt mit Kalender) -->
 <dialog id="booking-modal" style="border:none;border-radius:8px;padding:0;max-width:480px;width:95%;">
-  <div id="booking-modal-content"></div>
+  <div id="booking-modal-content" class="modal__body"></div>
 </dialog>
+
+<script>
+  document.body.addEventListener('closeModal', function() {
+    document.getElementById('booking-modal').close();
+  });
+</script>
 
 <script>
   // Ansicht wählen: Raster (Pill-Grid) oder Zeitstrahl (Gantt). Auswahl wird
