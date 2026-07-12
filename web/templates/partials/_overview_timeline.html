@@ -51,8 +51,9 @@
             {% set top_pct = ((start_min - window_start_min) / window_total_min * 100) %}
             {% set height_pct = ((end_min - start_min) / window_total_min * 100) %}
             {% set bg = mannschaft_colors.get(b.mannschaft, '#555555') if b.mannschaft else '#555555' %}
-            <button class="tl-block tl-block--parent"
-                    style="top:{{ top_pct }}%;height:{{ height_pct }}%;background:{{ bg }};"
+            {% set ov = overlap_layout.get(b.notion_id) %}
+            <button class="tl-block tl-block--parent{% if ov %} tl-block--shared{% endif %}"
+                    style="top:{{ top_pct }}%;height:{{ height_pct }}%;background:{{ bg }};{% if ov %}left:calc({{ ov[0] * 100 / ov[1] }}% + 2px);right:auto;width:calc({{ 100 / ov[1] }}% - 4px);{% endif %}"
                     title="{{ display_names.get(b.field.value, b.field.value) }} | {{ b.mannschaft or b.zweck or 'Extern' }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}"
                     hx-get="/bookings/{{ b.notion_id }}/detail"
                     hx-target="#booking-modal-content"
@@ -74,8 +75,9 @@
                   {% set top_pct = ((start_min - window_start_min) / window_total_min * 100) %}
                   {% set height_pct = ((end_min - start_min) / window_total_min * 100) %}
                   {% set bg = mannschaft_colors.get(b.mannschaft, '#555555') if b.mannschaft else '#555555' %}
-                  <button class="tl-block"
-                          style="top:{{ top_pct }}%;height:{{ height_pct }}%;background:{{ bg }};"
+                  {% set ov = overlap_layout.get(b.notion_id) %}
+                  <button class="tl-block{% if ov %} tl-block--shared{% endif %}"
+                          style="top:{{ top_pct }}%;height:{{ height_pct }}%;background:{{ bg }};{% if ov %}left:calc({{ ov[0] * 100 / ov[1] }}% + 2px);right:auto;width:calc({{ 100 / ov[1] }}% - 4px);{% endif %}"
                           title="{{ display_names.get(field_id, field_id) }} | {{ b.mannschaft or b.zweck or 'Extern' }} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}"
                           hx-get="/bookings/{{ b.notion_id }}/detail"
                           hx-target="#booking-modal-content"

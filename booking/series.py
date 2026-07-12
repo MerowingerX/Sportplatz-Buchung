@@ -13,8 +13,52 @@ from booking.models import (
     SeriesStatus,
     TokenPayload,
 )
-from booking.booking import build_booking
+from booking.booking import build_booking, check_availability, overlaps_are_shareable
 from web.config import Settings
+
+
+def analyze_series_conflicts(
+    repo,
+    data: SeriesCreate,
+) -> dict:
+    """Dry-Run vor dem Anlegen: prüft jeden Serientermin auf Konflikte.
+
+    Rückgabe:
+    - single: [{date, conflicts}] — teilbare Konflikte mit Einzelbuchungen
+    - series: {series_id: {series_id, title, dates: [date], conflicts}} —
+      teilbare Konflikte mit Terminen anderer Serien
+    - blocked: [{date, conflicts}] — nicht teilbare Konflikte (anderes
+      (Teil-)Feld oder DFBnet) → werden immer übersprungen
+    """
+    single: list[dict] = []
+    series_map: dict[str, dict] = {}
+    blocked: list[dict] = []
+
+    for d in generate_series_dates(data.start_date, data.end_date, data.rhythm):
+        existing = repo.get_bookings_for_date(d)
+        conflicts = check_availability(
+            existing, data.field, data.start_time, data.duration_min
+        )
+        if not conflicts:
+            continue
+        same_field = all(c.field == data.field for c in conflicts)
+        if not (same_field and overlaps_are_shareable(data.field, conflicts)):
+            blocked.append({"date": d, "conflicts": conflicts})
+            continue
+        series_conflict = next((c for c in conflicts if c.series_id), None)
+        if series_conflict:
+            entry = series_map.setdefault(series_conflict.series_id, {
+                "series_id": series_conflict.series_id,
+                "label": series_conflict.mannschaft or series_conflict.booked_by_name,
+                "dates": [],
+                "conflicts": [],
+            })
+            entry["dates"].append(d)
+            entry["conflicts"].extend(conflicts)
+        else:
+            single.append({"date": d, "conflicts": conflicts})
+
+    return {"single": single, "series": series_map, "blocked": blocked}
 
 
 def generate_series_dates(
@@ -38,15 +82,24 @@ def create_series_with_bookings(
     current_user: TokenPayload,
     settings: Settings,
     trainer_name: str,
+    share_dates: Optional[set[date]] = None,
+    share_series_ids: Optional[set[str]] = None,
 ) -> tuple[Series, list[Booking], list[date]]:
     """
     Legt eine Serie an und erzeugt alle Einzeltermine.
+
+    share_dates: Tage, an denen geteilte Nutzung mit Einzelbuchungen
+        explizit bestätigt wurde.
+    share_series_ids: Serien, mit denen geteilte Nutzung an allen
+        Konflikt-Tagen bestätigt wurde ("immer teilen").
 
     Gibt zurück:
     - series: die angelegte Serie
     - created: erfolgreich angelegte Buchungen
     - skipped_dates: Termine die übersprungen wurden (Konflikt)
     """
+    share_dates = share_dates or set()
+    share_series_ids = share_series_ids or set()
     series = repo.create_series(
         data=data,
         booked_by_id=current_user.sub,
@@ -73,6 +126,13 @@ def create_series_with_bookings(
         )
         existing = repo.get_bookings_for_date(d)
 
+        allow_share = d in share_dates
+        if not allow_share and share_series_ids:
+            conflicts = check_availability(
+                existing, data.field, data.start_time, data.duration_min
+            )
+            allow_share = any(c.series_id in share_series_ids for c in conflicts)
+
         booking, errors = build_booking(
             repo=repo,
             data=booking_data,
@@ -81,6 +141,7 @@ def create_series_with_bookings(
             existing_bookings=existing,
             series_id=series.notion_id,
             mannschaft_override=data.mannschaft,
+            allow_same_field_overlap=allow_share,
         )
         if errors:
             skipped.append(d)

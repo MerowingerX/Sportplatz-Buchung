@@ -260,6 +260,49 @@ async def overview_week(
     )
 
 
+def _assign_overlap_columns(bookings) -> dict[str, tuple[int, int]]:
+    """Spaltenlayout für überlappende Buchungen derselben Ressource am selben
+    Tag (geteilte Nutzung / Doppelbelegung). Rückgabe: booking_id → (col, ncols);
+    Buchungen ohne Überlappung fehlen im Dict (Template-Default: volle Breite).
+    """
+    from collections import defaultdict
+
+    layout: dict[str, tuple[int, int]] = {}
+    groups: dict[tuple, list] = defaultdict(list)
+    for b in bookings:
+        groups[(b.field.value, b.date)].append(b)
+
+    for items in groups.values():
+        if len(items) < 2:
+            continue
+        items.sort(key=lambda x: (x.start_time, x.end_time))
+
+        cluster: list[tuple] = []   # (booking, col) des aktuellen Überlappungs-Clusters
+        col_ends: list = []         # Endzeit pro Spalte
+        cluster_end = None
+
+        def flush():
+            if len(col_ends) > 1:
+                for cb, col in cluster:
+                    layout[cb.notion_id] = (col, len(col_ends))
+
+        for b in items:
+            if cluster and b.start_time >= cluster_end:
+                flush()
+                cluster, col_ends, cluster_end = [], [], None
+            col = next((i for i, e in enumerate(col_ends) if e <= b.start_time), None)
+            if col is None:
+                col = len(col_ends)
+                col_ends.append(b.end_time)
+            else:
+                col_ends[col] = max(col_ends[col], b.end_time)
+            cluster.append((b, col))
+            cluster_end = b.end_time if cluster_end is None else max(cluster_end, b.end_time)
+        flush()
+
+    return layout
+
+
 @router.get("/overview/timeline", response_class=HTMLResponse)
 async def overview_timeline(
     request: Request,
@@ -304,6 +347,7 @@ async def overview_timeline(
             "window_start_min": window_start_min,
             "window_total_min": window_total_min,
             "hour_labels": hour_labels,
+            "overlap_layout": _assign_overlap_columns(bookings),
             **ctx,
         },
     )

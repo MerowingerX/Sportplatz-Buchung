@@ -12,6 +12,7 @@ import booking.field_config as fc
 
 _series_required = Depends(require_permission(Permission.MANAGE_SERIES))
 from booking.series import (
+    analyze_series_conflicts,
     cancel_series,
     create_series_with_bookings,
     remove_date_from_series,
@@ -204,6 +205,9 @@ async def create_series(
     mannschaft: str = Form(...),
     trainer_id: str = Form(...),
     saison: str = Form("Ganzjährig"),
+    confirm_series: str = Form(""),
+    share_date: List[str] = Form(default=[]),
+    share_series: List[str] = Form(default=[]),
 ):
     from datetime import time as dtime
     repo = request.app.state.repo
@@ -259,15 +263,57 @@ async def create_series(
         saison=saison_enum,
     )
 
+    # Zwei-Phasen-Flow für teilbare Konflikte: erst Dry-Run, bei teilbaren
+    # Überschneidungen Rückfrage (pro Tag bei Einzelbuchungen, pauschal pro
+    # Serie). Token bindet die Bestätigung an genau diese Serienparameter.
+    confirm_token = (
+        f"{field}|{start_time}|{duration_min}|{rhythm}"
+        f"|{start_date.isoformat()}|{end_date.isoformat()}"
+    )
+    analysis = analyze_series_conflicts(repo, data)
+    if (analysis["single"] or analysis["series"]) and confirm_series != confirm_token:
+        return templates.TemplateResponse(
+            "partials/_series_share_confirm.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "analysis": analysis,
+                "confirm_token": confirm_token,
+                "form_values": {
+                    "field": field,
+                    "start_time": start_time,
+                    "duration_min": duration_min,
+                    "rhythm": rhythm,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "mannschaft": mannschaft,
+                    "trainer_id": trainer_id,
+                    "saison": saison,
+                },
+                "form_toast": "",
+            },
+        )
+
+    share_dates = set()
+    for ds in share_date:
+        try:
+            share_dates.add(date.fromisoformat(ds))
+        except ValueError:
+            pass
+
     series, created, skipped = create_series_with_bookings(
         repo=repo,
         data=data,
         current_user=current_user,
         settings=settings,
         trainer_name=trainer.name,
+        share_dates=share_dates,
+        share_series_ids=set(share_series),
     )
 
     if not created:
+        # Leere Serie nicht in der DB zurücklassen
+        repo.delete_series(series.notion_id)
         return templates.TemplateResponse(
             "partials/_series_form.html",
             _series_form_ctx(request, repo, current_user,
