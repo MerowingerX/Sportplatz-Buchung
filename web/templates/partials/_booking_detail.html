@@ -16,7 +16,7 @@
     </tr>
     <tr>
       <td style="padding:4px 8px 4px 0;color:#666;white-space:nowrap;">Typ</td>
-      <td style="padding:4px 0;">{{ b.booking_type.value }}</td>
+      <td style="padding:4px 0;">{{ b.booking_type.value }}{% if b.series_id %} <span class="series-mark" title="Serientermin">↻ Serie</span>{% endif %}</td>
     </tr>
     {% if b.mannschaft %}
     <tr>

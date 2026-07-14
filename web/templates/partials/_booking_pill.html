@@ -13,7 +13,7 @@
      onclick="document.getElementById('booking-modal').showModal()"
      {% endif %}
      title="{% if b.mannschaft %}{{ b.mannschaft }} · {% endif %}{{ b.booked_by_name }}{% if b.zweck %} – {{ b.zweck }}{% endif %}{% if b.kontakt %} – {{ b.kontakt }}{% endif %} | {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}{% if b.sunset_note %} | {{ b.sunset_note }}{% endif %}">
-  <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}</span>
+  <span class="slot__name">{{ m_display or b.zweck or b.booked_by_name }}{% if b.series_id %} <span class="series-mark" title="Serientermin">↻</span>{% endif %}</span>
   <span class="slot__time">{{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}</span>
   {% if b.sunset_note %}
     <span class="slot__sun" title="{{ b.sunset_note }}">🌅</span>

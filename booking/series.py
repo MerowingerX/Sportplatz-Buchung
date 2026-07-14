@@ -25,7 +25,7 @@ def analyze_series_conflicts(
 
     Rückgabe:
     - single: [{date, conflicts}] — teilbare Konflikte mit Einzelbuchungen
-    - series: {series_id: {series_id, title, dates: [date], conflicts}} —
+    - series: {series_id: {series_id, label, dates: [date], conflicts}} —
       teilbare Konflikte mit Terminen anderer Serien
     - blocked: [{date, conflicts}] — nicht teilbare Konflikte (anderes
       (Teil-)Feld oder DFBnet) → werden immer übersprungen
