@@ -1471,6 +1471,17 @@ body::before {
   text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
 }
 .tl-block:hover { filter: brightness(1.12); }
+.tl-block--shared {
+  outline: 1px dashed rgba(255, 255, 255, .85);
+  outline-offset: -2px;
+}
+
+/* Serientermin-Kennzeichnung (↻) in Pills, Blöcken und Listen */
+.series-mark {
+  font-size: .85em;
+  opacity: .85;
+  font-weight: 400;
+}
 .tl-block--parent {
   z-index: 3;
   background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) 6px, rgba(255, 255, 255, .18) 6px, rgba(255, 255, 255, .18) 10px);

@@ -104,7 +104,7 @@
                               hx-target="#booking-modal-content"
                               hx-swap="innerHTML"
                               onclick="document.getElementById('booking-modal').showModal()">
-                        {{ field_id }}
+                        {{ field_id }}{% if b.series_id %}<span class="series-mark" title="Serientermin">↻</span>{% endif %}
                       </button>
                     {% else %}
                       <span class="ov-pill ov-pill--free" title="{{ display_names.get(field_id, field_id) }} frei">{{ field_id }}</span>
@@ -191,7 +191,7 @@
                               hx-target="#booking-modal-content"
                               hx-swap="innerHTML"
                               onclick="document.getElementById('booking-modal').showModal()">
-                        {{ field_id }}
+                        {{ field_id }}{% if b.series_id %}<span class="series-mark" title="Serientermin">↻</span>{% endif %}
                       </button>
                     {% else %}
                       <span class="ov-pill ov-pill--free" title="{{ display_names.get(field_id, field_id) }} frei">{{ field_id }}</span>

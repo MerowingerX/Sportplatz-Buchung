@@ -9,7 +9,7 @@
   <td>{{ field_display_names.get(b.field.value, b.field.value) }}</td>
   <td>{{ b.start_time.strftime('%H:%M') }}</td>
   <td>{{ b.duration_min }} Min</td>
-  <td>{{ b.booking_type.value }}</td>
+  <td>{{ b.booking_type.value }}{% if b.series_id %} <span class="series-mark" title="Serientermin">↻</span>{% endif %}</td>
   <td>{{ b.mannschaft or '—' }}</td>
   <td>{{ b.booked_by_name }}</td>
 </tr>

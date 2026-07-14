@@ -1,0 +1,66 @@
+{# Erwartet: analysis = {single, series, blocked}, form_values = dict aller
+   POST-Felder, confirm_token #}
+{% if form_toast %}{{ form_toast | safe }}{% endif %}
+<div style="padding-bottom:.5rem;">
+  <h3 style="margin:0 0 .5rem;">Konflikte gefunden</h3>
+  <p style="margin:0 0 1rem;font-size:.9rem;color:#666;">
+    Einige Serientermine überschneiden sich mit bestehenden Buchungen auf derselben Ressource.
+    Wähle aus, wo geteilte Nutzung erlaubt sein soll — nicht angehakte Termine werden übersprungen.
+  </p>
+</div>
+
+<form hx-post="/series"
+      hx-target="closest .modal__body"
+      hx-swap="innerHTML">
+  {% for k, v in form_values.items() %}
+    <input type="hidden" name="{{ k }}" value="{{ v }}">
+  {% endfor %}
+  <input type="hidden" name="confirm_series" value="{{ confirm_token }}">
+
+  {% if analysis.single %}
+  <fieldset class="form-group" style="border:1px solid var(--color-border,#ddd);border-radius:6px;padding:.75rem;">
+    <legend style="font-weight:700;font-size:.9rem;">Konflikte mit Einzelbuchungen</legend>
+    {% for e in analysis.single %}
+      <label style="display:block;margin:.35rem 0;font-size:.9rem;">
+        <input type="checkbox" name="share_date" value="{{ e.date.isoformat() }}">
+        {{ e.date.strftime('%d.%m.%Y') }} —
+        {% for c in e.conflicts %}
+          {{ c.mannschaft or c.booked_by_name }} ({{ c.start_time.strftime('%H:%M') }}–{{ c.end_time.strftime('%H:%M') }}){% if not loop.last %}, {% endif %}
+        {% endfor %}
+        → an diesem Tag teilen
+      </label>
+    {% endfor %}
+  </fieldset>
+  {% endif %}
+
+  {% if analysis.series %}
+  <fieldset class="form-group" style="border:1px solid var(--color-border,#ddd);border-radius:6px;padding:.75rem;">
+    <legend style="font-weight:700;font-size:.9rem;">Konflikte mit Serien</legend>
+    {% for sid, e in analysis.series.items() %}
+      <label style="display:block;margin:.35rem 0;font-size:.9rem;">
+        <input type="checkbox" name="share_series" value="{{ sid }}">
+        Serie „{{ e.label }}" — {{ e.dates | length }} Termin(e):
+        {% for d in e.dates %}{{ d.strftime('%d.%m.') }}{% if not loop.last %}, {% endif %}{% endfor %}
+        → immer teilen
+      </label>
+    {% endfor %}
+  </fieldset>
+  {% endif %}
+
+  {% if analysis.blocked %}
+  <div class="form-group" style="font-size:.85rem;color:#a33;">
+    <b>Nicht teilbar (werden übersprungen):</b>
+    {% for e in analysis.blocked %}
+      {{ e.date.strftime('%d.%m.') }}{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <button type="button" class="btn btn--ghost"
+            onclick="document.getElementById('booking-modal')?.close();document.getElementById('series-modal')?.close();">
+      Abbrechen
+    </button>
+    <button type="submit" class="btn btn--primary">Serie anlegen</button>
+  </div>
+</form>
